@@ -1,7 +1,7 @@
 import { SUB_INPUTS, SUB_HIDDEN, SUB_OUTPUTS } from './arch.ts';
 import type { Genome } from './cppn.ts';
-import { evalCPPN } from './cppn.ts';
-import { activate } from './activations.ts';
+import { compileCPPN, evalCompiled } from './cppn.ts';
+import { activate, ACTIVATION_COUNT } from './activations.ts';
 
 // The PHENOTYPE: a HyperNEAT substrate. Hidden neurons are *placed* by the CPPN
 // (simplified ES-HyperNEAT — see below), every connection weight is *painted* by
@@ -10,9 +10,9 @@ import { activate } from './activations.ts';
 // substrate outputs a density and a hue: the volumetric self-portrait.
 
 const WEIGHT_GAIN = 3.0;
-// Hidden-node activations drawn from the rich, pattern-making subset
-// (sin/gauss/tanh/sigmoid/abs) — heterogeneity is what makes the field beautiful.
-const HIDDEN_ACT_SET = 5;
+// Hidden-node activations drawn from the full palette — heterogeneity (sin,
+// gauss, cos, triangle, …) is what makes the field beautiful and expressive.
+const HIDDEN_ACT_SET = ACTIVATION_COUNT;
 
 /** Fixed positions of the 5 input feature-nodes (x, y, z, r, bias) at z = -0.85. */
 const INPUT_POS: Float32Array = (() => {
@@ -63,6 +63,7 @@ const out2: [number, number] = [0, 0];
 /** Build the phenotype deterministically from the DNA: ES-place hidden neurons,
  *  choose their activations, then paint every connection. */
 export function buildPhenotype(g: Genome): Phenotype {
+  const cc = compileCPPN(g); // compile the NEAT graph once; paint with it below
   // --- Simplified ES-HyperNEAT placement -----------------------------------
   // Score each candidate site by the *variance* of the incoming weight pattern
   // across the input nodes — ES-HyperNEAT's idea of "place neurons where the
@@ -76,7 +77,7 @@ export function buildPhenotype(g: Genome): Phenotype {
     let mean = 0;
     const ws = new Float32Array(SUB_INPUTS);
     for (let i = 0; i < SUB_INPUTS; i++) {
-      const w = evalCPPN(g, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, cx, cy, cz, out2)[0];
+      const w = evalCompiled(cc, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, cx, cy, cz, out2)[0];
       ws[i] = w;
       mean += w;
     }
@@ -97,7 +98,7 @@ export function buildPhenotype(g: Genome): Phenotype {
     const hy = (hidden[j * 3 + 1] = CANDIDATES[c * 3 + 1]!);
     const hz = (hidden[j * 3 + 2] = CANDIDATES[c * 3 + 2]!);
     // The CPPN also picks each neuron's activation (at its own coordinate).
-    const t = evalCPPN(g, hx, hy, hz, hx, hy, hz, out2)[0] * 0.5 + 0.5;
+    const t = evalCompiled(cc, hx, hy, hz, hx, hy, hz, out2)[0] * 0.5 + 0.5;
     hiddenAct[j] = Math.max(0, Math.min(HIDDEN_ACT_SET - 1, Math.floor((((t % 1) + 1) % 1) * HIDDEN_ACT_SET)));
   }
 
@@ -107,7 +108,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   let live = 0;
   for (let i = 0; i < SUB_INPUTS; i++) {
     for (let j = 0; j < SUB_HIDDEN; j++) {
-      const r = evalCPPN(g, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, out2);
+      const r = evalCompiled(cc, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, out2);
       const on = r[1] > 0 ? 1 : 0;
       liveIh[i * SUB_HIDDEN + j] = on;
       Wih[i * SUB_HIDDEN + j] = on ? r[0] * WEIGHT_GAIN : 0;
@@ -118,7 +119,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   const liveHo = new Uint8Array(SUB_HIDDEN * SUB_OUTPUTS);
   for (let j = 0; j < SUB_HIDDEN; j++) {
     for (let o = 0; o < SUB_OUTPUTS; o++) {
-      const r = evalCPPN(g, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, OUTPUT_POS[o * 3]!, OUTPUT_POS[o * 3 + 1]!, OUTPUT_POS[o * 3 + 2]!, out2);
+      const r = evalCompiled(cc, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, OUTPUT_POS[o * 3]!, OUTPUT_POS[o * 3 + 1]!, OUTPUT_POS[o * 3 + 2]!, out2);
       const on = r[1] > 0 ? 1 : 0;
       liveHo[j * SUB_OUTPUTS + o] = on;
       Who[j * SUB_OUTPUTS + o] = on ? r[0] * WEIGHT_GAIN : 0;

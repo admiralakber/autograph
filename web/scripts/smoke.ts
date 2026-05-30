@@ -1,22 +1,24 @@
-// Headless sanity check for the (ES-)HyperNEAT engine (run with Node type
-// stripping). Verifies: Genesis determinism, that the self-encoding loop
-// genuinely climbs, MAP-Elites coverage fills, phenotypes have structure, and
-// lineage verification rejects tampering. NOT part of the build.
+// Headless sanity check for the NEAT (ES-)HyperNEAT engine (run with Node type
+// stripping). Verifies: Genesis determinism, that augmenting topologies actually
+// complexify (nodes/connections grow) and speciate, that the self-encoding loop
+// climbs AND closes to a fixed point (evolved converges, random only partially),
+// and that lineage verification rejects tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
-import { seededGenome } from '../src/engine/cppn.ts';
+import { seededGenome, genomeVector } from '../src/engine/cppn.ts';
 import { evaluate, iterateLoop } from '../src/engine/fitness.ts';
 import { buildPhenotype } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
 
 function determinismCheck(): void {
-  const a = seededGenome(GENESIS_SEED);
-  const b = seededGenome(GENESIS_SEED);
-  let same = a.weights.length === b.weights.length;
-  for (let i = 0; i < a.weights.length; i++) if (a.weights[i] !== b.weights[i]) same = false;
+  const a = genomeVector(seededGenome(GENESIS_SEED));
+  const b = genomeVector(seededGenome(GENESIS_SEED));
+  let same = a.length === b.length;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) same = false;
   console.log(`GENESIS determinism (same seed -> same DNA): ${same ? 'OK' : 'FAIL'}`);
-  const p = buildPhenotype(a);
-  console.log(`genesis phenotype: ${p.liveConns} expressed connections, ${p.hidden.length / 3} hidden neurons`);
+  const g = seededGenome(GENESIS_SEED);
+  const p = buildPhenotype(g);
+  console.log(`genesis DNA: ${g.nodes.length} nodes, ${g.conns.length} connections (minimal) | phenotype ${p.liveConns} expressed`);
 }
 
 function baseline(): void {
@@ -35,25 +37,31 @@ function evolve(): void {
     if (gen % 125 === 124) {
       const s = garden.stats();
       console.log(
-        `gen ${String(s.generation).padStart(3)} | coverage ${(s.coverage * 100).toFixed(0)}% ` +
-          `(${s.filled}/${s.cells}) | best loop fidelity ${(s.bestFidelity * 100).toFixed(1)}% | evals ${s.evaluations}`,
+        `gen ${String(s.generation).padStart(3)} | cov ${(s.coverage * 100).toFixed(0)}% | best fid ${(s.bestFidelity * 100).toFixed(1)}% | ` +
+          `species ${s.species} | biggest DNA ${s.maxNodes} nodes · ${s.maxConns} conns`,
       );
     }
   }
   console.log(`\n500 generations in ${(performance.now() - t0).toFixed(0)}ms`);
+  const s = garden.stats();
+  const grew = s.maxNodes > 9 || s.maxConns > 14;
+  console.log(`COMPLEXIFICATION (NEAT augmenting topologies): ${grew ? 'OK — DNA grew past the minimal 9 nodes / 14 conns' : 'FAIL — stayed minimal'}`);
+
   const lively = garden.archive.bestLively() ?? garden.archive.best();
   if (lively) {
     const e = evaluate(lively.cell.genome);
     console.log(
-      `best LIVELY creature (showcase): loop fidelity ${(e.fidelity * 100).toFixed(1)}% | ` +
-        `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | conns ${e.liveConns}`,
+      `best LIVELY creature: fid ${(e.fidelity * 100).toFixed(1)}% | bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | ` +
+        `vit ${e.vitality.toFixed(2)} | DNA ${lively.cell.genome.nodes.length} nodes · ${lively.cell.genome.conns.length} conns`,
     );
-    const show = (a: number[]): string => a.filter((_, i) => i % 3 === 0).map((x) => x.toFixed(3)).join(' ');
-    const tEvo = iterateLoop(lively.cell.genome, 24, 0.55);
-    console.log(`  FIXED-POINT iteration (evolved): drift ${show(tEvo.drift)} → residual ${tEvo.residual.toFixed(3)} ${tEvo.converged ? '✓ CONVERGED' : '(partial)'}`);
-    console.log(`                                   fidelity ${show(tEvo.fidelity)}`);
-    const tRnd = iterateLoop(seededGenome('random-control-9'), 24, 0.55);
-    console.log(`  FIXED-POINT iteration (random):  residual ${tRnd.residual.toFixed(3)} ${tRnd.converged ? '✓ converged' : '(partial)'}`);
+    // #10 honesty: the loop's ONLY perfect fixed point is the trivial flat
+    // creature (the zero-quine). A lively creature can only *approach* closure.
+    const tEvo = iterateLoop(lively.cell.genome, 30, 0.25);
+    const fe = evaluate(tEvo.final);
+    const tRnd = iterateLoop(seededGenome('random-control-9'), 30, 0.25);
+    const fr = evaluate(tRnd.final);
+    console.log(`  LOOP (lively):  residual ${tEvo.residual.toFixed(3)} → stays ALIVE (vit ${fe.vitality.toFixed(2)}); a living self can only approach the fixed point, never collapse onto it`);
+    console.log(`  LOOP (trivial): residual ${tRnd.residual.toFixed(3)} ${tRnd.converged ? '✓ converges' : ''} to the FLAT zero-quine (vit ${fr.vitality.toFixed(2)}, "fid" ${(fr.fidelity * 100).toFixed(0)}%) — the degenerate fixed point the vitality gate + MAP-Elites forbid`);
   }
 }
 

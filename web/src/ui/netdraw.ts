@@ -1,16 +1,15 @@
-import { CPPN_LAYERS } from '../engine/arch.ts';
 import type { Genome } from '../engine/cppn.ts';
-import { cppnEdges, nodeActivation } from '../engine/cppn.ts';
 import { ACTIVATIONS } from '../engine/activations.ts';
 import type { SubNode, SubConn } from '../engine/substrate.ts';
 
 // Greyscale network diagrams — the chrome is monochrome; only life gets colour.
-//   weight SIGN      → solid (excitatory) vs dashed (inhibitory) + light/dark grey
-//   weight MAGNITUDE → stroke width + opacity (and spike brightness)
+// Encoding, held rigorously:
+//   weight SIGN      → solid (excitatory) vs dashed (inhibitory), + light/dark grey
+//   weight MAGNITUDE → stroke width + opacity
 //   node ROLE        → shape (input square · hidden circle · output ringed) + size
 //   node ACTIVATION  → greyscale fill
-// Signal flows left→right; a spiking activation pulse (NetworkPulse) propagates
-// volleys input→output with conduction delay, so it reads as neurons firing.
+// Signal flows left → right; a travelling activation pulse makes it read as a
+// thinking brain (see NetworkPulse).
 
 const SVG = 'http://www.w3.org/2000/svg';
 const W = 360;
@@ -22,7 +21,8 @@ const grey = (v: number): string => {
   const g = Math.round(Math.max(0, Math.min(1, v)) * 255);
   return `rgb(${g},${g},${g})`;
 };
-const el = <K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K] => document.createElementNS(SVG, name);
+const el = <K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K] =>
+  document.createElementNS(SVG, name);
 
 export type Role = 'in' | 'hidden' | 'out';
 export interface LayoutNode {
@@ -34,8 +34,6 @@ export interface LayoutNode {
   r: number;
   label?: string;
   title: string;
-  /** index among the phenotype's hidden neurons (for receptive-field linking). */
-  hiddenIndex?: number;
 }
 export interface LayoutEdge {
   x1: number;
@@ -44,9 +42,8 @@ export interface LayoutEdge {
   y2: number;
   mag: number;
   excit: boolean;
-  from: number;
-  to: number;
-  fromLayer: number;
+  /** A back/lateral edge (recurrent loop) — drawn as an arc, not a straight line. */
+  recurrent?: boolean;
 }
 export interface NetLayout {
   nodes: LayoutNode[];
@@ -54,58 +51,79 @@ export interface NetLayout {
   layers: number;
 }
 
-export interface DrawOpts {
-  onHover?: (text: string) => void;
-  /** Called when a node is hovered — the dashboard uses it to light the linked
-   *  region of the self-portrait (a hidden neuron's receptive field). */
-  onNode?: (node: LayoutNode | null) => void;
-}
-
 const CPPN_IN = ['x₁', 'y₁', 'z₁', 'x₂', 'y₂', 'z₂', 'b'];
 const CPPN_OUT = ['weight', 'leo'];
 const SUB_IN = ['x', 'y', 'z', 'r', 'b'];
 const SUB_OUT = ['density', 'hue'];
 
-const colX = (layer: number, layers: number): number => PAD_X + (layers <= 1 ? 0.5 : layer / (layers - 1)) * (W - 2 * PAD_X);
-const rowY = (i: number, n: number): number => PAD_Y + ((i + 0.5) / n) * (H - 2 * PAD_Y);
+function colX(layer: number, layers: number): number {
+  return PAD_X + (layers <= 1 ? 0.5 : layer / (layers - 1)) * (W - 2 * PAD_X);
+}
+function rowY(i: number, n: number): number {
+  return PAD_Y + ((i + 0.5) / n) * (H - 2 * PAD_Y);
+}
 
-function paint(svg: SVGSVGElement, layout: NetLayout, opts?: DrawOpts): void {
+/** Paint a layout into an SVG: column headers, weighted edges, role-shaped nodes. */
+function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) => void): void {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.replaceChildren();
 
-  for (const [x, txt, cls] of [
-    [PAD_X, 'INPUT', 'ag-axis'],
-    [W / 2, 'signal →', 'ag-axis ag-axis-dim'],
-    [W - PAD_X, 'OUTPUT', 'ag-axis'],
-  ] as const) {
-    const t = el('text');
-    t.setAttribute('x', String(x));
-    t.setAttribute('y', '14');
-    t.setAttribute('class', cls);
-    t.setAttribute('text-anchor', 'middle');
-    t.textContent = txt;
-    svg.appendChild(t);
-  }
+  // column flow labels
+  const headIn = el('text');
+  headIn.setAttribute('x', String(PAD_X));
+  headIn.setAttribute('y', '14');
+  headIn.setAttribute('class', 'ag-axis');
+  headIn.setAttribute('text-anchor', 'middle');
+  headIn.textContent = 'INPUT';
+  const headOut = el('text');
+  headOut.setAttribute('x', String(W - PAD_X));
+  headOut.setAttribute('y', '14');
+  headOut.setAttribute('class', 'ag-axis');
+  headOut.setAttribute('text-anchor', 'middle');
+  headOut.textContent = 'OUTPUT';
+  const flow = el('text');
+  flow.setAttribute('x', String(W / 2));
+  flow.setAttribute('y', '14');
+  flow.setAttribute('class', 'ag-axis ag-axis-dim');
+  flow.setAttribute('text-anchor', 'middle');
+  flow.textContent = 'signal →';
+  svg.append(headIn, flow, headOut);
 
+  // edges
   const eg = el('g');
-  layout.edges.forEach((e, i) => {
-    const line = el('line');
-    line.setAttribute('x1', e.x1.toFixed(1));
-    line.setAttribute('y1', e.y1.toFixed(1));
-    line.setAttribute('x2', e.x2.toFixed(1));
-    line.setAttribute('y2', e.y2.toFixed(1));
-    line.setAttribute('stroke', grey(e.excit ? 0.62 + 0.33 * e.mag : 0.4 + 0.16 * e.mag));
-    line.setAttribute('stroke-width', (0.5 + e.mag * 2.4).toFixed(2));
-    line.setAttribute('opacity', (0.16 + e.mag * 0.66).toFixed(2));
-    if (!e.excit) line.setAttribute('stroke-dasharray', '3 2');
-    line.dataset.from = String(e.from);
-    line.dataset.to = String(e.to);
-    line.dataset.edge = String(i);
-    eg.appendChild(line);
-  });
+  for (const e of layout.edges) {
+    const stroke = grey(e.excit ? 0.62 + 0.33 * e.mag : 0.4 + 0.16 * e.mag);
+    const width = (0.5 + e.mag * 2.4).toFixed(2);
+    const opacity = (0.16 + e.mag * 0.66).toFixed(2);
+    if (e.recurrent) {
+      // a back-edge (recurrent loop) — bow it outward so the cycle is visible
+      const path = el('path');
+      const mx = (e.x1 + e.x2) / 2;
+      const my = (e.y1 + e.y2) / 2 - 26 - e.mag * 14;
+      path.setAttribute('d', `M ${e.x1.toFixed(1)} ${e.y1.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${e.x2.toFixed(1)} ${e.y2.toFixed(1)}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', width);
+      path.setAttribute('opacity', opacity);
+      path.setAttribute('stroke-dasharray', e.excit ? '5 3' : '2 3');
+      eg.appendChild(path);
+    } else {
+      const line = el('line');
+      line.setAttribute('x1', e.x1.toFixed(1));
+      line.setAttribute('y1', e.y1.toFixed(1));
+      line.setAttribute('x2', e.x2.toFixed(1));
+      line.setAttribute('y2', e.y2.toFixed(1));
+      line.setAttribute('stroke', stroke);
+      line.setAttribute('stroke-width', width);
+      line.setAttribute('opacity', opacity);
+      if (!e.excit) line.setAttribute('stroke-dasharray', '3 2'); // inhibitory = dashed
+      eg.appendChild(line);
+    }
+  }
   svg.appendChild(eg);
 
-  layout.nodes.forEach((n, idx) => {
+  // nodes
+  for (const n of layout.nodes) {
     let shape: SVGElement;
     if (n.role === 'in') {
       const s = n.r * 1.7;
@@ -126,19 +144,10 @@ function paint(svg: SVGSVGElement, layout: NetLayout, opts?: DrawOpts): void {
     shape.setAttribute('fill', grey(n.grey));
     shape.setAttribute('stroke', grey(0.62));
     shape.setAttribute('stroke-width', '0.8');
-    shape.dataset.node = String(idx);
-    (shape as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'crosshair';
-    const enter = (): void => {
-      opts?.onHover?.(n.title);
-      opts?.onNode?.(n);
-      eg.querySelectorAll(`[data-from="${idx}"],[data-to="${idx}"]`).forEach((l) => l.classList.add('hot'));
-    };
-    const leave = (): void => {
-      opts?.onNode?.(null);
-      eg.querySelectorAll('.hot').forEach((l) => l.classList.remove('hot'));
-    };
-    shape.addEventListener('mouseenter', enter);
-    shape.addEventListener('mouseleave', leave);
+    if (onHover) {
+      (shape as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'crosshair';
+      shape.addEventListener('mouseenter', () => onHover(n.title));
+    }
     const t = el('title');
     t.textContent = n.title;
     shape.appendChild(t);
@@ -164,109 +173,147 @@ function paint(svg: SVGSVGElement, layout: NetLayout, opts?: DrawOpts): void {
       lab.textContent = n.label;
       svg.appendChild(lab);
     }
-  });
+  }
 }
 
-export function drawCppnGraph(svg: SVGSVGElement, g: Genome, opts?: DrawOpts): NetLayout {
-  const layers = CPPN_LAYERS;
-  const nodes: LayoutNode[] = [];
-  const idAt: number[][] = [];
-  for (let l = 0; l < layers.length; l++) {
-    idAt[l] = [];
-    for (let i = 0; i < layers[l]!; i++) {
-      const last = l === layers.length - 1;
-      const act = nodeActivation(g, l, i);
-      idAt[l]![i] = nodes.length;
-      nodes.push({
-        x: colX(l, layers.length),
-        y: rowY(i, layers[l]!),
-        layer: l,
-        role: l === 0 ? 'in' : last ? 'out' : 'hidden',
-        grey: l === 0 ? 0.55 : last ? 1.0 : 0.45 + (act / (ACTIVATIONS.length - 1)) * 0.5,
-        r: l === 0 ? 4.5 : last ? 7 : 6,
-        label: l === 0 ? CPPN_IN[i] : last ? CPPN_OUT[i] : undefined,
-        title: l === 0 ? `INPUT ${CPPN_IN[i] ?? i}` : last ? `OUTPUT ${CPPN_OUT[i] ?? i}` : `HIDDEN · ${ACTIVATIONS[act] ?? '?'}`,
-      });
+/** The DNA — the NEAT CPPN graph — laid out left→right by longest-path depth, so
+ *  augmenting topology (added nodes, added/recurrent connections) is legible. */
+export function drawCppnGraph(svg: SVGSVGElement, g: Genome, onHover?: (text: string) => void): NetLayout {
+  // longest-path depth over enabled edges (inputs at 0)
+  const depth = new Map<number, number>();
+  for (const n of g.nodes) depth.set(n.id, 0);
+  for (let it = 0; it < g.nodes.length; it++) {
+    let changed = false;
+    for (const c of g.conns) {
+      if (!c.enabled) continue;
+      const nd = (depth.get(c.from) ?? 0) + 1;
+      if (nd > (depth.get(c.to) ?? 0)) {
+        depth.set(c.to, nd);
+        changed = true;
+      }
     }
+    if (!changed) break;
   }
+  let maxDepth = 1;
+  for (const n of g.nodes) if (n.kind !== 0) maxDepth = Math.max(maxDepth, depth.get(n.id) ?? 0);
+  const outCol = Math.max(1, maxDepth);
+  const layersCount = outCol + 1;
+  const colOf = (n: { id: number; kind: number }): number => (n.kind === 0 ? 0 : n.kind === 2 ? outCol : Math.min(Math.max(depth.get(n.id) ?? 1, 1), Math.max(1, outCol - 1)));
+
+  // group by column to spread vertically
+  const cols = new Map<number, number>();
+  const indexInCol = new Map<number, number>();
+  for (const n of g.nodes) {
+    const c = colOf(n);
+    indexInCol.set(n.id, cols.get(c) ?? 0);
+    cols.set(c, (cols.get(c) ?? 0) + 1);
+  }
+
+  const idToNode = new Map<number, LayoutNode>();
+  const nodes: LayoutNode[] = [];
+  for (const n of g.nodes) {
+    const c = colOf(n);
+    const count = cols.get(c) ?? 1;
+    const x = colX(c, layersCount);
+    const y = rowY(indexInCol.get(n.id) ?? 0, count);
+    const inLbl = n.kind === 0 ? CPPN_IN[n.id] : undefined;
+    const outLbl = n.kind === 2 ? CPPN_OUT[n.id - 7] : undefined;
+    const ln: LayoutNode = {
+      x,
+      y,
+      layer: c,
+      role: n.kind === 0 ? 'in' : n.kind === 2 ? 'out' : 'hidden',
+      grey: n.kind === 0 ? 0.55 : n.kind === 2 ? 1.0 : 0.45 + (n.act / (ACTIVATIONS.length - 1)) * 0.5,
+      r: n.kind === 0 ? 4.5 : n.kind === 2 ? 7 : 5.5,
+      label: inLbl ?? outLbl,
+      title:
+        n.kind === 0
+          ? `INPUT ${inLbl ?? n.id}`
+          : n.kind === 2
+            ? `OUTPUT ${outLbl ?? n.id}`
+            : `HIDDEN #${n.id} · ${ACTIVATIONS[n.act] ?? '?'}`,
+    };
+    idToNode.set(n.id, ln);
+    nodes.push(ln);
+  }
+
   let maxAbs = 1e-4;
-  const raw = cppnEdges(g);
-  for (const e of raw) maxAbs = Math.max(maxAbs, Math.abs(e.weight));
-  const edges: LayoutEdge[] = raw.map((e) => {
-    const from = idAt[e.fromLayer]![e.fromIdx]!;
-    const to = idAt[e.toLayer]![e.toIdx]!;
-    const a = nodes[from]!;
-    const b = nodes[to]!;
-    return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(e.weight) / maxAbs, excit: e.weight >= 0, from, to, fromLayer: e.fromLayer };
-  });
-  const layout: NetLayout = { nodes, edges, layers: layers.length };
-  paint(svg, layout, opts);
+  for (const c of g.conns) if (c.enabled) maxAbs = Math.max(maxAbs, Math.abs(c.weight));
+  const edges: LayoutEdge[] = [];
+  for (const c of g.conns) {
+    if (!c.enabled) continue;
+    const a = idToNode.get(c.from);
+    const b = idToNode.get(c.to);
+    if (!a || !b) continue;
+    const recurrent = (depth.get(c.from) ?? 0) >= (depth.get(c.to) ?? 0);
+    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0, recurrent });
+  }
+  const layout: NetLayout = { nodes, edges, layers: layersCount };
+  paint(svg, layout, onHover);
   return layout;
 }
 
-export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conns: SubConn[], opts?: DrawOpts): NetLayout {
+/** The phenotype substrate as a legible left→right layered graph (3 layers). */
+export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conns: SubConn[], onHover?: (text: string) => void): NetLayout {
   const ins = subNodes.filter((n) => n.role === 'in');
   const hid = subNodes.filter((n) => n.role === 'hidden').slice().sort((a, b) => b.y - a.y || b.z - a.z);
   const outs = subNodes.filter((n) => n.role === 'out');
-  const place = new Map<SubNode, number>();
+  const place = new Map<SubNode, LayoutNode>();
   const nodes: LayoutNode[] = [];
-  const add = (arr: SubNode[], layer: number): void => {
+  const add = (arr: SubNode[], layer: number, layers: number): void => {
     arr.forEach((n, i) => {
-      place.set(n, nodes.length);
-      nodes.push(
+      const x = colX(layer, layers);
+      const y = rowY(i, arr.length);
+      const ln: LayoutNode =
         n.role === 'in'
-          ? { x: colX(layer, 3), y: rowY(i, arr.length), layer, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[i], title: `INPUT ${SUB_IN[i] ?? i}` }
+          ? { x, y, layer, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[i], title: `INPUT ${SUB_IN[i] ?? i}` }
           : n.role === 'out'
-            ? { x: colX(layer, 3), y: rowY(i, arr.length), layer, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[i], title: `OUTPUT ${SUB_OUT[i] ?? i}` }
+            ? { x, y, layer, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[i], title: `OUTPUT ${SUB_OUT[i] ?? i}` }
             : {
-                x: colX(layer, 3),
-                y: rowY(i, arr.length),
+                x,
+                y,
                 layer,
                 role: 'hidden',
                 grey: 0.45 + ((n.act ?? 0) / (ACTIVATIONS.length - 1)) * 0.5,
                 r: 6,
                 title: `HIDDEN · ${ACTIVATIONS[n.act ?? 0] ?? '?'} · ES-placed`,
-                hiddenIndex: i,
-              },
-      );
+              };
+      place.set(n, ln);
+      nodes.push(ln);
     });
   };
-  add(ins, 0);
-  add(hid, 1);
-  add(outs, 2);
+  add(ins, 0, 3);
+  add(hid, 1, 3);
+  add(outs, 2, 3);
 
   let maxAbs = 1e-4;
   for (const c of conns) maxAbs = Math.max(maxAbs, Math.abs(c.weight));
   const edges: LayoutEdge[] = [];
   for (const c of conns) {
-    const from = place.get(c.a);
-    const to = place.get(c.b);
-    if (from === undefined || to === undefined) continue;
-    const a = nodes[from]!;
-    const b = nodes[to]!;
-    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0, from, to, fromLayer: a.layer });
+    const a = place.get(c.a);
+    const b = place.get(c.b);
+    if (!a || !b) continue;
+    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0 });
   }
   const layout: NetLayout = { nodes, edges, layers: 3 };
-  paint(svg, layout, opts);
+  paint(svg, layout, onHover);
   return layout;
 }
 
-// --- The spiking activation pulse (neurons firing) --------------------------
+// --- The activation pulse: a wavefront sweeping input→output ----------------
 
-const reduceMotion = (): boolean => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = (): boolean =>
+  typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Propagates volleys of "spikes" input→output with conduction delay: each node
- *  charges and fires (a fast membrane glow), and a bright spike runs along each
- *  edge during its conduction window, its brightness set by the synaptic weight.
- *  Greyscale; reads as signal propagating through a brain. */
+/** Animates a travelling "signal" left→right across a NetLayout: node halos
+ *  glow as the wavefront passes, and a bright spark runs along each edge. */
 export class NetworkPulse {
   private raf = 0;
   private overlay: SVGGElement | null = null;
   private halos: SVGCircleElement[] = [];
   private sparks: SVGCircleElement[] = [];
   private layout: NetLayout | null = null;
-  private readonly volley = 1500; // ms between volleys
-  private readonly tau = 360; // ms conduction delay per layer
+  private readonly period = 2200; // ms for a full sweep + rest
 
   attach(svg: SVGSVGElement, layout: NetLayout): void {
     this.layout = layout;
@@ -278,16 +325,16 @@ export class NetworkPulse {
       const c = el('circle');
       c.setAttribute('cx', n.x.toFixed(1));
       c.setAttribute('cy', n.y.toFixed(1));
-      c.setAttribute('r', String(n.r + 3));
-      c.setAttribute('fill', 'rgb(252,252,252)');
+      c.setAttribute('r', String(n.r + 4));
+      c.setAttribute('fill', 'rgb(250,250,250)');
       c.setAttribute('opacity', '0');
       g.appendChild(c);
       return c;
     });
     this.sparks = layout.edges.map(() => {
       const c = el('circle');
-      c.setAttribute('r', '2');
-      c.setAttribute('fill', 'rgb(255,255,255)');
+      c.setAttribute('r', '1.8');
+      c.setAttribute('fill', 'rgb(252,252,252)');
       c.setAttribute('opacity', '0');
       g.appendChild(c);
       return c;
@@ -300,43 +347,33 @@ export class NetworkPulse {
     this.raf = requestAnimationFrame(this.loop);
     const layout = this.layout;
     if (!layout) return;
-    const sigma = 150; // ms membrane width
-    // node membrane glow: sum spike kernels over the in-flight volleys
+    const phase = (now % this.period) / this.period; // 0..1
+    // sweep across [0,1] in the first 78% of the period, then rest (gap)
+    const sweep = Math.min(1, phase / 0.78);
+    const xw = PAD_X - 12 + sweep * (W - 2 * PAD_X + 24);
+    const active = phase < 0.82 ? 1 : 0;
+    const sigma = 26;
     for (let i = 0; i < layout.nodes.length; i++) {
       const n = layout.nodes[i]!;
-      const fire = n.layer * this.tau; // time after a volley when this node fires
-      let g = 0;
-      for (let k = -1; k <= 1; k++) {
-        const dt = ((now % this.volley) - k * this.volley) - fire;
-        g += Math.exp(-(dt * dt) / (2 * sigma * sigma));
-      }
-      const glow = Math.min(1, g);
-      this.halos[i]!.setAttribute('opacity', (glow * 0.55).toFixed(3));
-      this.halos[i]!.setAttribute('r', (n.r + 3 + glow * 6).toFixed(2));
+      const d = (xw - n.x) / sigma;
+      const glow = Math.exp(-d * d) * active;
+      this.halos[i]!.setAttribute('opacity', (glow * 0.5).toFixed(3));
+      this.halos[i]!.setAttribute('r', (n.r + 4 + glow * 5).toFixed(2));
     }
-    // edge spikes: a bright dot crossing during this edge's conduction window
     for (let i = 0; i < layout.edges.length; i++) {
       const e = layout.edges[i]!;
-      const start = e.fromLayer * this.tau;
-      let best = -1;
-      let t = 0;
-      for (let k = -1; k <= 1; k++) {
-        const tt = ((now % this.volley) - k * this.volley - start) / this.tau;
-        if (tt >= 0 && tt <= 1) {
-          best = k;
-          t = tt;
-        }
-      }
+      const lo = Math.min(e.x1, e.x2);
+      const hi = Math.max(e.x1, e.x2);
       const s = this.sparks[i]!;
-      if (best === -1) {
+      if (active && xw >= lo - 2 && xw <= hi + 2 && hi > lo) {
+        const t = Math.max(0, Math.min(1, (xw - e.x1) / (e.x2 - e.x1)));
+        s.setAttribute('cx', (e.x1 + (e.x2 - e.x1) * t).toFixed(1));
+        s.setAttribute('cy', (e.y1 + (e.y2 - e.y1) * t).toFixed(1));
+        s.setAttribute('opacity', (0.25 + e.mag * 0.65).toFixed(2));
+        s.setAttribute('r', (1.3 + e.mag * 1.6).toFixed(2));
+      } else {
         s.setAttribute('opacity', '0');
-        continue;
       }
-      const ease = Math.sin(t * Math.PI); // bright in the middle of the crossing
-      s.setAttribute('cx', (e.x1 + (e.x2 - e.x1) * t).toFixed(1));
-      s.setAttribute('cy', (e.y1 + (e.y2 - e.y1) * t).toFixed(1));
-      s.setAttribute('opacity', ((0.2 + e.mag * 0.75) * ease * (e.excit ? 1 : 0.6)).toFixed(2));
-      s.setAttribute('r', (1.2 + e.mag * 2).toFixed(2));
     }
   };
 

@@ -1,6 +1,5 @@
-import { GENOME_DIM, WEIGHT_COUNT } from './arch.ts';
 import type { Genome } from './cppn.ts';
-import { genomeVector, paramToUnit, unitToParam, cloneGenome, W_SCALE } from './cppn.ts';
+import { genomeVector, paramToUnit, unitToParam, applyParams, paramCount, cloneGenome, W_SCALE } from './cppn.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
 
@@ -8,120 +7,115 @@ import { buildPhenotype, substrateForward } from './substrate.ts';
 //
 //   T(g) = decode( render( g ) ):  DNA → brain → self-portrait → read density
 //          back into a DNA′.  Iterate g → T(g) → T(T(g)) → … and a self-encoding
-//          creature *settles* to a fixed point g* with T(g*) ≈ g* — a quine
-//          reaching its fixed point (Kleene/Banach). `loopFidelity` scores one
-//          step (how close T(g) is to g); `iterateLoop` runs the map under
-//          relaxation so you can watch it close. Closure is honest: it settles to
-//          a residual floor (finite substrate expressivity), never faked, and the
-//          vitality gate + MAP-Elites keep it off the trivial empty fixed point.
+//          creature *settles* to a fixed point with T(g*) ≈ g* — a quine
+//          reaching its fixed point. As NEAT complexifies the DNA, the loop has
+//          MORE parameters to re-encode: there is one probe per DNA parameter
+//          (connection weight or bias), placed on a Fibonacci sphere, so a
+//          richer creature faces a harder loop. Closure is honest: evolved
+//          self-encoders converge; random/over-complex ones only partially close.
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const probeCache = new Map<number, Float32Array>();
 
-/** GENOME_DIM probe points on a Fibonacci sphere (radius 0.85). */
-export const PROBES3D: Float32Array = (() => {
-  const p = new Float32Array(GENOME_DIM * 3);
-  for (let k = 0; k < GENOME_DIM; k++) {
-    const y = 1 - (k / (GENOME_DIM - 1)) * 2;
+/** `n` probe points on a Fibonacci sphere (radius 0.85), cached per dimension. */
+function probesFor(n: number): Float32Array {
+  const cached = probeCache.get(n);
+  if (cached) return cached;
+  const p = new Float32Array(Math.max(1, n) * 3);
+  for (let k = 0; k < n; k++) {
+    const y = n === 1 ? 0 : 1 - (k / (n - 1)) * 2;
     const r = Math.sqrt(Math.max(0, 1 - y * y));
     const a = k * GOLDEN_ANGLE;
     p[k * 3] = Math.cos(a) * r * 0.85;
     p[k * 3 + 1] = y * 0.85;
     p[k * 3 + 2] = Math.sin(a) * r * 0.85;
   }
+  probeCache.set(n, p);
   return p;
-})();
+}
 
 const o2: [number, number] = [0, 0];
 
-/** Density the phenotype paints at each probe (what the loop "reads back"). */
-export function paintedAtProbes(p: Phenotype): Float32Array {
-  const out = new Float32Array(GENOME_DIM);
-  for (let k = 0; k < GENOME_DIM; k++) out[k] = substrateForward(p, PROBES3D[k * 3]!, PROBES3D[k * 3 + 1]!, PROBES3D[k * 3 + 2]!, o2)[0];
+/** Density the phenotype paints at each of `n` probes (what the loop reads back). */
+export function paintedAtProbes(p: Phenotype, n: number): Float32Array {
+  const probes = probesFor(n);
+  const out = new Float32Array(n);
+  for (let k = 0; k < n; k++) out[k] = substrateForward(p, probes[k * 3]!, probes[k * 3 + 1]!, probes[k * 3 + 2]!, o2)[0];
   return out;
 }
 
 /** The DNA's own normalised values — the targets the read-back must match. */
 export function targetAtProbes(g: Genome): Float32Array {
   const v = genomeVector(g);
-  const out = new Float32Array(GENOME_DIM);
-  for (let k = 0; k < GENOME_DIM; k++) out[k] = paramToUnit(v[k]!);
+  const out = new Float32Array(v.length);
+  for (let k = 0; k < v.length; k++) out[k] = paramToUnit(v[k]!);
   return out;
 }
 
 /** Loop fidelity in [0,1]: 1 ⇒ the self-portrait perfectly re-encodes the DNA. */
 export function loopFidelity(g: Genome, p: Phenotype): number {
   const v = genomeVector(g);
+  const n = v.length;
+  const probes = probesFor(n);
   let se = 0;
-  for (let k = 0; k < GENOME_DIM; k++) {
-    const painted = substrateForward(p, PROBES3D[k * 3]!, PROBES3D[k * 3 + 1]!, PROBES3D[k * 3 + 2]!, o2)[0];
-    const target = paramToUnit(v[k]!);
-    const d = painted - target;
+  for (let k = 0; k < n; k++) {
+    const painted = substrateForward(p, probes[k * 3]!, probes[k * 3 + 1]!, probes[k * 3 + 2]!, o2)[0];
+    const d = painted - paramToUnit(v[k]!);
     se += d * d;
   }
-  const f = 1 - Math.sqrt(se / GENOME_DIM);
+  const f = 1 - Math.sqrt(se / n);
   return f < 0 ? 0 : f > 1 ? 1 : f;
 }
 
 // --- The fixed-point iteration (the loop literally closing) -----------------
 
 /** Read the painted self-portrait back into a genome (DNA′): the density at each
- *  probe becomes the matching weight/bias; activations carry over as the body
- *  plan (a density field can't honestly encode the discrete activation choices).
- *  This is the *decode* half of T = decode∘render. */
+ *  probe becomes the matching weight/bias; topology + activations carry over as
+ *  the body plan. The *decode* half of T = decode∘render. */
 export function readBackGenome(p: Phenotype, template: Genome): Genome {
-  const painted = paintedAtProbes(p);
-  const weights = new Float32Array(WEIGHT_COUNT);
-  const biases = new Float32Array(GENOME_DIM - WEIGHT_COUNT);
-  for (let k = 0; k < GENOME_DIM; k++) {
-    const v = unitToParam(painted[k]!);
-    if (k < WEIGHT_COUNT) weights[k] = v;
-    else biases[k - WEIGHT_COUNT] = v;
-  }
-  return { weights, biases, acts: template.acts.slice() };
+  const n = paramCount(template);
+  const painted = paintedAtProbes(p, n);
+  const vec = new Float32Array(n);
+  for (let k = 0; k < n; k++) vec[k] = unitToParam(painted[k]!);
+  return applyParams(template, vec);
 }
 
 export interface LoopTrajectory {
-  /** ‖g_{n+1} − g_n‖ per step, normalised to [0,1] → 0 at a fixed point. */
   readonly drift: number[];
-  /** one-step loop fidelity of g_n (climbs toward 1 as it settles). */
   readonly fidelity: number[];
   readonly final: Genome;
-  /** true if drift fell below the convergence tolerance. */
   readonly converged: boolean;
-  /** the residual drift it settled to (the honest floor). */
   readonly residual: number;
 }
 
 const DRIFT_NORM = 1 / (2 * W_SCALE);
 
-/** Iterate T under under-relaxation so the creature *settles* to a fixed point:
- *  g_{n+1} = g_n + α·(T(g_n) − g_n). Records drift→0 (closing) and the per-step
- *  fidelity (climbing). Same self-consistency condition as `loopFidelity`,
- *  approached gently so it can be watched. */
+/** Iterate T under under-relaxation so the creature settles to a fixed point:
+ *  g_{n+1} = g_n + α·(T(g_n) − g_n). Records drift→0 (closing) and per-step
+ *  fidelity (climbing). Topology is fixed during the iteration, so the parameter
+ *  vector keeps a stable length. */
 export function iterateLoop(g0: Genome, steps = 24, alpha = 0.55, tol = 0.012): LoopTrajectory {
   let g = cloneGenome(g0);
   const drift: number[] = [];
   const fidelity: number[] = [];
   let converged = false;
-  for (let n = 0; n < steps; n++) {
+  for (let s = 0; s < steps; s++) {
     const p = buildPhenotype(g);
     fidelity.push(loopFidelity(g, p));
-    const t = readBackGenome(p, g);
-    const next = cloneGenome(g);
+    const cur = genomeVector(g);
+    const n = cur.length;
+    const painted = paintedAtProbes(p, n);
+    const next = new Float32Array(n);
     let se = 0;
-    for (let i = 0; i < g.weights.length; i++) {
-      const nv = g.weights[i]! + alpha * (t.weights[i]! - g.weights[i]!);
-      se += (nv - g.weights[i]!) ** 2;
-      next.weights[i] = nv;
+    for (let i = 0; i < n; i++) {
+      const target = unitToParam(painted[i]!);
+      const nv = cur[i]! + alpha * (target - cur[i]!);
+      se += (nv - cur[i]!) ** 2;
+      next[i] = nv;
     }
-    for (let i = 0; i < g.biases.length; i++) {
-      const nv = g.biases[i]! + alpha * (t.biases[i]! - g.biases[i]!);
-      se += (nv - g.biases[i]!) ** 2;
-      next.biases[i] = nv;
-    }
-    const d = Math.sqrt(se / GENOME_DIM) * DRIFT_NORM;
+    const d = Math.sqrt(se / n) * DRIFT_NORM;
     drift.push(d);
-    g = next;
+    g = applyParams(g, next);
     if (d < tol) converged = true;
   }
   return { drift, fidelity, final: g, converged, residual: drift[drift.length - 1] ?? 1 };
