@@ -1,0 +1,15 @@
+{
+  "name": "autograph-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Autograph — a network that learns to draw its own beginning. The live, client-side strange-loop demo.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node --experimental-strip-types scripts/smoke.ts"
+  }
+}

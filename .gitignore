@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+dist/
+
+# Vite / tooling caches
+.vite/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.*
+!.env.example
