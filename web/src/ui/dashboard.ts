@@ -49,6 +49,7 @@ export class AutographDashboard {
   private garden: Garden;
   private scene: CreatureScene | null = null;
   private webgl = false;
+  private lite = false; // mobile / low-power: lighter volume + pixel ratio
   private identity: Identity | null = null;
   private focused: Focused | null = null;
   private mode: Mode = 'stacked';
@@ -96,10 +97,16 @@ export class AutographDashboard {
 
   async start(): Promise<void> {
     const stage = need(this.root, '#ag-stage');
-    this.scene = new CreatureScene(stage);
+    const nav = navigator as { hardwareConcurrency?: number; deviceMemory?: number };
+    const deviceLite =
+      (typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px)').matches) ||
+      (nav.hardwareConcurrency ?? 8) <= 4 ||
+      (nav.deviceMemory ?? 8) <= 4;
+    this.scene = new CreatureScene(stage, deviceLite);
     this.webgl = this.scene.ok;
+    this.lite = deviceLite || !this.webgl;
     if (!this.webgl) this.portraitDim = '2d';
-    this.setText('#ag-backend', this.webgl ? '3D · WEBGL' : '2D · CANVAS');
+    this.setText('#ag-backend', this.webgl ? (this.lite ? '3D · WEBGL (lite)' : '3D · WEBGL') : '2D · CANVAS');
     this.setText('#ag-genesis-seed', GENESIS_SEED);
     this.wire();
     this.paintEmptyGrid();
@@ -393,7 +400,7 @@ export class AutographDashboard {
     const evaluation = evaluate(genome, pheno);
     let cloudCount = 0;
     if (this.webgl && this.scene) {
-      const cloud = volumeCloud(pheno);
+      const cloud = volumeCloud(pheno, this.lite ? 28 : 42); // lighter volume on mobile/low-power
       cloudCount = cloud.count;
       this.scene.setCloud(cloud);
     }

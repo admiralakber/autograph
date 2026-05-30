@@ -393,6 +393,9 @@ code {
 .stage canvas {
   display: block;
 }
+/* the 3-D canvas owns its gestures (drag-rotate / pinch-zoom); the grid taps cleanly */
+.ag-3dcanvas { touch-action: none; }
+#ag-grid { touch-action: manipulation; }
 .hidden { display: none !important; }
 
 /* STACKED — the three views at once, stacked vertically; tap one to open it. */
@@ -747,19 +750,48 @@ code {
 
 /* ---- Responsive: stack into a scrollable column on small screens ---- */
 @media (max-width: 940px) {
-  html, body { overflow: auto; }
-  .dash { height: auto; min-height: 100vh; }
+  html, body { overflow: auto; -webkit-text-size-adjust: 100%; }
+  .dash { height: auto; min-height: 100vh; min-height: 100dvh; }
+  .bar { height: auto; min-height: 48px; flex-wrap: wrap; gap: 10px 16px; padding: 6px 12px; }
   .body {
     grid-template-columns: 1fr;
     grid-template-rows: none;
     grid-template-areas: "individual" "population" "loop" "genealogy";
   }
-  .stage { height: 60vh; }
+  .stage { height: 62vh; }
   .tree { max-height: 50vh; }
-  .readouts { gap: 14px; flex-wrap: wrap; }
+  .readouts { gap: 12px 14px; flex-wrap: wrap; order: 3; flex-basis: 100%; }
   .bar-brand .sub { display: none; }
 }
 
+/* ---- Phones: tighten the chrome, keep the instrument usable in portrait ---- */
+@media (max-width: 560px) {
+  body { font-size: 12px; }
+  .bar { gap: 8px 12px; }
+  .wordmark { font-size: 13px; letter-spacing: 0.16em; }
+  .readouts { gap: 10px 12px; }
+  .readouts dd { font-size: 13px; }
+  .bar-end { gap: 10px; flex-wrap: wrap; }
+  .strip { gap: 10px; padding: 7px 12px; }
+  .strip-genesis { flex-basis: 100%; }
+  .strip-controls { gap: 6px; width: 100%; }
+  .strip-controls input[type="text"] { flex: 1 1 140px; width: auto; }
+  /* comfortable tap targets on touch */
+  .btn { padding: 8px 12px; }
+  .chk { font-size: 11px; padding: 4px 0; }
+  .mode, .dim-btn { padding: 7px 10px; font-size: 10px; }
+  .stage { height: 66vh; }
+  #ag-grid { max-height: 60vh; }
+  .mode-caption { font-size: 11px; max-width: none; }
+  .mode-bar { flex-direction: column; gap: 4px; }
+  .head-right { flex-wrap: wrap; gap: 6px; }
+  .panel-foot { flex-wrap: wrap; gap: 4px 10px; }
+  .overlay-inner, .welcome-inner, .help-inner { padding: 52px 16px 64px; }
+  .welcome-inner h1 { font-size: 19px; }
+  .welcome-body p { font-size: 13px; line-height: 1.7; }
+  .foot { font-size: 9px; gap: 8px 12px; padding: 8px 12px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .swarm .dot, .lf { animation: none; }
+  .swarm .dot, .lf, .grid-highlight { animation: none; }
 }

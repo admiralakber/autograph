@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { PointCloud } from './volume.ts';
 
+const clamp = (x: number, a: number, b: number): number => (x < a ? a : x > b ? b : x);
+
 // The 3-D self-portrait: the substrate's density/hue field as a slowly-rotating
 // sunrise point cloud. (The phenotype and DNA are drawn as legible 2-D SVG
 // networks; this view is the volumetric "what the brain draws".) ok=false if
@@ -44,14 +46,28 @@ export class CreatureScene {
   private raf = 0;
   readonly ok: boolean;
 
-  constructor(private readonly container: HTMLElement) {
+  // interaction (mouse + touch): drag to rotate, pinch / wheel to zoom
+  private yaw = 0;
+  private pitch = 0;
+  private userPitched = false;
+  private dragging = false;
+  private targetDist = 3.0;
+  private lastX = 0;
+  private lastY = 0;
+  private pinchDist = 0;
+  private readonly pointers = new Map<number, { x: number; y: number }>();
+
+  constructor(
+    private readonly container: HTMLElement,
+    lite = false,
+  ) {
     try {
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      const renderer = new THREE.WebGLRenderer({ antialias: !lite, alpha: true, powerPreference: lite ? 'low-power' : 'high-performance' });
+      renderer.setPixelRatio(Math.min(lite ? 1.5 : 2, window.devicePixelRatio || 1));
       this.renderer = renderer;
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-      camera.position.set(0, 0, 3.0);
+      camera.position.set(0, 0, this.targetDist);
       const group = new THREE.Group();
       scene.add(group);
       this.scene = scene;
@@ -62,12 +78,67 @@ export class CreatureScene {
       renderer.domElement.style.width = '100%';
       renderer.domElement.style.height = '100%';
       renderer.domElement.style.display = 'block';
+      this.bindInput(renderer.domElement);
       this.resize();
       this.ok = true;
       this.loop();
     } catch {
       this.ok = false;
     }
+  }
+
+  /** Drag to rotate (mouse or one finger); pinch (two fingers) or wheel to zoom. */
+  private bindInput(el: HTMLElement): void {
+    const dist2 = (): number => {
+      const p = [...this.pointers.values()];
+      return p.length < 2 ? 0 : Math.hypot(p[0]!.x - p[1]!.x, p[0]!.y - p[1]!.y);
+    };
+    el.addEventListener('pointerdown', (e) => {
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pointers.size === 1) {
+        this.dragging = true;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+      } else if (this.pointers.size === 2) {
+        this.pinchDist = dist2();
+      }
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!this.pointers.has(e.pointerId)) return;
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pointers.size >= 2) {
+        const d = dist2();
+        if (this.pinchDist > 0 && d > 0) this.targetDist = clamp(this.targetDist * (this.pinchDist / d), 1.5, 6.5);
+        this.pinchDist = d;
+        return;
+      }
+      if (!this.dragging) return;
+      this.yaw += (e.clientX - this.lastX) * 0.01;
+      this.pitch = clamp(this.pitch + (e.clientY - this.lastY) * 0.01, -1.3, 1.3);
+      this.userPitched = true;
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+    });
+    const end = (e: PointerEvent): void => {
+      this.pointers.delete(e.pointerId);
+      if (this.pointers.size < 2) this.pinchDist = 0;
+      if (this.pointers.size === 0) this.dragging = false;
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.targetDist = clamp(this.targetDist + e.deltaY * 0.0016, 1.5, 6.5);
+      },
+      { passive: false },
+    );
   }
 
   private resize(): void {
@@ -115,8 +186,10 @@ export class CreatureScene {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.renderer || !this.scene || !this.camera || !this.group) return;
     if (this.renderer.domElement.clientWidth !== this.renderer.domElement.width / this.renderer.getPixelRatio()) this.resize();
-    this.group.rotation.y += 0.0035;
-    this.group.rotation.x = Math.sin(performance.now() * 0.0002) * 0.25;
+    if (!this.dragging) this.yaw += 0.0035; // gentle auto-rotation when idle
+    this.group.rotation.y = this.yaw;
+    this.group.rotation.x = this.userPitched ? this.pitch : Math.sin(performance.now() * 0.0002) * 0.25;
+    this.camera.position.z += (this.targetDist - this.camera.position.z) * 0.12; // smooth zoom
     this.renderer.render(this.scene, this.camera);
   };
 
