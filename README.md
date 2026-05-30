@@ -196,4 +196,4 @@ Autograph was built by AI coding agents working autonomously from the vision, ta
 
 ---
 
-<sub>Built by [Aqeel Akber](https://aqeelakber.com) — scientist and founder — who also builds [meos](https://getmeos.com). Autograph is a kindred spirit: a thing that belongs to itself, grown by many hands. 🤲↺</sub>
+<sub>Built by [Aqeel Akber](https://aqeelakber.com) — scientist and founder — who also builds [meos](https://meos.do). Autograph is a kindred spirit: a thing that belongs to itself, grown by many hands. 🤲↺</sub>

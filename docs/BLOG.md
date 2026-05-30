@@ -65,7 +65,7 @@ And here's the honest bit, stated plainly: **all of this is running on your devi
 
 ## Why local-first, why a browser ⏳
 
-Because, as of 2026, the browser quietly became a supercomputer. [WebGPU is "Baseline"](https://web.dev/blog/webgpu-supported-major-browsers) across major browsers, which means the same maths can run on a phone, a laptop, and a headless H100. That makes a future **swarm** plausible: many machines growing *one shared garden*, so a creature discovered on a phone in one city could light up the wall for everyone, and the tree of life could become a single shared genealogy. And because devices run at different speeds and sync only now and then, that swarm would behave like an *archipelago* — an asynchronous island model in which isolated demes emerge on their own, trade their best individuals, and let isolation breed new kinds: the oldest diversity engine there is. We've written down exactly how that coordinator would work — and deliberately *not* deployed it — in the [runbook](./DEPLOY-coordinator.md). It's the roadmap, clearly labelled as such, not a claim about today.
+Because, as of 2026, the browser quietly became a supercomputer. [WebGPU is "Baseline"](https://web.dev/blog/webgpu-supported-major-browsers) across major browsers, which means the same maths can run on a phone, a laptop, and a headless H100. That makes a future **swarm** plausible: many machines growing *one shared garden*, so a creature discovered on a phone in one city could light up the wall for everyone, and the tree of life could become a single shared genealogy. We've written down exactly how that coordinator would work — and deliberately *not* deployed it — in the [runbook](./DEPLOY-coordinator.md). It's the roadmap, clearly labelled as such, not a claim about today.
 
 And we're honest about the bargain: per watt, a datacentre is more efficient; a volunteer swarm would win only by harvesting hardware that's *already powered on*, at near-zero marginal cost, with **explicit, revocable consent** and a visible on/off. No stealth, no crypto-mining, no dark patterns. If you can't see it running, we've failed.
 
@@ -87,4 +87,4 @@ Escher only got to draw the hands once, and they had to stay on the page. We'd l
 
 ---
 
-<sub>🌿 *Autograph is built by **[Aqeel Akber](https://aqeelakber.com)**, who also builds **[meos](https://getmeos.com)** — local-first, sovereign, on-device. The same belief at a different scale: a thing that belongs to itself, grown by many hands.*</sub>
+<sub>🌿 *Autograph is built by **[Aqeel Akber](https://aqeelakber.com)**, who also builds **[meos](https://meos.do)** — local-first, sovereign, on-device. The same belief at a different scale: a thing that belongs to itself, grown by many hands.*</sub>
