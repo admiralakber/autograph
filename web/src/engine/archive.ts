@@ -27,6 +27,10 @@ export interface Cell {
   readonly evaluation: Evaluation;
   /** Generation at which this elite was installed (for "new!" cues). */
   bornAt: number;
+  /** Lightweight in-engine genealogy id (NOT on the wire) — for the tree of life. */
+  gid?: number;
+  /** Genealogy ids of this creature's genetic parent(s): 1 = mutation, 2 = crossover. */
+  parents?: number[];
 }
 
 /** A located elite, as returned by `best()` / `bestLively()`. */
@@ -44,8 +48,9 @@ export interface Archive {
   /** Map a behaviour descriptor in [0,1]^2 to a cell index. */
   cellIndex(bd: readonly [number, number]): number;
   get(index: number): Cell | null;
-  /** Install a creature; returns true if it became (or replaced) an elite. */
-  tryInsert(genome: Genome, evaluation: Evaluation, gen: number): boolean;
+  /** Install a creature; returns true if it became (or replaced) an elite.
+   *  `gid`/`parents` are optional in-engine genealogy tags (never sent on the wire). */
+  tryInsert(genome: Genome, evaluation: Evaluation, gen: number, gid?: number, parents?: number[]): boolean;
   count(): number;
   coverage(): number;
   /** The single best self-encoder in the whole archive. */

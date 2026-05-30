@@ -17,8 +17,8 @@ export interface ParamSpec {
 }
 
 export const PARAMS: readonly ParamSpec[] = [
-  { key: 'gridCols', label: 'grid columns', value: 12, group: 'Population (MAP-Elites)', note: 'behaviour-map columns — the complexity axis' },
-  { key: 'gridRows', label: 'grid rows', value: 12, group: 'Population (MAP-Elites)', note: 'behaviour-map rows — the mirror-symmetry axis' },
+  { key: 'gridCols', label: 'grid columns', value: 14, group: 'Population (MAP-Elites)', note: 'behaviour-map columns — the complexity axis (matches the coordinator)' },
+  { key: 'gridRows', label: 'grid rows', value: 14, group: 'Population (MAP-Elites)', note: 'behaviour-map rows — the mirror-symmetry axis' },
   { key: 'founders', label: 'random founders', value: 24, group: 'Population (MAP-Elites)', note: 'random minimal genomes seeded when a world starts' },
   { key: 'minVitality', label: 'vitality gate', value: 0.05, group: 'Population (MAP-Elites)', note: 'reject near-flat creatures (the trivial empty fixed point)' },
 

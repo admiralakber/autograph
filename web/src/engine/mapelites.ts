@@ -42,14 +42,14 @@ export class MapElites implements Archive {
   }
 
   /** Attempt to install a creature. Returns true if it became (or replaced) an elite. */
-  tryInsert(genome: Genome, evaluation: Evaluation, gen: number): boolean {
+  tryInsert(genome: Genome, evaluation: Evaluation, gen: number, gid = 0, parents: number[] = []): boolean {
     if (evaluation.vitality < MIN_VITALITY) return false;
     const idx = this.cellIndex(evaluation.bd);
     const existing = this.cells[idx];
     if (existing && MapElites.quality(existing.evaluation) >= MapElites.quality(evaluation)) {
       return false;
     }
-    this.cells[idx] = { genome: cloneGenome(genome), evaluation, bornAt: gen };
+    this.cells[idx] = { genome: cloneGenome(genome), evaluation, bornAt: gen, gid, parents };
     this.dirty.add(idx);
     return true;
   }

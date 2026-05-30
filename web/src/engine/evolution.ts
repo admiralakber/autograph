@@ -1,10 +1,11 @@
 import type { Genome } from './cppn.ts';
 import { randomGenome, compatibility } from './cppn.ts';
-import { evaluate } from './fitness.ts';
+import { evaluate, behaviourSignature } from './fitness.ts';
+import { buildPhenotype } from './substrate.ts';
 import type { Rng } from './prng.ts';
 import { makeRng, cyrb128 } from './prng.ts';
 import { MapElites } from './mapelites.ts';
-import type { Cell } from './archive.ts';
+import type { Archive, Cell } from './archive.ts';
 import { mutate, crossover, Innovations, DEFAULT_OPTIONS } from './mutate.ts';
 import type { MutateOptions } from './mutate.ts';
 import { HYPER } from './hyperparams.ts';
@@ -21,14 +22,20 @@ export interface GardenStats {
   /** Largest CPPN seen (nodes / connections) — complexification, made visible. */
   maxNodes: number;
   maxConns: number;
+  /** QD-score: Σ fidelity over filled cells — rises even after best-fidelity plateaus. */
+  qdScore: number;
+  /** Distinct behavioural niches ever discovered (Novelty Search archive) — the
+   *  open-endedness metric: it keeps climbing long after fidelity flatlines. */
+  novelty: number;
 }
 
 /** The crowd-of-one Garden: a real MAP-Elites loop over CPPNs evolved with NEAT
- *  augmenting topologies. Speciation (compatibility distance) gives novel
- *  structure a protected share of reproduction.
- *  (The multi-machine swarm is the roadmap — this runs entirely on your device.) */
+ *  augmenting topologies + Novelty Search. Speciation (compatibility distance)
+ *  protects new structure; a behavioural-novelty archive keeps the search
+ *  open-ended (always finding new *kinds*), not converged-and-static.
+ *  The archive is injectable — pass a SharedArchive to join the swarm. */
 export class Garden {
-  readonly archive: MapElites;
+  readonly archive: Archive;
   private readonly rng: Rng;
   private readonly innov = new Innovations();
   private generation = 0;
@@ -38,33 +45,74 @@ export class Garden {
   private noveltyOn = false;
   private options: MutateOptions = { ...DEFAULT_OPTIONS };
 
-  /** Toggle behavioural Novelty Search (Lehman & Stanley): bias reproduction
-   *  toward the frontier of behaviour space rather than toward fidelity. */
+  // ── Genealogy (lightweight, in-engine; never on the wire) ──────────────────
+  private nextGid = 1;
+  private readonly phylo = new Map<number, number[]>(); // gid → genetic parent gids
+  private phyloLow = 1;
+  private readonly phyloCap = 50000;
+
+  // ── Novelty archive (behavioural signatures; open-endedness) ───────────────
+  private readonly noveltyArchive: Float32Array[] = [];
+  private readonly noveltyCap = 1500;
+  private readonly noveltyThreshold = 0.05;
+  private noveltyFound = 0;
+
   setNovelty(on: boolean): void {
     this.noveltyOn = on;
   }
-
-  /** Set neataptic-style structural options (recurrent / self / gating). */
   setOptions(o: Partial<MutateOptions>): void {
     this.options = { ...this.options, ...o };
   }
 
-  constructor(seed: string, cols = 14, rows = 14) {
-    this.archive = new MapElites(cols, rows);
+  constructor(seed: string, cols = 14, rows = 14, archive?: Archive) {
+    this.archive = archive ?? new MapElites(cols, rows);
     const [a, b, c, d] = cyrb128(`${seed}:garden`);
     this.rng = makeRng(a, b, c, d);
   }
 
-  /** Inoculate the archive with some founder creatures (minimal NEAT genomes). */
+  /** Genetic parent gids of a genealogy node (for the branching tree of life). */
+  phyloParents(gid: number): number[] {
+    return this.phylo.get(gid) ?? [];
+  }
+
+  /** Inoculate the archive with founder creatures (minimal NEAT genomes). */
   seedWith(founders: Genome[]): void {
-    for (const g of founders) {
-      this.archive.tryInsert(g, evaluate(g), this.generation);
-      this.evaluations++;
+    for (const g of founders) this.install(g, []);
+    for (let i = 0; i < HYPER.founders; i++) this.install(randomGenome(this.rng), []);
+  }
+
+  /** Evaluate + insert a creature with a fresh genealogy id; record novelty. */
+  private install(g: Genome, parents: number[]): boolean {
+    const pheno = buildPhenotype(g);
+    const ev = evaluate(g, pheno);
+    const gid = this.nextGid++;
+    this.phylo.set(gid, parents);
+    if (this.phylo.size > this.phyloCap) this.phylo.delete(this.phyloLow++);
+    this.considerNovelty(behaviourSignature(pheno));
+    this.evaluations++;
+    return this.archive.tryInsert(g, ev, this.generation, gid, parents);
+  }
+
+  /** Count a behaviour as novel if it's far from everything seen (Novelty
+   *  Search). `noveltyFound` is monotonic — the open-endedness signal. */
+  private considerNovelty(sig: Float32Array): void {
+    let minD = Infinity;
+    for (const s of this.noveltyArchive) {
+      let d = 0;
+      for (let i = 0; i < sig.length; i++) {
+        const e = sig[i]! - s[i]!;
+        d += e * e;
+      }
+      d = Math.sqrt(d / sig.length);
+      if (d < minD) {
+        minD = d;
+        if (minD < this.noveltyThreshold) break;
+      }
     }
-    for (let i = 0; i < HYPER.founders; i++) {
-      const g = randomGenome(this.rng);
-      this.archive.tryInsert(g, evaluate(g), this.generation);
-      this.evaluations++;
+    if (this.noveltyArchive.length === 0 || minD > this.noveltyThreshold) {
+      this.noveltyFound++;
+      if (this.noveltyArchive.length < this.noveltyCap) this.noveltyArchive.push(sig);
+      else this.noveltyArchive[this.rng.int(this.noveltyCap)] = sig; // keep a moving reference set
     }
   }
 
@@ -72,29 +120,32 @@ export class Garden {
   step(budget: number): void {
     for (let i = 0; i < budget; i++) {
       const parentA = this.selectParent();
-      let child: Genome;
       if (!parentA) {
-        child = randomGenome(this.rng);
-      } else if (this.rng.next() < HYPER.crossoverRate) {
-        const parentB = this.selectParent();
-        child = parentB
-          ? mutate(crossover(parentA.genome, parentB.genome, this.rng), this.rng, this.innov, this.options)
-          : mutate(parentA.genome, this.rng, this.innov, this.options);
-      } else {
-        child = mutate(parentA.genome, this.rng, this.innov, this.options);
+        this.install(randomGenome(this.rng), []);
+        continue;
       }
-      this.archive.tryInsert(child, evaluate(child), this.generation);
-      this.evaluations++;
+      const paGid = parentA.gid ?? 0;
+      if (this.rng.next() < HYPER.crossoverRate) {
+        const parentB = this.selectParent();
+        if (parentB) {
+          const child = mutate(crossover(parentA.genome, parentB.genome, this.rng), this.rng, this.innov, this.options);
+          this.install(child, [paGid, parentB.gid ?? 0]); // BOTH crossover parents → a branch
+        } else {
+          this.install(mutate(parentA.genome, this.rng, this.innov, this.options), [paGid]);
+        }
+      } else {
+        this.install(mutate(parentA.genome, this.rng, this.innov, this.options), [paGid]);
+      }
     }
     this.generation++;
     if (this.generation % HYPER.respeciateEvery === 0) this.respeciate();
   }
 
-  /** Parent selection: half the time pick a random *species* then one of its
-   *  members (so a small, novel-structure species gets an equal share to a big
-   *  one — protecting innovation), else a random elite (diversity pressure). */
+  /** Parent selection — Novelty-dominant when on: mostly pick from the frontier
+   *  of behaviour space (push into the unexplored), else a species (protect new
+   *  structure), else a random elite. */
   private selectParent(): Cell | null {
-    if (this.noveltyOn && this.rng.next() < 0.6) {
+    if (this.noveltyOn && this.rng.next() < 0.7) {
       const f = this.frontierElite();
       if (f) return f;
     }
@@ -109,9 +160,8 @@ export class Garden {
     return this.archive.randomElite(() => this.rng.next());
   }
 
-  /** Novelty Search proxy: pick an elite on the frontier of behaviour space —
-   *  one with empty neighbouring cells — weighted by how much empty space abuts
-   *  it. This rewards *being different*, expanding into unexplored behaviours. */
+  /** Frontier of behaviour space: an elite bordering empty cells, weighted by how
+   *  much empty space abuts it — rewards being different, expands coverage. */
   private frontierElite(): Cell | null {
     const cols = this.archive.cols;
     const rows = this.archive.rows;
@@ -144,7 +194,6 @@ export class Garden {
     return cands[cands.length - 1]!.cell;
   }
 
-  /** Recompute species over the current elites by compatibility distance. */
   private respeciate(): void {
     const sp: { rep: Genome; members: number[] }[] = [];
     this.archive.forEach((cell, idx) => {
@@ -166,8 +215,10 @@ export class Garden {
     const best = this.archive.best();
     let maxNodes = 0;
     let maxConns = 0;
+    let qdScore = 0;
     this.archive.forEach((cell) => {
       if (!cell) return;
+      qdScore += cell.evaluation.fidelity;
       if (cell.genome.nodes.length > maxNodes) maxNodes = cell.genome.nodes.length;
       let live = 0;
       for (const c of cell.genome.conns) if (c.enabled) live++;
@@ -183,6 +234,8 @@ export class Garden {
       species: this.species.length,
       maxNodes,
       maxConns,
+      qdScore,
+      novelty: this.noveltyFound,
     };
   }
 }

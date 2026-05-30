@@ -219,6 +219,38 @@ function mirrorBrainExperiment(): void {
   console.log('  full closure is unchanged either way: iterating decode∘render collapses to the empty fixed point — life = imperfect self-knowledge.');
 }
 
+/** #4 open-endedness: with Novelty Search on, does the search keep discovering
+ *  NEW kinds (novelty archive + QD-score + complexification) long after the
+ *  fidelity objective plateaus? It must — "always changing", not converged. */
+function openEndedness(): void {
+  const garden = new Garden(GENESIS_SEED, 14, 14);
+  garden.setNovelty(true);
+  garden.seedWith([seededGenome(GENESIS_SEED)]);
+  const marks = [400, 1200, 2500];
+  let mi = 0;
+  const snap: { gen: number; fid: number; cov: number; nov: number; qd: number; nodes: number; conns: number }[] = [];
+  for (let g = 0; g < 2500; g++) {
+    garden.step(30);
+    if (mi < marks.length && g + 1 === marks[mi]) {
+      const s = garden.stats();
+      snap.push({ gen: s.generation, fid: s.bestFidelity, cov: s.coverage, nov: s.novelty, qd: s.qdScore, nodes: s.maxNodes, conns: s.maxConns });
+      mi++;
+    }
+  }
+  for (const s of snap) {
+    console.log(`  gen ${String(s.gen).padStart(4)}: best-fid ${(s.fid * 100).toFixed(1)}% · coverage ${(s.cov * 100).toFixed(0)}% · novelty ${s.nov} · QD ${s.qd.toFixed(1)} · biggest DNA ${s.nodes}n·${s.conns}c`);
+  }
+  const a = snap[0]!;
+  const z = snap[snap.length - 1]!;
+  const fidFlat = z.fid - a.fid < 0.04;
+  const keepsGrowing = z.nov > a.nov * 1.3 && z.qd > a.qd * 1.05;
+  console.log(
+    `OPEN-ENDEDNESS: fidelity ${fidFlat ? 'PLATEAUED' : 'still rising'} (${(a.fid * 100).toFixed(1)}%→${(z.fid * 100).toFixed(1)}%); ` +
+      `novelty ${a.nov}→${z.nov}, QD ${a.qd.toFixed(0)}→${z.qd.toFixed(0)}, DNA ${a.nodes}n→${z.nodes}n ` +
+      `${keepsGrowing ? '— KEEPS DISCOVERING NEW KINDS ✓' : '(FAIL: stopped rising)'}`,
+  );
+}
+
 async function lineageCheck(): Promise<void> {
   const identity = await generateIdentity();
   const founder = await createEntry({ genome: seededGenome(GENESIS_SEED), parents: [], seed: GENESIS_SEED, fidelity: 0.5, identity });
@@ -238,6 +270,7 @@ async function main(): Promise<void> {
   determinismCheck();
   baseline();
   evolve();
+  openEndedness();
   mirrorBrainExperiment();
   await lineageCheck();
 }

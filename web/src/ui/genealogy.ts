@@ -54,18 +54,21 @@ export function renderGenealogy(container: HTMLElement, entries: LineageEntry[])
   const y = (id: string): number => 12 + (rowOf.get(id) ?? 0) * ROW;
 
   for (const e of entries) {
-    const parent = e.parents.find((p) => byId.has(p));
-    if (!parent) continue;
-    const path = document.createElementNS(SVG, 'path');
-    const x1 = x(parent);
-    const y1 = y(parent);
-    const x2 = x(e.id);
-    const y2 = y(e.id);
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${y2}, ${x2 - 8} ${y2}, ${x2} ${y2}`);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'rgba(235,235,235,0.22)');
-    path.setAttribute('stroke-width', '1');
-    svg.appendChild(path);
+    const known = e.parents.filter((p) => byId.has(p));
+    // primary parent = tree edge; any further parent = a crossover cross-link (dashed)
+    known.forEach((parent, i) => {
+      const path = document.createElementNS(SVG, 'path');
+      const x1 = x(parent);
+      const y1 = y(parent);
+      const x2 = x(e.id);
+      const y2 = y(e.id);
+      path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${y2}, ${x2 - 8} ${y2}, ${x2} ${y2}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', i === 0 ? 'rgba(235,235,235,0.22)' : 'rgba(150,150,150,0.3)');
+      path.setAttribute('stroke-width', i === 0 ? '1' : '0.8');
+      if (i > 0) path.setAttribute('stroke-dasharray', '2 2'); // crossover (second parent)
+      svg.appendChild(path);
+    });
   }
 
   for (const id of order) {

@@ -11,6 +11,7 @@ import { CreatureScene } from '../engine/render/scene3d.ts';
 import type { Identity, LineageEntry, LineageFile } from '../engine/lineage.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile, hashGenome, fingerprint } from '../engine/lineage.ts';
 import { loadLineage, saveEntry } from '../engine/storage.ts';
+import type { Cell } from '../engine/archive.ts';
 import type { NetLayout } from './netdraw.ts';
 import { drawCppnGraph, drawSubstrateGraph, NetworkPulse } from './netdraw.ts';
 import { renderGenealogy } from './genealogy.ts';
@@ -58,9 +59,11 @@ export class AutographDashboard {
   private frame = 0;
   private lastGenAt = 0;
   private lastGenValue = 0;
-  private champRecording = false;
-  private lastChampFid = 0;
-  private lastChampAt = 0;
+  private treeRecording = false;
+  private lastTreeAt = 0;
+  private genesisId = '';
+  /** in-engine genealogy gid → signed lineage id (for the branching tree). */
+  private readonly signedByGid = new Map<number, string>();
 
   private readonly pulse = new NetworkPulse();
   private readonly lineage: LineageEntry[] = [];
@@ -112,15 +115,24 @@ export class AutographDashboard {
   private async bootGenealogy(): Promise<void> {
     const stored = await loadLineage();
     for (const e of stored) this.lineage.push(e);
-    if (!this.lineage.some((e) => e.parents.length === 0)) {
+    let genesis = this.lineage.find((e) => e.parents.length === 0);
+    if (!genesis) {
       const id = this.identity ?? (this.identity = await generateIdentity());
       const g = seededGenome(GENESIS_SEED);
-      const entry = await createEntry({ genome: g, parents: [], seed: GENESIS_SEED, fidelity: evaluate(g).fidelity, identity: id });
-      this.lineage.unshift(entry);
-      await saveEntry(entry);
+      genesis = await createEntry({ genome: g, parents: [], seed: GENESIS_SEED, fidelity: evaluate(g).fidelity, identity: id });
+      this.lineage.unshift(genesis);
+      await saveEntry(genesis);
     }
+    this.genesisId = genesis.id;
+    this.resetSignedRoot();
     renderGenealogy(need(this.root, '#ag-tree'), this.lineage);
     this.setText('#ag-tree-count', String(this.lineage.length));
+  }
+
+  /** Re-root the gid→signed map on the canonical Genesis (gids reset per world). */
+  private resetSignedRoot(): void {
+    this.signedByGid.clear();
+    if (this.genesisId) this.signedByGid.set(1, this.genesisId); // gid 1 = each world's founder ↦ Genesis node
   }
 
   // --- Controls -------------------------------------------------------------
@@ -255,6 +267,7 @@ export class AutographDashboard {
     this.garden = new Garden(seedStr, COLS, ROWS);
     this.garden.setNovelty(this.novelty);
     this.garden.setOptions(this.options);
+    this.resetSignedRoot();
     this.garden.seedWith([seededGenome(seedStr)]);
     this.paintEmptyGrid();
     this.syncDirty();
@@ -288,7 +301,7 @@ export class AutographDashboard {
         const best = this.garden.archive.bestLively(0.32, 0.22) ?? this.garden.archive.bestLively(0.2, 0.12) ?? this.garden.archive.best();
         if (best) this.refreshFocused(best.cell.genome, best.index);
       }
-      if (this.frame % 30 === 0) void this.maybeRecordChampion();
+      if (this.frame % 24 === 0) void this.maybeGrowTree();
     }
     this.frame++;
     requestAnimationFrame(() => this.tick());
@@ -524,32 +537,66 @@ export class AutographDashboard {
     this.setText('#ag-focus-note', 'PINNED · a creature you chose from the diversity map');
   }
 
-  /** Auto-record the champion lineage: when a new, more-faithful lively elite
-   *  appears, sign it into the tree of life with the previous champion as parent.
+  /** Grow a REAL branching phylogeny: periodically sign one lively elite into the
+   *  tree, attaching it to its nearest already-signed *genetic* ancestor(s) — so
+   *  crossover yields two-parent reticulations and divergent lineages branch.
    *  Throttled + capped so swarm-speed evolution can't blow the genealogy out. */
-  private async maybeRecordChampion(): Promise<void> {
-    if (this.champRecording) return;
-    const best = this.garden.archive.bestLively(0.3, 0.2) ?? this.garden.archive.best();
-    if (!best) return;
-    const fid = best.cell.evaluation.fidelity;
+  private async maybeGrowTree(): Promise<void> {
+    if (this.treeRecording) return;
     const now = performance.now();
-    if (fid <= this.lastChampFid + 0.004) return; // must be a real improvement
-    if (now - this.lastChampAt < 3500) return; // throttle (swarm-speed safe)
-    this.champRecording = true;
+    if (now - this.lastTreeAt < 1200) return; // steady, bounded growth
+    let pick: Cell | null = null;
+    this.garden.archive.forEach((cell) => {
+      if (!cell || cell.gid === undefined || this.signedByGid.has(cell.gid)) return;
+      if (cell.evaluation.vitality < 0.18) return; // only lively creatures join the tree
+      if (!pick || cell.evaluation.fidelity > pick.evaluation.fidelity) pick = cell;
+    });
+    const chosen = pick as Cell | null;
+    if (!chosen || chosen.gid === undefined) return;
+    this.treeRecording = true;
+    this.lastTreeAt = now;
     try {
       if (!this.identity) this.identity = await generateIdentity();
-      const parents = this.lineage.length > 0 ? [this.lineage[this.lineage.length - 1]!.id] : [];
-      const entry = await createEntry({ genome: best.cell.genome, parents, seed: null, fidelity: fid, identity: this.identity });
+      const ancestors = this.signedAncestors(chosen.parents ?? []);
+      const parents = ancestors.length > 0 ? ancestors : this.genesisId ? [this.genesisId] : [];
+      const entry = await createEntry({ genome: chosen.genome, parents, seed: null, fidelity: chosen.evaluation.fidelity, identity: this.identity });
+      this.signedByGid.set(chosen.gid, entry.id);
       this.lineage.push(entry);
       await saveEntry(entry);
-      this.lastChampFid = fid;
-      this.lastChampAt = now;
-      if (this.lineage.length > 140) this.lineage.splice(1, this.lineage.length - 140); // keep Genesis + recent
+      this.pruneTree();
       renderGenealogy(need(this.root, '#ag-tree'), this.lineage);
       this.setText('#ag-tree-count', String(this.lineage.length));
     } finally {
-      this.champRecording = false;
+      this.treeRecording = false;
     }
+  }
+
+  /** Walk genetic parents up to the nearest already-signed ancestors (≤2 → a
+   *  crossover reticulation in the tree). */
+  private signedAncestors(parentGids: number[]): string[] {
+    const out: string[] = [];
+    for (const start of parentGids) {
+      let g = start;
+      for (let hops = 0; g && hops < 64; hops++) {
+        const id = this.signedByGid.get(g);
+        if (id) {
+          if (!out.includes(id)) out.push(id);
+          break;
+        }
+        g = this.garden.phyloParents(g)[0] ?? 0;
+      }
+      if (out.length >= 2) break;
+    }
+    return out;
+  }
+
+  /** Keep Genesis + the most recent ~200 nodes (drop oldest, prune their gid map). */
+  private pruneTree(): void {
+    const CAP = 200;
+    if (this.lineage.length <= CAP) return;
+    const drop = this.lineage.splice(1, this.lineage.length - CAP);
+    const live = new Set(this.lineage.map((e) => e.id));
+    for (const e of drop) for (const [gid, id] of this.signedByGid) if (id === e.id && !live.has(id)) this.signedByGid.delete(gid);
   }
 
   // --- Lineage --------------------------------------------------------------

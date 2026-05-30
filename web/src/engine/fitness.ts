@@ -152,6 +152,27 @@ function projection(p: Phenotype, g: number): Float32Array {
   return field;
 }
 
+/** A higher-dimensional behaviour *signature* (n×n mean-density silhouette,
+ *  default 5×5 = 25-D) for Novelty Search. Deliberately richer than the 2-D
+ *  MAP-Elites descriptor so the behaviour space does not saturate — there is
+ *  always a new silhouette to find, which is what keeps the search open-ended.
+ *  NOT part of the wire `Evaluation`. */
+export function behaviourSignature(p: Phenotype, n = 5): Float32Array {
+  const sig = new Float32Array(n * n);
+  const zs = [-0.5, 0, 0.5];
+  const inv = 2 / (n - 1);
+  for (let yi = 0; yi < n; yi++) {
+    const y = yi * inv - 1;
+    for (let xi = 0; xi < n; xi++) {
+      const x = xi * inv - 1;
+      let acc = 0;
+      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      sig[yi * n + xi] = acc / zs.length;
+    }
+  }
+  return sig;
+}
+
 /** Evaluate a genome's loop fidelity + behaviour from its phenotype. */
 export function evaluate(g: Genome, pheno?: Phenotype): Evaluation {
   const p = pheno ?? buildPhenotype(g);
