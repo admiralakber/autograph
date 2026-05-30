@@ -7,7 +7,7 @@
 
 ## Abstract
 
-We describe **Autograph**, a browser-native, crowd-powered system that evolves a population of small neural networks toward **self-reference**: a [compositional pattern-producing network (CPPN)](#references) whose rendered output is a decodable encoding of its own genome. This is the artwork analogue of a *quine* — a program that outputs its own source — and a continuous, evolutionary cousin of the [neural network quine](#references) of Chang & Lipson (2018). We frame self-reference, self-replication and (prospectively) cryptographic self-commitment as instances of a single **fixed-point** construction, the same diagonal trick underlying Gödel's incompleteness and Kleene's recursion theorem. The population is illuminated by **MAP-Elites** quality-diversity and rendered as a live generative artwork: a gallery of *kinds* of strange loop. Evaluation runs on a single portable WGSL core spanning phones to headless H100-class GPUs; volunteer results are made trustworthy via replication, tolerance comparison, and — prospectively — self-certifying genomes. We state the system's central claim in falsifiable form, are explicit about where exactness is impossible (cross-device floating-point non-determinism), and we are scrupulous about the maturity of the two technical pillars: a signed Merkle-DAG lineage that is **built and real today**, a zkML "proof of becoming" named honestly as a **research north star**, and a quantum framing kept strictly as **metaphor and lineage, never mechanism**.
+We describe **Autograph**, a browser-native instrument for a live evolutionary experiment in which small neural networks evolve toward **self-reference**. Each individual is *two* networks bound in a loop: a small **connective [CPPN](#references)** (the genotype, or "DNA") that, given a pair of 3-D substrate-node positions, emits a connection (a weight and a link-expression gate); and a **HyperNEAT substrate** (the phenotype, or "brain") whose connection weights are *painted* by the CPPN and whose hidden neurons are *placed* by it using a simplified **ES-HyperNEAT** criterion. Queried over space, the substrate outputs a density-and-hue field, rendered as a volumetric 3-D **self-portrait**. The strange loop is literal: DNA → phenotype → self-portrait → read the density back at known 3-D probe points → DNA′, a [fixed point](#references) of the compose-and-read-back map and the artwork analogue of a *quine* — the continuous, evolutionary cousin of the [neural network quine](#references) of Chang & Lipson (2018), which itself adopts the HyperNEAT coordinate→weight encoding. We frame self-reference, self-replication and (prospectively) cryptographic self-commitment as instances of a single fixed-point construction, the same diagonal trick underlying Gödel's incompleteness and Kleene's recursion theorem. The population is illuminated by **MAP-Elites** quality-diversity (a grid keyed by structural complexity × mirror symmetry) and the loop's closure (**loop fidelity**) is *measured live, never faked*; because the trivial near-empty creature is a degenerate fixed point, a **vitality gate** keeps self-reference load-bearing. The instrument runs **entirely on one device** (Three.js render with a Canvas 2D fallback); a worldwide swarm that grows one shared archive is a documented direction, with evaluation on a portable WGSL core spanning phones to headless H100-class GPUs and BOINC-style trust. We state the system's central claim in falsifiable form, are explicit about where exactness is impossible (cross-device floating-point non-determinism), and we are scrupulous about the maturity of the two technical pillars: a signed, content-addressed Merkle-DAG lineage that is **built and real today** (and persisted across sessions in IndexedDB), a zkML "proof of becoming" named honestly as a **research north star**, and a quantum framing kept strictly as **metaphor and lineage, never mechanism**.
 
 ---
 
@@ -15,7 +15,7 @@ We describe **Autograph**, a browser-native, crowd-powered system that evolves a
 
 Most contemporary machine learning optimises a fixed objective on a fixed architecture with gradient descent at industrial scale. An older, stranger tradition asks a different question: *can a process be open-ended* — endlessly generating novel, interesting, learnable artefacts — and *what do the artefacts so produced look like on the inside?* Recent position work argues open-endedness is essential to the next era of capable AI [9], and recent empirical work suggests that artefacts produced by open-ended evolutionary search can possess markedly cleaner internal structure than their gradient-trained counterparts [11].
 
-Autograph takes the most self-contained possible target for such a search — **a network that refers to itself** — and makes the search a public, browser-based, crowd-powered artwork. The contribution is not a new algorithm; it is a *synthesis*: Picbreeder-style crowd-evolved CPPNs [6], the neural-network quine [12], MAP-Elites illumination [5], and a one-runtime volunteer-compute substrate [briefing], arranged so that the scientific object (an approximate fixed point of self-encoding) and the aesthetic object (Escher's *Drawing Hands*, alive) are literally the same thing.
+Autograph takes the most self-contained possible target for such a search — **a network that refers to itself** — and makes the search a public, browser-based **instrument** one joins on load. The contribution is not a new algorithm; it is a *synthesis*: Picbreeder-style crowd-evolved CPPNs [6], indirect HyperNEAT/ES-HyperNEAT encoding (the CPPN paints and places a larger substrate) [1,6], the neural-network quine [12], MAP-Elites illumination [5], and — as a documented direction — a one-runtime volunteer-compute substrate [briefing], arranged so that the scientific object (an approximate fixed point of self-encoding) and the aesthetic object (Escher's *Drawing Hands*, alive) are literally the same thing. The shipping instrument is **local-first**: it runs entirely on one device, and the worldwide swarm is the roadmap, not a present claim.
 
 We emphasise honesty throughout. The strange loop is real and computable; several adjacent ideas we find beautiful (notably the quantum angle, §3.7) are **speculative and labelled as such**.
 
@@ -27,7 +27,7 @@ We emphasise honesty throughout. The strange loop is real and computable; severa
 
 **Self-replication.** Von Neumann's universal constructor [18] established that machines can build copies of themselves given a description they both *interpret* and *copy*; Langton's loops [19] are a minimal cellular-automaton realisation. Chang & Lipson [12] brought this into deep learning with the **neural network quine** — a network trained (by gradient descent and/or a "regeneration" fixed-point iteration) to output its own weights via coordinate indexing — and observed a trade-off between auxiliary-task performance and replication fidelity, echoing the biological tension between reproduction and other functions.
 
-**Neuroevolution and indirect encodings.** NEAT [1] evolves both weights and topology, complexifying from minimal structure. CPPNs [6] are compositional networks queried over coordinates to produce regular, symmetric patterns (and, in HyperNEAT, the weights of larger substrates). Picbreeder [6] demonstrated crowd-powered, branch-from-each-other CPPN evolution in the browser; Galactic Arms Race used implicit player behaviour as the fitness signal [briefing].
+**Neuroevolution and indirect encodings.** NEAT [1] evolves both weights and topology, complexifying from minimal structure. CPPNs [6,25] are compositional networks queried over coordinates to produce regular, symmetric patterns. In their *connective* form a CPPN maps a pair of node coordinates to a connection weight, and **HyperNEAT** uses this to paint the weights of a much larger substrate from geometry — an *indirect encoding* in which a small genome grows a large phenotype. **ES-HyperNEAT** [26] extends this by also *deciding where the hidden neurons go*, placing them where the connectivity pattern carries the most information (the original method uses an adaptive quadtree to find regions of high variance / "information"); evaluating the CPPN over all `(source, target)` substrate-coordinate pairs is an embarrassingly-parallel `map`, shipped, e.g., as TensorNEAT's `FullSubstrate` [3, briefing]. Picbreeder [6] demonstrated crowd-powered, branch-from-each-other CPPN evolution in the browser; Galactic Arms Race used implicit player behaviour as the fitness signal [briefing].
 
 **Open-endedness and quality-diversity.** Novelty search [2] abandons the objective in favour of behavioural novelty and frequently outperforms objective-based search on deceptive tasks. MAP-Elites [5] keeps the best solution per cell of a behaviour-descriptor grid, yielding a *map* of diverse high performers ("illumination"). POET [7] co-evolves problems and solutions; ELM [8] uses learned operators inside MAP-Elites. The position paper of Hughes et al. [9] argues open-endedness is essential for superhuman AI; Kumar, Clune, Lehman & Stanley [11] report that open-endedly evolved CPPNs approach a "unified factored representation" (UFR), whereas conventional SGD tends toward a "fractured entangled representation" (FER) — directly relevant to *why* an evolved self-portrait might be legible.
 
@@ -39,60 +39,68 @@ We emphasise honesty throughout. The strange loop is real and computable; severa
 
 ### 3.1 Task: self-reference as an (approximate) fixed point
 
-Let $g \in \mathcal{G}$ be a genome (a NEAT-encoded CPPN: topology, weights, per-node activations). Two maps define the loop:
+Let $g \in \mathcal{G}$ be a genome — a small *connective* CPPN (the DNA): heterogeneous activations, evolvable weights and biases, with inputs $(x_1,y_1,z_1,x_2,y_2,z_2,\text{bias})$ and outputs $(\text{weight},\,\text{leo})$, where `leo` is a link-expression gate. Three maps define the loop:
 
-- a **render** map $R:\mathcal{G}\to\mathcal{X}$ producing an artefact $x=R(g)$ (an image over a coordinate grid, optionally a bit-string read-out);
-- a **read-back** map $E:\mathcal{X}\to\mathcal{G}$ attempting to recover a genome from an artefact.
+- a **development** map $B:\mathcal{G}\to\mathcal{P}$ that builds the phenotype (the substrate "brain") from the DNA — §3.2 — painting every connection weight and *placing* the hidden neurons;
+- a **render** map $R:\mathcal{P}\to\mathcal{X}$ that queries the phenotype across 3-D space to produce the volumetric self-portrait $x=R(B(g))$ — a field of density and hue;
+- a **read-back** map $E:\mathcal{X}\to\mathcal{G}$ that reads the painted *density* at $\dim(g)$ known 3-D **probe points** (one per DNA parameter) to recover a genome vector.
 
-The target is a genome $g^\star$ that is a **fixed point of $E\circ R$**:
+The target is a genome $g^\star$ that is a **fixed point of $E\circ R\circ B$**:
 
-$$ E(R(g^\star)) \approx g^\star . $$
+$$ E(R(B(g^\star))) \approx g^\star . $$
 
-Equivalently, $R(g^\star)$ is a *self-describing artefact* — the picture encodes the painter. (Chang & Lipson's quine is the special case where $R$ reads parameters at coordinate indices and $E$ is the identity on those values [12].) We do **not** assume exact fixed points are reachable; §3.5 explains why bitwise exactness is impossible across heterogeneous hardware, so the operational target is an $\varepsilon$-approximate fixed point under a stated metric.
+Equivalently, $R(B(g^\star))$ is a *self-describing artefact* — the self-portrait encodes the DNA that drew it. (Chang & Lipson's quine is the discrete cousin where the CPPN reads its own weights at coordinate indices; here the read-back is the density the substrate *paints* at each probe [12].) We do **not** assume exact fixed points are reachable: the substrate field has finite expressivity, and §3.5 explains why bitwise exactness is impossible across heterogeneous hardware anyway. So the operational quantity is **loop fidelity** $\in[0,1]$ — one minus the (normalised) root-mean-square error between the painted densities at the probes and the DNA's own values — and it is **measured and displayed live, never faked**.
 
-**Fitness** combines (i) **self-reconstruction error** $d(E(R(g)), g)$ and (ii) a **quality-diversity** pressure (below). A pure objective collapses the population onto one self-encoder; the QD pressure preserves the *space* of them, which is the point.
+**The degenerate fixed point, and the vitality gate.** A blank, near-flat creature trivially "encodes itself" (the *zero quine*) and says nothing. We therefore never reward fidelity alone: a **vitality** term (volumetric contrast, ≈0 for empty creatures) gates fitness, and the **quality-diversity** pressure (§3.3) preserves the *space* of lively self-encoders rather than collapsing onto one. Self-reference is only interesting when it is load-bearing against a world [12, briefing].
 
 ```mermaid
 flowchart LR
-  G["genome g (CPPN)"] -->|"R: render"| X["artefact x = R(g)"]
-  X -->|"E: read back"| G2["recovered g' = E(R(g))"]
-  G2 -. "minimise d(g', g)  →  fixed point" .-> G
+  G["🧬 DNA g (connective CPPN)"] -->|"B: develop<br/>(paint + place)"| P["🧠 phenotype B(g) (substrate)"]
+  P -->|"R: render over 3-D"| X["✨ self-portrait x = R(B(g))<br/>(density + hue field)"]
+  X -->|"E: read density at probes"| G2["🧬 recovered g′ = E(R(B(g)))"]
+  G2 -. "loop fidelity = 1 − ‖g′ − g‖  →  fixed point (measured live)" .-> G
 ```
 
-### 3.2 Representation
+### 3.2 Representation and development
 
-NEAT-encoded CPPNs [1,6]: heterogeneous activations (`sin`, `gauss`, `abs`, `tanh`, `sigmoid`, `identity`), evolved topology with innovation-numbered genes and speciation. CPPNs are an ideal substrate here for two reasons: they are coordinate-queried (so rendering is embarrassingly parallel on a GPU), and open-ended CPPN evolution is empirically prone to *factored* internal structure [11], which a self-encoding task should reward.
+**The DNA (genotype).** A small *connective* CPPN [6,25] with heterogeneous activations (`sin`, `gauss`, `abs`, `tanh`, `sigmoid`, `identity`) and evolvable weights and biases (gradient-free mutation + crossover). It maps a pair of 3-D node positions to a connection: a `weight` and a link-expression gate (`leo`). The DNA is kept deliberately compact — a small recipe is both easier for the self-portrait to re-encode (a closable loop) and clearer to draw as a graph. Its real-valued parameters are exactly what the read-back map $E$ must recover.
+
+**The brain (phenotype).** A HyperNEAT substrate whose feature inputs are a queried point $(x, y, z, r=\lVert p\rVert, \text{bias})$ and whose two outputs are `density` and `hue`. It is not stored in the genome; it is *developed* from the DNA by the map $B$:
+
+1. **Placement — simplified ES-HyperNEAT.** From a fixed set of candidate sites, each candidate is scored by the **variance of its incoming weight pattern** (the CPPN's weights from the input nodes to that site); the highest-information sites are kept as the hidden neurons. This is the operational core of **ES-HyperNEAT** [26] — *put neurons where the connectivity carries information* — without the full machinery. **Full quadtree band-pruning ES-HyperNEAT is named as the direction; we ship this simplified placement now**, and label it as such.
+2. **Painting.** Every substrate connection's weight is then read off the CPPN from the two endpoints' positions, gated on by `leo`. Painting all `(source, target)` pairs is the embarrassingly-parallel `map` that HyperNEAT/TensorNEAT call a full-substrate evaluation [3, briefing].
+
+CPPNs are an ideal substrate here for two reasons: they are coordinate-queried (so painting and rendering are embarrassingly parallel), and open-ended CPPN evolution is empirically prone to *factored* internal structure [11], which a self-encoding task should reward.
 
 ### 3.3 Archive: MAP-Elites illumination
 
-The archive is a grid keyed by a behaviour descriptor; each cell retains the best genome found for that cell. Candidate descriptor axes (to be tuned empirically):
+The archive is a grid keyed by a **2-D behaviour descriptor** computed from the rendered self-portrait; each cell retains the best (highest loop-fidelity, vitality-gated) self-encoder found for it. The shipped descriptor is:
 
-| Axis | Meaning |
+| Axis | Meaning (from the rendered volume) |
 |---|---|
-| reconstruction fidelity | how exactly $E(R(g))$ recovers $g$ |
-| structural complexity | node/connection count (NEAT complexification) |
-| symmetry / regularity | CPPN pattern statistics |
-| loop directness | iterations of $E\circ R$ to converge |
-| genome compression | description length vs rendered detail |
+| **structural complexity** | spatial detail of the self-portrait (mean local gradient of the volume's projection) |
+| **mirror symmetry** | left↔right regularity of the projection |
 
-The illuminated archive *is* the exhibited artwork: a wall of diverse self-portraits, each the champion of its kind.
+These two axes give a legible 2-D wall the visitor watches fill, with each cell's **fitness shown as a greyscale border value (no colour)** — colour is reserved for the living self-portraits inside the cells (the aesthetic doctrine: a greyscale instrument framing sunrise-coloured life — see [VISION.md](../VISION.md)). Further axes (e.g. loop directness, genome compression) are candidates for future tuning. The illuminated archive *is* the exhibited artwork: a wall of diverse self-portraits, each the champion of its kind.
 
-### 3.4 One-WGSL runtime, phone → H100
+### 3.4 Rendering the self-portrait, and the one-runtime direction
 
-Per the companion briefing [briefing], the evaluation kernels (CPPN render; self-reconstruction scoring; mutation/crossover; atomic MAP-Elites insert) are authored **once in WGSL** and run via WebGPU in browsers and, unchanged, headless via Deno/Dawn on server GPUs. Layered fallback `WebGPU → WebGL2 (transform-feedback / ping-pong textures) → WASM SIMD+threads → scalar JS` keeps the swarm inclusive. Variable-topology NEAT is made GPU-friendly by tensorisation (fixed max-topology + masks, or padded population tensors), following TensorNEAT [3] and QDax [4]. The protocol is invariant across tiers; only batch size, precision and replication policy vary.
+**Shipping (real, on-device).** The render map $R$ samples the substrate's density-and-hue field over a 3-D grid: density becomes alpha, hue is mapped through the **sunrise** palette (HSLuv; colour for life only — see [VISION.md](../VISION.md)), and the surviving voxels are drawn as a volumetric **point cloud** via [Three.js](https://threejs.org/). A **Canvas 2D** path renders a projection of the same field as a graceful fallback and as the population-grid thumbnails — the same network, only the device changes. All of this runs locally; nothing leaves the tab.
+
+**Direction (for the swarm).** Per the companion briefing [briefing], swarm-scale *evaluation* kernels (substrate painting; loop-fidelity scoring; mutation/crossover; atomic MAP-Elites insert) can be authored **once in WGSL** and run via WebGPU in browsers and, unchanged, headless via Deno/Dawn on server GPUs, with a layered fallback `WebGPU → WebGL2 → WASM SIMD+threads → scalar JS` and tensorisation (fixed max-topology + masks, or padded population tensors) following TensorNEAT [3] and QDax [4]. The protocol is invariant across tiers; only batch size, precision and replication policy vary. This is the roadmap, not the shipping instrument.
 
 ### 3.5 Trust, and the determinism caveat
 
-WGSL provides **no bit-exactness guarantee** across GPUs/drivers/WASM (FMA contraction, reassociation, per-built-in accuracy bounds; no `fast-math` flag) [23]. Two consequences:
+On one device today the loop fidelity is computed canonically, so there is no cross-device trust problem yet; both points below sharpen once the swarm (§3.4 direction) is real. WGSL provides **no bit-exactness guarantee** across GPUs/drivers/WASM (FMA contraction, reassociation, per-built-in accuracy bounds; no `fast-math` flag) [23]. Two consequences:
 
-1. **Self-encoding must be defined up to tolerance $\varepsilon$**, not bitwise — the loop "closes" within a stated metric, and the metric must be numerically stable (prefer fixed-point read-outs and order-independent reductions).
-2. **No single self-reported score is trusted.** We adopt BOINC's mechanisms [20]: replication + quorum (default 2×, escalate on disagreement), tolerance comparison, homogeneous redundancy, and authoritative server-side recomputation of archive *elites*. Quality-diversity is noise-tolerant by construction [4], which materially helps a churny volunteer swarm.
+1. **Self-encoding must be defined up to tolerance $\varepsilon$**, not bitwise — the loop "closes" within a stated metric (loop fidelity, §3.1), and the metric must be numerically stable (prefer fixed-point read-outs and order-independent reductions). This holds even on a single device, because the substrate field cannot exactly reproduce its own DNA.
+2. **No single self-reported score is trusted (swarm).** We adopt BOINC's mechanisms [20]: replication + quorum (default 2×, escalate on disagreement), tolerance comparison, homogeneous redundancy, and authoritative server-side recomputation of archive *elites*. Quality-diversity is noise-tolerant by construction [4], which materially helps a churny volunteer swarm.
 
 ### 3.6 Pillar 1: cryptographic self-proof
 
 Self-reference (§3.1) and swarm trust (§3.5) are, at the limit, the *same* mechanism: a genome that can prove itself is its own validator. We separate this pillar into three honest maturity tiers.
 
-**Built and real today.** Each creature carries a signed commitment to itself and sits in a tamper-evident phylogeny. A genome's id is a content hash `SHA-256(weights ‖ parent-ids ‖ seed ‖ fitness)`; because each child commits to its parents' ids, the archive becomes a **signed, content-addressed Merkle DAG** — a verifiable tree of life with tamper-evident ancestry, attribution and anti-fraud. Signatures (ECDSA P-256 via the Web Crypto API) bind each entry to an author key, so a creature cannot be grafted onto a lineage without the right key. This is *Git for genomes* — content-addressing as in [Git](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects); append-only transparency as in [Certificate Transparency (RFC 6962)](https://datatracker.ietf.org/doc/html/rfc6962) — a few hundred lines, no chain, no token. The reference implementation ships in the live demo and is round-trip-verifiable: export the lineage, re-import it, and every hash and signature is re-checked (tampered content and forged signatures are both rejected).
+**Built and real today.** Each creature carries a signed commitment to itself and sits in a tamper-evident phylogeny. A genome's id is a content hash `SHA-256(genome ‖ parent-ids ‖ seed ‖ fidelity)`; because each child commits to its parents' ids, the archive becomes a **signed, content-addressed Merkle DAG** — a verifiable tree of life with tamper-evident ancestry, attribution and anti-fraud, rendered in the instrument as a navigable greyscale tree. Everything descends from the canonical **Genesis** seed. Signatures (ECDSA P-256 via the Web Crypto API) bind each entry to an author key, so a creature cannot be grafted onto a lineage without the right key. This is *Git for genomes* — content-addressing as in [Git](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects); append-only transparency as in [Certificate Transparency (RFC 6962)](https://datatracker.ietf.org/doc/html/rfc6962) — a few hundred lines, no chain, no token. The lineage **persists across sessions in IndexedDB**, so it grows over time, and is round-trip-verifiable: export it, re-import it, and every hash and signature is re-checked (tampered content and forged signatures are both rejected). Once the swarm (§3.4) is real, this becomes *one shared genealogy* across all participants.
 
 **Research north star.** Replace replication + quorum (§3.5) with succinct verifiable computation: each elite emits a [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) that it evaluated genome $g$ on seeded task $s$ and obtained fitness $\varphi$ and descriptor $bd$ — the coordinator *verifies* rather than re-runs. The prover/verifier asymmetry that makes [zkML](https://github.com/zkonduit/ezkl) punishing for large models is a *gift* for our tiny nets: [Kang et al. (2022)](https://arxiv.org/abs/2210.08674) verify ImageNet-scale inference with a ~5 KB proof in ~1 s. A zk circuit also pins a canonical fixed-point arithmetic, dissolving §3.5's cross-device non-determinism. The horizon is recursive proof composition ([Nova](https://eprint.iacr.org/2021/370); IVC/PCD; [Mina](https://minaprotocol.com/blog/22kb-sized-blockchain-a-technical-reference) folds an entire chain into ~22 KB), so the archive root could one day be a single recursive proof of the population's whole becoming. **The gate is proving cost:** we would prove *selectively* (elites, on opt-in / beast nodes) and verify everywhere. We therefore name this a telescope, not a feature.
 
@@ -108,28 +116,36 @@ The genuinely deep resonance is not invented for this project — it is a 60-yea
 
 > ⚛️ **Honest quantum note.** There are no qubits here. Quantum mechanics is our metaphor and our lineage, *not* our runtime. We claim no quantum speedup — [none exists](https://scottaaronson.blog/?p=198) for this embarrassingly-parallel, classical workload; quantum neural nets suffer barren plateaus; browser state-vector simulators cap at ~16–20 qubits. The single honest hook — *"a creature that cannot be cloned, only re-grown"* — is enough, and it is literally true.
 
+### 3.8 The island model and the emergent archipelago
+
+The distributed form of Autograph (the §3.4 direction) is, in the vocabulary of evolutionary computation, an **asynchronous island model** [27, 28]: many subpopulations ("demes") evolve in parallel and periodically exchange migrants. The twist Autograph leans on is the *cause* of the structure. Rather than a designed migration topology, **islands emerge automatically from device-speed heterogeneity and sporadic syncing**: a fast desktop and a thermally-throttled phone advance their local populations at very different rates and sync at irregular intervals, so isolated demes form with an *undesigned* topology. The migration currency is the natural one for a quality-diversity engine — **best-per-niche elites** (§3.3) flow up to the coordinator and others' elites flow back down.
+
+The dynamics this invites are the biologist's: **isolation → allopatric speciation → diversity**, the engine of an open-ended *archipelago*. Classical island-model theory names the two regimes to tune against — too much migration collapses diversity, too little starves cross-pollination [28] — and QDax's empirical finding that *lineage length barely affects QD quality* [4] is an encouraging sign that sporadic, lossy syncing can still illuminate the archive well. A planetary archipelago — one shared, signed genealogy fed by thousands of emergent demes — is the v2 payoff.
+
+> **Honesty.** *None of this island structure exists in v1.* Today Autograph runs a **single local population** on one device; true islands arrive only with the distributed coordinator (§3.4; [deploy runbook](./DEPLOY-coordinator.md)). A **local multi-deme demo** — several subpopulations in one tab with simulated migration — is plausible future work we have deliberately *not* built, so as never to imply the swarm already runs.
+
 ---
 
 ## 4. The central claim, and how it is falsifiable
 
-**Claim.** *Open-ended, crowd-scale quality-diversity search discovers a diverse population of approximate self-encoding CPPNs that (a) cannot be matched, in joint diversity-and-fidelity, by objective-only search, and (b) exhibit more factored internal representations than gradient-descent-trained self-encoders of equal output fidelity.*
+**Claim.** *Open-ended quality-diversity search discovers a diverse population of approximate self-encoding creatures (CPPN-painted, ES-placed substrates) that (a) cannot be matched, in joint diversity-and-fidelity, by objective-only search, and (b) exhibit more factored internal representations than gradient-descent-trained self-encoders of equal output fidelity.*
 
 This is deliberately testable, and each clause can fail:
 
 | Prediction | How it could be falsified |
 |---|---|
-| **P1.** QD (MAP-Elites + novelty) yields lower self-reconstruction error *and* greater archive coverage than objective-only search. | If an objective-only baseline matches or beats QD on **both** error and coverage, the open-ended premise fails for this task. |
+| **P1.** QD (MAP-Elites) yields higher **loop fidelity** *and* greater archive coverage than objective-only search. | If an objective-only baseline matches or beats QD on **both** fidelity and coverage, the open-ended premise fails for this task. |
 | **P2.** Evolved self-encoders show less "fracture" than SGD-trained self-encoders, by the neuron-visualisation / factoredness metric of [11]. | If evolved and SGD solutions of equal fidelity are indistinguishable on the FER/UFR metric, the representational argument collapses. |
 | **P3.** A self-certifying genome (Pillar 1) verifies more cheaply than it re-computes. | If verification cost ≥ recomputation cost at our scale, the trust rationale for Pillar 1 is void — we fall back to replication (§3.5). |
 
-**Where it must fail (stated up front).** Exact, bitwise self-encoding is impossible across heterogeneous hardware (§3.5); we predict only $\varepsilon$-approximate loops. Following Chang & Lipson [12], we also expect a **fidelity-vs-other-function trade-off**: pushing a creature to also be visually striking (the art) will cost self-reconstruction accuracy. Reporting that trade-off curve honestly is part of the result, not a failure of it.
+**Where it must fail (stated up front).** Exact, bitwise self-encoding is impossible — the substrate field has finite expressivity, and heterogeneous hardware compounds it (§3.5); we predict only $\varepsilon$-approximate loops, and report loop fidelity live rather than as a fixed guarantee. Following Chang & Lipson [12], we also expect a **fidelity-vs-other-function trade-off**: pushing a creature to also be lively and visually striking (the art) will cost loop-closure accuracy. Reporting that trade-off curve honestly is part of the result, not a failure of it.
 
 ---
 
 ## 5. Limitations and ethics
 
 - **It is an artwork and an experiment, not a theorem.** The contribution is a synthesis and a public instrument; the falsifiable claims (§4) are modest and bounded.
-- **No over-claiming.** §3.7 (quantum) is metaphor and lineage, never mechanism — there are no qubits in Autograph. In §3.6, the signed Merkle-DAG lineage is built and real; the zkML "proof of becoming" is named as a research north star, not a result.
+- **No over-claiming.** §3.7 (quantum) is metaphor and lineage, never mechanism — there are no qubits in Autograph. In §3.6, the signed Merkle-DAG lineage is built and real (and persisted in IndexedDB); the zkML "proof of becoming" is named as a research north star, not a result. The **worldwide swarm / shared archive is a documented direction — the instrument runs on one device today** (§3.4). Neuron placement is the **simplified** ES-HyperNEAT criterion; **full quadtree band-pruning ES-HyperNEAT is named as the direction, not shipped** (§3.2).
 - **Energy honesty.** Per watt, datacentres win; the swarm's value is harvesting *idle, already-powered* hardware for embarrassingly-parallel QD search at ~zero marginal cost — not efficiency, and emphatically not frontier-model training [briefing, 20].
 - **Consent and transparency.** Donated compute requires explicit, revocable opt-in with visible resource use; never crypto-mining by stealth.
 - **Accessibility.** A scalar-JS path ensures no device is excluded; colour-blind-safe palettes; no dark patterns.
@@ -142,7 +158,38 @@ This is deliberately testable, and each clause can fail:
 - **Atlas of Self-Reference.** Publish the illuminated archive as an open, browsable dataset — every discovered *kind* of strange loop, with lineage — in the spirit of citizen-science corpora.
 - **Literal-impact path.** Citizen-science games have produced real artefacts: Foldit players solved and then *designed* proteins, and EteRNA designs were synthesised in a wet lab [briefing]. The analogous ambition for Autograph is that crowd-discovered self-certifying / self-describing structures (Pillar 1) become genuinely useful primitives for trustworthy distributed computation — not merely a metaphor.
 - **Self-reference as a benchmark for open-endedness.** Because the target is maximally self-contained, the self-encoding fixed point may be a clean, cheap testbed for comparing open-ended algorithms (POET [7], ELM [8], MAP-Elites [5]) on representation quality [11].
-- **Advance the pillars.** §3.6's signed lineage is built; the next step is a scoped zkML proof-of-fitness for archive elites on opt-in nodes, then recursive composition. §3.7 stays narrative by design.
+- **Grow the swarm.** Move from one local node to many growing one shared garden, via the sandboxed, opt-in coordinator (PartyServer on Cloudflare) specified in the [deploy runbook](./DEPLOY-coordinator.md) behind the existing `Archive` seam — turning the per-device tree of life into one shared genealogy.
+- **Full ES-HyperNEAT.** Replace the simplified, variance-scored placement (§3.2) with the full quadtree band-pruning algorithm, so neuron resolution adapts to the information in the connectivity pattern.
+- **Advance the pillars.** §3.6's signed lineage is built and persistent; the next step is a scoped zkML proof-of-fitness for archive elites on opt-in nodes, then recursive composition. §3.7 stays narrative by design.
+- **Local multi-deme demo.** A single-tab archipelago (several subpopulations with simulated migration) would let the island dynamics of §3.8 be studied honestly before the distributed coordinator exists.
+
+---
+
+## 7. Extended related work: the distributed-systems neighbours
+
+§2 covers the representational and quality-diversity foundations; here we situate Autograph's *distributed* form against its nearest systems neighbours. The honest summary is that **every ingredient has clear precedent**; §8 states precisely what is — and is not — novel.
+
+**Distributed / island-model EC.** The island model and its asynchronous, heterogeneous variants are long established (Tanese [27]; Cantú-Paz's taxonomy [28]). Autograph's only twist is *why* demes emerge — device-speed heterogeneity rather than a designed topology (§3.8) — a new emphasis on a known phenomenon, not a new mechanism.
+
+**Browser / volunteer EC.** Browser-native, churn-tolerant volunteer evolution and even in-browser neural-network training already exist; JSDoop [21] is representative, and Picbreeder [6] demonstrated planetary, collaborative CPPN evolution with a deep shared lineage fifteen years ago — under *human* selection, where Autograph uses *autonomous* local fitness + QD.
+
+**Decentralised, asynchronous large-scale training.** Autograph's *systems* posture — asynchronous, heterogeneous, permissionless, untrusted contributors — is most thoroughly anticipated by recent decentralised **gradient/LLM** training: Prime Intellect's globally-decentralised reinforcement learning (INTELLECT-2 [29]) and Nous Research's communication-efficient optimiser (DeMo [30]), and the incentive-market framing of Bittensor [31]. Two honest distinctions: (i) **objective** — these optimise *one* model toward *one* objective, whereas Autograph runs divergent, *open-ended* quality-diversity with no single objective; (ii) **trust / incentive** — they verify contribution value and lean on **crypto-economic tokens** (e.g. Bittensor's TAO), whereas Autograph is **token-free** and its signed genealogy verifies *record integrity*, not fitness correctness (§3.5–§3.6). We borrow their vocabulary and engineering; we do **not** claim their async-at-scale results.
+
+**Open-endedness.** "Never-ending divergent search" is a mature programme (POET [7]; OMNI [32]; the AI-GAs manifesto [33]; and the position that open-endedness is essential for capable AI [9]). Autograph contributes not a new theory but a new *substrate* — planetary, browser-native, autonomous-compute — and currently lacks an ANNECS-style progress measure, which §6 flags as future work.
+
+**Decentralised genealogy & verifiable provenance.** Two mature lines sit on either side of Autograph's sharpest claim but *do not meet*: decentralised phylogeny tracking for distributed evolution exists but is **statistical, not cryptographically signed** (Moreno et al. [34]); cryptographic provenance is tamper-evident but targets **datasets and gradient-training pipelines, not evolutionary lineages** (content-addressing and append-only transparency as in Git and Certificate Transparency, §3.6). Their union — a signed Merkle-DAG genealogy *of an open-ended evolutionary run* — is the gap Autograph occupies.
+
+**Self-encoding networks.** The self-encoding task has direct precedent: Chang & Lipson's neural-network quine [12] (a net that outputs its own weights, via a coordinate encoding) and SeRANN [35] (networks that copy their own genotype with emergent mutation, giving universal evolutionary dynamics). Autograph's variant — *evolve* a CPPN whose painted substrate *renders* a self-portrait that re-encodes the genotype, as the seed task of a distributed quality-diversity run — is, to our knowledge, not previously assembled.
+
+---
+
+## 8. Novelty: a novel assembly, honestly bounded
+
+We make **no "world first" claim for any single ingredient** — each is well-precedented (§2, §7). What a prior-art sweep could not locate is the *specific assembly*: a **browser-native, local-first, asynchronous, open-ended neuroevolution + quality-diversity** system in which **demes emerge from device-speed heterogeneity** and **every contribution feeds one shared, cryptographically-verifiable (signed Merkle-DAG) genealogy**, on a **token-free** substrate.
+
+The single most defensible original pillar is the **cryptographically-verifiable genealogy of an open-ended distributed neuroevolution run**: the decentralised-phylogeny literature is not tamper-evident [34], and the cryptographic-provenance literature is not evolutionary (§3.6, §7) — their union is, to our knowledge, untrodden. A second, weaker novelty is the **token-free permissionless contribution model**: comparable permissionless-at-scale systems lean on crypto-economic stake [31], so doing without one is unusual — but it *raises* an open Sybil/trust question (§3.5) rather than settling it.
+
+We therefore frame the contribution, in the strongest defensible terms, as a **novel assembly of well-studied components** — *"to our knowledge the first to combine"* these threads — and as an empirical study of the dynamics that assembly provokes, **never** as a new algorithm or a primacy claim over any single thread. A novel assembly is a much weaker, and much more honest, claim than a novel mechanism; most of Autograph's risk is engineering and dynamics, not conceptual primacy.
 
 ---
 
@@ -172,5 +219,16 @@ This is deliberately testable, and each clause can fail:
 22. *WebGPU now in all major browsers (Baseline)*, web.dev, 2026. https://web.dev/blog/webgpu-supported-major-browsers
 23. *WGSL specification — floating-point evaluation* (no bit-exactness guarantee). https://github.com/gpuweb/gpuweb/blob/main/wgsl/index.bs
 24. T. Cubitt, D. Pérez-García & M. M. Wolf. *Undecidability of the Spectral Gap*. Nature 2015. arXiv:1502.04573. https://arxiv.org/abs/1502.04573 *(referenced only by the speculative §3.7)*
+25. K. O. Stanley. *Compositional Pattern Producing Networks: A Novel Abstraction of Development* (CPPNs); connective CPPNs underpin the HyperNEAT substrate encoding. GPEM 8(2):131–162, 2007. https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf
+26. S. Risi & K. O. Stanley. *An Enhanced Hypercube-Based Encoding for Evolving the Placement, Density, and Connectivity of Neurons* (ES-HyperNEAT). Artificial Life 18(4):331–363, 2012. https://direct.mit.edu/artl/article/18/4/331/2675 *(we ship a simplified variance-scored placement, §3.2; the full quadtree band-pruning method is the named direction)*
+27. R. Tanese. *Distributed Genetic Algorithms*. Proc. 3rd Int. Conf. on Genetic Algorithms (ICGA-3), 434–439, 1989. https://deepblue.lib.umich.edu/handle/2027.42/162372
+28. E. Cantú-Paz. *A Survey of Parallel Genetic Algorithms*. Calculateurs Parallèles 10(2):141–171, 1998. https://neo.lcc.uma.es/cEA-web/documents/cant98.pdf
+29. Prime Intellect. *INTELLECT-2: A Reasoning Model Trained Through Globally Decentralized Reinforcement Learning*. arXiv:2505.07291, 2025. https://arxiv.org/abs/2505.07291
+30. Nous Research. *DeMo: Decoupled Momentum Optimization*. arXiv:2411.19870, 2024. https://arxiv.org/abs/2411.19870
+31. *Bittensor: a peer-to-peer machine-intelligence market* (whitepaper). https://bittensor.com/whitepaper *(cited as the token-based contrast to Autograph's token-free model)*
+32. J. Zhang, J. Lehman, K. O. Stanley & J. Clune. *OMNI: Open-endedness via Models of human Notions of Interestingness*. arXiv:2306.01711, 2023. https://arxiv.org/abs/2306.01711
+33. J. Clune. *AI-GAs: AI-generating algorithms, an alternate paradigm for producing general artificial intelligence*. arXiv:1905.10985, 2019. https://arxiv.org/abs/1905.10985
+34. M. A. Moreno et al. *A Guide to Tracking Phylogenies in Parallel and Distributed Agent-based Evolution Models*. arXiv:2405.10183, 2024. https://arxiv.org/abs/2405.10183 *(decentralised phylogeny tracking — not cryptographically signed)*
+35. *Self-replicating artificial neural networks give rise to universal evolutionary dynamics* (SeRANN). PLOS Computational Biology 20(3):e1012004, 2024. https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1012004
 
 *[briefing] = [`neuroevolution-swarm-stack-2026.md`](../research/neuroevolution-swarm-stack-2026.md), the companion technical scouting report (WGSL one-runtime, GPU NEAT/QD, BOINC-style trust, energy realities, full link set). The cryptographic and quantum pillars (§3.6–§3.7) are grounded in the companion briefings in [`../research/`](../research/).*

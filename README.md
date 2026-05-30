@@ -1,13 +1,13 @@
 # 🤲 Autograph
 
-> **A network that learns to draw its own beginning.**
-> Autograph is a browser-native engine that *evolves* tiny neural networks toward a strange loop: a creature whose picture is the very thing that drew it. Escher's [*Drawing Hands*](https://en.wikipedia.org/wiki/Drawing_Hands) — alive, evolving, and grown in your own tab.
+> **A network that learns to draw its true self.**
+> Autograph is a full-screen, greyscale instrument for a live evolutionary experiment you join the moment it loads. Inside it, tiny neural networks evolve toward a strange loop — a creature whose glowing self-portrait can be read back to recover the very DNA that drew it. *A precise greyscale instrument framing vivid, sunrise-coloured life.*
 
 [![status: weekend build](https://img.shields.io/badge/status-weekend%20build-9cf)](https://github.com/admiralakber/autograph)
 [![live demo](https://img.shields.io/badge/live-admiralakber.github.io%2Fautograph-blueviolet)](https://admiralakber.github.io/autograph/)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-green)](./LICENSE)
 
-**▶ Live: [admiralakber.github.io/autograph](https://admiralakber.github.io/autograph/)**
+**▶ Live: [admiralakber.github.io/autograph](https://admiralakber.github.io/autograph/)** · **Soul & doctrine: [VISION.md](./VISION.md)**
 
 ---
 
@@ -25,51 +25,87 @@ It reads like poetry. It is, independently, a result in three different subjects
 
 ## What it actually is 🖼️
 
-A **quine** is a program that prints its own source code. **Autograph** evolves the artwork version of that idea: a [**compositional pattern-producing network (CPPN)**](https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf) — a tiny neural network that paints an image — bred, generation by generation, until the image it paints is *an encoding of itself*. The output redraws the generator.
+Autograph is an **instrument**, not a slideshow: a greyscale, monospace mission-control panel wrapped around one living population. A creature in it is **two networks that make each other** — and a 3-D self-portrait that closes the loop between them.
 
-It is a piece of **generative art**, a genuine **open-ended evolution** experiment, and a small philosophical provocation made watchable: *what does it look like for a thing to comprehend its own origin?*
+- 🧬 **DNA — the genotype.** A small *connective* [CPPN](https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf). Given the positions of two points in space (`x₁,y₁,z₁, x₂,y₂,z₂`, plus a bias) it returns a connection — a `weight` and a link-expression gate (`leo`) that decides whether the connection exists. We draw it as a small node-and-edge **graph**.
+- 🧠 **The brain — the phenotype.** A HyperNEAT **substrate**. Its inputs are a point in space (`x, y, z, r, bias`); its outputs are `density` and `hue`. Its connection weights are *painted* by the CPPN from node geometry, and its hidden neurons are *placed* by the CPPN. We draw it as a node-and-connection network too.
+- ✨ **The self-portrait.** Query that substrate across 3-D space and it answers with a field of density and hue, rendered as a volumetric **point cloud** coloured by the sunrise palette (density → alpha, hue → colour). This is the creature you see.
 
-When that loop closes, the creature has written its own signature — hence the name. **Autograph**: *auto-* (self) + *-graph* (writing / drawing / network). Self-**writing** is the quine; self-**signature** is the crypto; the **graph** is the net.
+When that loop closes, the creature has written its own signature — hence the name. **Autograph**: *auto-* (self) + *-graph* (writing / drawing / network). Self-**writing** is the quine; self-**signature** is the crypto; the two **graphs** are the DNA and the brain.
 
 ```mermaid
 flowchart LR
-  G["🧬 genome<br/>(network weights)"] -->|"render"| I["🖼️ image<br/>(what it draws)"]
-  I -->|"is an encoding of"| G
-  I -. "the loop closes" .-> G
+  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>places neurons (ES)"| PHENO["🧠 brain · phenotype<br/>(HyperNEAT substrate)"]
+  PHENO -->|"queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
+  ART -->|"read density back at<br/>known 3-D probe points"| DNA2["🧬 DNA′"]
+  DNA2 -. "closer DNA′ ↔ DNA ⇒ loop closes (measured live)" .-> DNA
 ```
+
+### The equivalence you can toggle 🔁
+
+The core comprehension goal: **a cool-looking render *is* a neural network, and that network *has* a DNA.** You can view the *same* individual three ways and flip between them — (a) the rendered 3-D self-portrait, (b) its phenotype network, (c) its DNA (the CPPN graph). Three faces of one creature. The full soul and teaching goals live in **[VISION.md](./VISION.md)**.
 
 ---
 
-## The soul: a strange loop, braided three ways 🔁
+## The soul: a strange loop, braided three ways 🪢
 
 Borrowed, with love, from Hofstadter's [*Gödel, Escher, Bach*](https://en.wikipedia.org/wiki/G%C3%B6del,_Escher,_Bach):
 
 | | The braid | In Autograph |
 |---|---|---|
-| 🔢 **Gödel** | a formula that talks about itself (self-reference via a [fixed point](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem)) | a genome that encodes a description of itself |
-| 🎨 **Escher** | [*Drawing Hands*](https://en.wikipedia.org/wiki/Drawing_Hands) — each hand draws the other into being | a CPPN whose picture *is* its own generator |
+| 🔢 **Gödel** | a formula that talks about itself (self-reference via a [fixed point](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem)) | a DNA whose self-portrait re-states the DNA |
+| 🎨 **Escher** | [*Drawing Hands*](https://en.wikipedia.org/wiki/Drawing_Hands) — each hand draws the other into being | a CPPN that paints a brain that paints a picture of the CPPN |
 | 🎵 **Bach** | the [endlessly rising canon](https://en.wikipedia.org/wiki/Musical_Offering) — climbs forever, returns home | an evolutionary search that never stops climbing |
+
+Everything in the world descends from one canonical **Genesis** seed, preserved byte-for-byte:
+
+```text
+And yet.... 🦕 a trace.... ✨ of.. the true self... 🐣 exists.... 🐥 within the false 🍗 = 🦖
+```
+
+The soul, in one breath: *the algorithm of life — lifeforms trying to draw their true self out of the false, with a whole world watching and helping a neural network understand its true self.* Humane, and honest: we mean it as a provocation made watchable, never as a grand claim.
 
 ---
 
-## What the live demo really does ✅
+## What the live instrument really does ✅
 
-The site runs **entirely on your device** — no backend, no telemetry, no swarm. Here is the honest split between what is *real* and what is *illustrative*, because the whole project lives or dies on not over-claiming.
+It runs **entirely on your device** — no backend, no telemetry. Here is the honest split between what is *real* and what is *illustrative*, because the whole project lives or dies on not over-claiming.
 
 **Real, and running in your browser:**
 
-- 🧬 **A genuinely-evolving CPPN.** Heterogeneous activations (`sin`, `gauss`, `tanh`, `sigmoid`, `abs`, `identity`), evolvable weights and biases, gradient-free mutation + crossover.
-- 🗺️ **Real [MAP-Elites](https://arxiv.org/abs/1504.04909) quality-diversity.** A grid keyed by (structural complexity, mirror symmetry); each cell keeps the best self-encoder of its kind. You watch it fill — a wall of diverse self-portraits.
-- 🎨 **The seed → creature ritual.** A seed (or your public key) deterministically grows one creature; the same seed always grows the same creature (the [Art Blocks](https://docs.artblocks.io/protocol/overview/) / [fxhash](https://docs.fxhash.xyz/creating-on-fxhash/programming-open-form-genart) pattern).
-- 🌳 **A real signed, hash-chained lineage.** Keep a creature and it becomes a node in a content-addressed [Merkle-DAG](https://en.wikipedia.org/wiki/Merkle_tree); its id is `SHA-256` of its content *including its parents' ids*, signed with an [ECDSA P-256](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) key. Export it, re-import it — every hash and signature is re-checked. **No chain. No token.**
-- 🖥️ **Graceful degradation.** One CPPN core authored once, run on **WebGPU** (a generated WGSL shader) when available, and a **Canvas 2D** CPU path everywhere else — provably the same network, only the device changes.
+- 🧬 **A genuinely-evolving DNA + brain.** A heterogeneous-activation CPPN (the genotype) paints and *places* a HyperNEAT substrate (the phenotype); both evolve by gradient-free mutation + crossover.
+- 🧠 **ES-style neuron placement.** Hidden neurons are positioned where the incoming connectivity pattern carries the most information (variance) — the simplified, shipping cousin of [ES-HyperNEAT](./docs/WHITEPAPER.md). *Full quadtree band-pruning ES-HyperNEAT is the named direction; we ship simplified placement now.*
+- ✨ **A 3-D volumetric self-portrait.** The substrate's density → hue field rendered as a point cloud via [Three.js](https://threejs.org/), with a graceful **Canvas 2D** fallback (and the same field drives the grid thumbnails).
+- 🔁 **A self-encoding loop, measured live.** Each DNA parameter is assigned a 3-D probe coordinate; the loop "closes" when the density painted *at* that coordinate matches the parameter. This is the honest, single-device cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859) (the HyperNEAT coordinate→weight trick). **The loop fidelity shown is measured live, never faked** — a fresh random creature tends to sit in the low 0.6s, and evolution pushes lively ones into the high 0.8s. We never print a fixed number as a guarantee; you watch the real value climb.
+- 🗺️ **Real [MAP-Elites](https://arxiv.org/abs/1504.04909) quality-diversity.** A grid keyed by (structural complexity, mirror symmetry); each cell keeps the best self-encoder of its kind, fitness shown by a greyscale border value (no colour). You watch the wall of diverse self-portraits fill.
+- 🌳 **A real signed, hash-chained tree of life — and it persists.** Keep a creature and it becomes a node in a content-addressed [Merkle-DAG](https://en.wikipedia.org/wiki/Merkle_tree); its id is `SHA-256` of its content *including its parents' ids*, signed with an [ECDSA P-256](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) key. The lineage is rendered as a navigable greyscale tree and **persisted across sessions in IndexedDB**, so it grows over time. Everything descends from the Genesis seed. **No chain. No token.**
 
-**Real, but approximate:**
+**Real, but deliberately bounded:**
 
-- 🔁 **The self-encoding loop closes to a *tolerance*, never bit-exactly.** Each genome parameter is assigned a probe coordinate; the loop "closes" when the ink painted *at* that coordinate matches the parameter. This is the honest, single-device cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859) (the HyperNEAT coordinate→weight trick). **The loop fidelity shown is measured live, never faked.**
-- ⚠️ **The trivial fixed point is real and avoided on purpose.** A blank, near-flat creature "encodes itself" perfectly — and says nothing. So we showcase the *lively* ones (structured *and* self-encoding); self-reference only matters when it is load-bearing against a world ([Chang & Lipson](https://arxiv.org/abs/1803.05859)).
+- ⚠️ **The loop closes to a *tolerance*, never bit-exactly,** and the trivial fixed point is avoided on purpose. A blank, near-flat creature "encodes itself" perfectly and says nothing — so a **vitality gate** plus the MAP-Elites diversity pressure keep the population pushing against a real world. Self-reference only matters when it is load-bearing ([Chang & Lipson](https://arxiv.org/abs/1803.05859)).
 
-**Illustrative / roadmap (clearly labelled as such):** the worldwide **swarm**, **zkML "proof of becoming"**, and the **quantum** framing. Narrative and lineage — never a claim. *There are no qubits here.*
+**Illustrative / roadmap (clearly labelled as such):** the worldwide **swarm / shared archive** (one device today — see *You are a node*, below), **zkML "proof of becoming"**, the **quantum** framing, and **full quadtree ES-HyperNEAT**. Narrative and lineage — never a claim. *There are no qubits here.*
+
+---
+
+## The aesthetic doctrine 🎛️
+
+> **A precise greyscale instrument framing vivid, sunrise-coloured life.**
+
+The discipline is Dieter Rams / Braun restraint: nothing decorative, everything legible.
+
+- **The chrome is monochrome.** Panels, rules, labels, readouts and the population's fitness borders are strictly **greyscale + monospace**. Value, not hue, carries meaning.
+- **Colour means life, and nothing else.** The only colour anywhere is the **sunrise** palette — the [HSLuv](https://www.hsluv.org/) colour space (MIT) at Lightness 72, Saturation 100, hue swept the full 0→360, alpha ≈ 0.7 — used *only* to colour the living creatures and living-thing accents. HSLuv gives a perceptually-even sweep, so the cycle glows like a sunrise with no muddy or blown-out arcs.
+
+---
+
+## You are a node: local-first → swarm 🌐
+
+Today, the instrument runs entirely on your own device: **you are a node — a node of one.** No backend, no account, no data leaves the tab.
+
+The roadmap is a **swarm**: many devices growing *one shared garden*, so a creature discovered on one machine illuminates the wall for everyone and the tree of life becomes a single, shared genealogy across all participants. The chosen path — a [PartyServer](https://github.com/cloudflare/partyserver)-on-Cloudflare coordinator that owns the global MAP-Elites archive and the signed lineage behind the same swap-able `Archive` seam already in the code — is specified, sandboxed and **undeployed by design** in the [coordinator runbook](./docs/DEPLOY-coordinator.md). We link to it rather than repeat it.
+
+**The swarm's natural shape is an archipelago.** Heterogeneous device speeds and sporadic syncing make it an *asynchronous island model*: demes emerge on their own (no designed topology), best-per-niche elites migrate through the coordinator, and isolation breeds allopatric speciation → diversity. *Honest status:* v1 is a single local population; true islands arrive only with the coordinator (even a local multi-deme demo is future work, not built). The dynamics are written up in the [whitepaper §3.8](./docs/WHITEPAPER.md).
 
 ---
 
@@ -79,9 +115,9 @@ The site runs **entirely on your device** — no backend, no telemetry, no swarm
 
 Self-drawing is one step from self-*certifying*. The interest here is **cryptography-as-mathematics** — hashes, commitments, signatures, proofs — **never coins**. Three honest tiers:
 
-- ✅ **Signed, content-addressed Merkle-DAG lineage (built, in the demo).** A phylogeny is a DAG (crossover has two parents). Each genome's id binds its weights, parents, seed and fitness; signatures bind it to an author key, so you cannot graft a creature onto a famous lineage without the right key. This is the grift-free heart — *Git for genomes*, buildable in a weekend with [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API), echoing [Certificate Transparency](https://datatracker.ietf.org/doc/html/rfc6962). It is also the principled fix for an untrusted swarm.
+- ✅ **Signed, content-addressed Merkle-DAG lineage (built, in the demo).** A phylogeny is a DAG (crossover has two parents). Each genome's id binds its weights, parents, seed and fidelity; signatures bind it to an author key, so you cannot graft a creature onto a famous lineage without the right key. This is the grift-free heart — *Git for genomes*, buildable in a weekend with [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API), echoing [Certificate Transparency](https://datatracker.ietf.org/doc/html/rfc6962). It is also the principled fix for an untrusted swarm, and it persists in IndexedDB.
 - ✅ **Carried self-commitment (built).** Every creature carries a signed `SHA-256` of its own genome — a self-witnessing fingerprint. (The *exact* crypto-hash quine, where a net's output literally equals `H(W)`, is partial-preimage mining — astronomically hard, deliberately off the critical path.)
-- 🔭 **Proof of becoming — zkML (north star, not built).** Each elite carries a succinct [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) that it truly achieved its fitness — *verified, not re-run*. Our nets are tiny, where zkML's prover/verifier asymmetry is friendliest ([Kang et al.](https://arxiv.org/abs/2210.08674): ~5 KB proofs, ~1 s to verify). Folding the whole history into one [recursive proof](https://eprint.iacr.org/2021/370) à la [Mina](https://minaprotocol.com/blog/22kb-sized-blockchain-a-technical-reference) is the horizon. Proving cost is the gate, so we name it a telescope, not a feature.
+- 🔭 **Proof of becoming — zkML (north star, not built).** Each elite carries a succinct [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) that it truly achieved its fidelity — *verified, not re-run*. Our nets are tiny, where zkML's prover/verifier asymmetry is friendliest ([Kang et al.](https://arxiv.org/abs/2210.08674): ~5 KB proofs, ~1 s to verify). Folding the whole history into one [recursive proof](https://eprint.iacr.org/2021/370) à la [Mina](https://minaprotocol.com/blog/22kb-sized-blockchain-a-technical-reference) is the horizon. Proving cost is the gate, so we name it a telescope, not a feature.
 
 > 🚩 **Anti-grift red line.** No token, no manufactured scarcity, no "buy in to participate". Git proves tamper-evident provenance to millions daily **with no blockchain**; so does Autograph. If a feature only makes sense with a coin attached, it isn't here.
 
@@ -102,23 +138,32 @@ git clone https://github.com/admiralakber/autograph && cd autograph/web
 npm install
 npm run dev        # Vite + TypeScript dev server
 npm run build      # type-check (strict) + production build
-npm run smoke      # headless sanity check: evolution + lineage verification
+npm run smoke      # headless sanity check: evolution + loop + lineage verification
 ```
 
-No dependencies beyond Vite + TypeScript: the CPPN, MAP-Elites, the WGSL render core and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
+The CPPN, the substrate, the simplified ES placement, MAP-Elites, the render and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
 
 ### Repository layout
 
 ```text
 autograph/
-├── web/                     # the Vite + TypeScript app (the live demo + story)
-│   ├── index.html           # the landing page (the whole tale)
-│   ├── src/engine/          # CPPN, MAP-Elites, render (WebGPU + Canvas), Web-Crypto lineage
-│   ├── src/ui/              # the live demo controller
+├── web/                     # the Vite + TypeScript instrument (the live demo)
+│   ├── index.html           # the full-screen mission-control panel
+│   ├── src/engine/          # the two networks + the loop
+│   │   ├── arch.ts          # topology: CPPN genotype + substrate phenotype
+│   │   ├── cppn.ts          # the DNA (connective CPPN)
+│   │   ├── substrate.ts     # the brain + simplified ES-HyperNEAT placement
+│   │   ├── fitness.ts       # the strange loop: fidelity, vitality, descriptors
+│   │   ├── mapelites.ts     # MAP-Elites quality-diversity archive
+│   │   ├── lineage.ts       # signed, content-addressed Merkle-DAG (Web Crypto)
+│   │   ├── palette.ts       # the sunrise (HSLuv) palette — life only
+│   │   ├── genesis.ts       # the canonical Genesis seed
+│   │   └── render/          # volumetric point cloud (Three.js) + Canvas 2D fallback
+│   ├── src/ui/              # the instrument controller
 │   └── scripts/smoke.ts     # headless verification ("don't trust, verify")
-├── docs/                    # WHITEPAPER.md · BLOG.md
+├── docs/                    # WHITEPAPER.md · BLOG.md · DEPLOY-coordinator.md
 ├── research/                # the original scout briefings, kept as provenance
-├── .github/workflows/       # deploy.yml → GitHub Pages
+├── VISION.md                # the soul + teaching goals + aesthetic doctrine
 ├── TWEETS.md
 └── LICENSE                  # MIT
 ```
@@ -141,7 +186,7 @@ Per watt, datacentres win. A browser swarm's value (the roadmap) is harvesting *
 
 ## Standing on shoulders 🙏
 
-[Hofstadter (*GEB*)](https://en.wikipedia.org/wiki/G%C3%B6del,_Escher,_Bach) · [Gödel](https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems) · [Escher](https://en.wikipedia.org/wiki/Drawing_Hands) · [Bach](https://en.wikipedia.org/wiki/Musical_Offering) · [Kleene (recursion theorem)](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem) · [von Neumann (self-replication)](https://en.wikipedia.org/wiki/Von_Neumann_universal_constructor) · [Chang & Lipson (neural-network quine)](https://arxiv.org/abs/1803.05859) · [Stanley & Miikkulainen (NEAT)](https://nn.cs.utexas.edu/downloads/papers/stanley.jair04.pdf) · [Secretan et al. (Picbreeder)](https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf) · [Lehman & Stanley (novelty search)](https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf) · [Mouret & Clune (MAP-Elites)](https://arxiv.org/abs/1504.04909) · [Kumar, Clune, Lehman & Stanley (FER/UFR)](https://arxiv.org/abs/2505.11581) · the [BOINC](https://github.com/BOINC/boinc/wiki/Job-replication) volunteer-computing tradition. The full reference list lives in the [whitepaper](./docs/WHITEPAPER.md).
+[Hofstadter (*GEB*)](https://en.wikipedia.org/wiki/G%C3%B6del,_Escher,_Bach) · [Gödel](https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems) · [Escher](https://en.wikipedia.org/wiki/Drawing_Hands) · [Bach](https://en.wikipedia.org/wiki/Musical_Offering) · [Kleene (recursion theorem)](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem) · [von Neumann (self-replication)](https://en.wikipedia.org/wiki/Von_Neumann_universal_constructor) · [Chang & Lipson (neural-network quine)](https://arxiv.org/abs/1803.05859) · [Stanley & Miikkulainen (NEAT)](https://nn.cs.utexas.edu/downloads/papers/stanley.jair04.pdf) · [Stanley (CPPNs / HyperNEAT)](https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf) · [Secretan et al. (Picbreeder)](https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf) · [Lehman & Stanley (novelty search)](https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf) · [Mouret & Clune (MAP-Elites)](https://arxiv.org/abs/1504.04909) · [Kumar, Clune, Lehman & Stanley (FER/UFR)](https://arxiv.org/abs/2505.11581) · the [BOINC](https://github.com/BOINC/boinc/wiki/Job-replication) volunteer-computing tradition. The full reference list lives in the [whitepaper](./docs/WHITEPAPER.md), grounded in the scout briefings in [`research/`](./research/).
 
 ---
 
