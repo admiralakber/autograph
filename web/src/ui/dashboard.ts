@@ -6,6 +6,8 @@ import { evaluate, targetAtProbes, paintedAtProbes } from '../engine/fitness.ts'
 import type { Phenotype } from '../engine/substrate.ts';
 import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substrate.ts';
 import { Garden } from '../engine/evolution.ts';
+import { MapElites } from '../engine/mapelites.ts';
+import { SharedArchive } from '../net/swarm.ts';
 import { volumeCloud, paintProjection, paintSlice } from '../engine/render/volume.ts';
 import { CreatureScene } from '../engine/render/scene3d.ts';
 import type { Identity, LineageEntry, LineageFile } from '../engine/lineage.ts';
@@ -54,6 +56,7 @@ export class AutographDashboard {
   private running = true;
   private follow = true;
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
+  private coordinatorUrl = ''; // empty → offline ("1 node · you"); set via ?swarm=wss://… or localStorage
   private readonly options = { recurrent: true, selfConn: false, gating: false };
   private budget = HYPER.baseBudget;
   private frame = 0;
@@ -101,6 +104,17 @@ export class AutographDashboard {
     this.wire();
     this.paintEmptyGrid();
 
+    this.coordinatorUrl = this.readCoordinatorUrl();
+    if (this.coordinatorUrl) {
+      try {
+        this.identity = await generateIdentity();
+        this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
+        this.garden = new Garden(GENESIS_SEED, COLS, ROWS, this.makeShared());
+        this.setText('#ag-swarm-label', 'connecting…');
+      } catch {
+        /* fall back to the offline local garden — the site works perfectly without a coordinator */
+      }
+    }
     this.garden.setNovelty(this.novelty);
     this.garden.seedWith([seededGenome(GENESIS_SEED)]);
     await this.bootGenealogy();
@@ -127,6 +141,39 @@ export class AutographDashboard {
     this.resetSignedRoot();
     renderGenealogy(need(this.root, '#ag-tree'), this.lineage);
     this.setText('#ag-tree-count', String(this.lineage.length));
+  }
+
+  /** Coordinator URL: `?swarm=wss://…` (persisted) or stored, else empty = offline. */
+  private readCoordinatorUrl(): string {
+    try {
+      const q = new URLSearchParams(location.search).get('swarm');
+      if (q !== null) {
+        if (q) localStorage.setItem('ag-coordinator', q);
+        else localStorage.removeItem('ag-coordinator');
+        return q;
+      }
+      return localStorage.getItem('ag-coordinator') ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  /** Build a swarm-backed archive: a local MapElites mirror (UI-unchanged) that
+   *  pushes best-per-niche elites + pulls others' (migration) via the coordinator. */
+  private makeShared(): SharedArchive {
+    return new SharedArchive({
+      url: this.coordinatorUrl,
+      mirror: new MapElites(COLS, ROWS),
+      signer: { sign: (g, e) => createEntry({ genome: g, parents: [], seed: null, fidelity: e.fidelity, identity: this.identity! }) },
+      onPeers: (n) => this.setPeers(n),
+      onError: (code) => this.setText('#ag-swarm-label', `offline · ${code}`),
+    });
+  }
+
+  /** Reflect the live peer count in the swarm readout. */
+  private setPeers(n: number): void {
+    this.setText('#ag-swarm-nodes', String(Math.max(1, n)));
+    this.setText('#ag-swarm-label', n > 1 ? 'nodes · live' : 'node · you (live)');
   }
 
   /** Re-root the gid→signed map on the canonical Genesis (gids reset per world). */
@@ -264,7 +311,13 @@ export class AutographDashboard {
   }
 
   private grow(seedStr: string): void {
-    this.garden = new Garden(seedStr, COLS, ROWS);
+    const joinSwarm = this.coordinatorUrl !== '' && seedStr === GENESIS_SEED && this.identity !== null;
+    this.garden = new Garden(seedStr, COLS, ROWS, joinSwarm ? this.makeShared() : undefined);
+    if (joinSwarm) this.setText('#ag-swarm-label', 'connecting…');
+    else {
+      this.setText('#ag-swarm-nodes', '1');
+      this.setText('#ag-swarm-label', 'node (you)');
+    }
     this.garden.setNovelty(this.novelty);
     this.garden.setOptions(this.options);
     this.resetSignedRoot();
