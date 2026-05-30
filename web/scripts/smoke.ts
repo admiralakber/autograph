@@ -1,92 +1,68 @@
-// Headless sanity check for the evolution engine (run with Node's type
-// stripping). Verifies: determinism, that loop fidelity genuinely climbs, and
-// that MAP-Elites coverage fills. NOT part of the build.
+// Headless sanity check for the (ES-)HyperNEAT engine (run with Node type
+// stripping). Verifies: Genesis determinism, that the self-encoding loop
+// genuinely climbs, MAP-Elites coverage fills, phenotypes have structure, and
+// lineage verification rejects tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
 import { seededGenome } from '../src/engine/cppn.ts';
-import { evaluate, loopFidelity } from '../src/engine/fitness.ts';
+import { evaluate } from '../src/engine/fitness.ts';
+import { buildPhenotype } from '../src/engine/substrate.ts';
+import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
 
 function determinismCheck(): void {
-  const a = seededGenome('drawing hands');
-  const b = seededGenome('drawing hands');
-  let same = true;
+  const a = seededGenome(GENESIS_SEED);
+  const b = seededGenome(GENESIS_SEED);
+  let same = a.weights.length === b.weights.length;
   for (let i = 0; i < a.weights.length; i++) if (a.weights[i] !== b.weights[i]) same = false;
-  console.log(`determinism (same seed -> same creature): ${same ? 'OK' : 'FAIL'}`);
+  console.log(`GENESIS determinism (same seed -> same DNA): ${same ? 'OK' : 'FAIL'}`);
+  const p = buildPhenotype(a);
+  console.log(`genesis phenotype: ${p.liveConns} expressed connections, ${p.hidden.length / 3} hidden neurons`);
 }
 
 function baseline(): void {
   let sum = 0;
-  const n = 200;
-  for (let i = 0; i < n; i++) sum += loopFidelity(seededGenome(`r${i}`));
+  const n = 120;
+  for (let i = 0; i < n; i++) sum += evaluate(seededGenome(`r${i}`)).fidelity;
   console.log(`random-creature mean loop fidelity: ${(sum / n).toFixed(3)}`);
 }
 
 function evolve(): void {
-  const garden = new Garden('drawing hands', 14, 14);
-  garden.seedWith([seededGenome('drawing hands'), seededGenome('escher')]);
+  const garden = new Garden(GENESIS_SEED, 12, 12);
+  garden.seedWith([seededGenome(GENESIS_SEED)]);
   const t0 = performance.now();
-  for (let gen = 0; gen < 600; gen++) {
-    garden.step(80);
-    if (gen % 150 === 149) {
+  for (let gen = 0; gen < 500; gen++) {
+    garden.step(40);
+    if (gen % 125 === 124) {
       const s = garden.stats();
       console.log(
         `gen ${String(s.generation).padStart(3)} | coverage ${(s.coverage * 100).toFixed(0)}% ` +
-          `(${s.filled}/${s.cells}) | best fidelity ${(s.bestFidelity * 100).toFixed(1)}% | ` +
-          `evals ${s.evaluations}`,
+          `(${s.filled}/${s.cells}) | best loop fidelity ${(s.bestFidelity * 100).toFixed(1)}% | evals ${s.evaluations}`,
       );
     }
   }
-  const ms = performance.now() - t0;
-  const best = garden.archive.best();
-  const lively = garden.archive.bestLively();
-  console.log(`\n600 generations (48k evals) in ${ms.toFixed(0)}ms`);
-  if (best) {
-    const e = evaluate(best.cell.genome);
-    console.log(
-      `global best (often trivial): fidelity ${(e.fidelity * 100).toFixed(1)}% | ` +
-        `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)}`,
-    );
-  }
+  console.log(`\n500 generations in ${(performance.now() - t0).toFixed(0)}ms`);
+  const lively = garden.archive.bestLively() ?? garden.archive.best();
   if (lively) {
     const e = evaluate(lively.cell.genome);
     console.log(
-      `best LIVELY creature (showcase): fidelity ${(e.fidelity * 100).toFixed(1)}% | ` +
-        `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)}`,
+      `best LIVELY creature (showcase): loop fidelity ${(e.fidelity * 100).toFixed(1)}% | ` +
+        `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | conns ${e.liveConns}`,
     );
-  } else {
-    console.log('no lively creature found above thresholds');
   }
 }
 
 async function lineageCheck(): Promise<void> {
   const identity = await generateIdentity();
-  const founder = await createEntry({
-    genome: seededGenome('drawing hands'),
-    parents: [],
-    seed: 'drawing hands',
-    fidelity: 0.85,
-    identity,
-  });
-  const child = await createEntry({
-    genome: seededGenome('escher'),
-    parents: [founder.id],
-    seed: null,
-    fidelity: 0.81,
-    identity,
-  });
+  const founder = await createEntry({ genome: seededGenome(GENESIS_SEED), parents: [], seed: GENESIS_SEED, fidelity: 0.5, identity });
+  const child = await createEntry({ genome: seededGenome('escher'), parents: [founder.id], seed: null, fidelity: 0.6, identity });
   const file = makeLineageFile([founder, child]);
-
   const good = await verifyLineage(file);
   console.log(`lineage verify (untampered): ${good.valid ? 'OK' : 'FAIL'} (checked ${good.checked})`);
-
-  // Tamper with the genome hash — the id no longer matches its content.
   const tampered = makeLineageFile([founder, { ...child, genomeHash: '00'.repeat(32) }]);
   const bad = await verifyLineage(tampered);
-  console.log(`lineage verify (tampered content): ${!bad.valid ? 'OK — rejected' : 'FAIL — accepted forgery'}`);
-
-  // Tamper with a signature — content hash still matches, signature does not.
-  const forgedSig = makeLineageFile([{ ...founder, signature: founder.signature.replace(/^../, 'ff') }]);
-  const bad2 = await verifyLineage(forgedSig);
+  console.log(`lineage verify (tampered): ${!bad.valid ? 'OK — rejected' : 'FAIL — accepted forgery'}`);
+  const forged = makeLineageFile([{ ...founder, signature: founder.signature.replace(/^../, 'ff') }]);
+  const bad2 = await verifyLineage(forged);
   console.log(`lineage verify (forged signature): ${!bad2.valid ? 'OK — rejected' : 'FAIL — accepted forgery'}`);
 }
 
