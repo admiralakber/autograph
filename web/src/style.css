@@ -411,13 +411,43 @@ code {
   background: #050505;
   cursor: pointer;
 }
+/* explicit rows so the 3-D canvas (DOM-last) still sits on top, slice/net/dna below */
+.stage.stacked .ag-3dcanvas {
+  position: static;
+  grid-row: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  cursor: pointer;
+}
 .stage.stacked #ag-stage-2d {
+  grid-row: 1;
   object-fit: contain;
 }
+.stage.stacked #ag-net-svg { grid-row: 2; }
+.stage.stacked #ag-dna-svg { grid-row: 3; }
 .stage.stacked .layer:hover {
   outline: 1px solid rgba(236, 236, 236, 0.45);
   outline-offset: -1px;
 }
+/* per-panel titles, shown only when stacked */
+.stack-titles { display: none; }
+.stage.stacked .stack-titles { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.stack-titles span {
+  position: absolute;
+  left: 8px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: rgba(7, 7, 7, 0.62);
+  border: 1px solid var(--line);
+  padding: 2px 7px;
+}
+.stack-titles span:nth-child(1) { top: 6px; }
+.stack-titles span:nth-child(2) { top: calc(33.33% + 4px); }
+.stack-titles span:nth-child(3) { top: calc(66.66% + 2px); }
+/* in stacked the FOLLOWING badge moves to the right so it doesn't collide with the title */
+.stage.stacked .sel-badge { left: auto; right: 10px; }
 
 /* "What is this?" quick glossary */
 .help-inner { max-width: 760px; }

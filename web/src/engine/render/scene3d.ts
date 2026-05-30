@@ -58,6 +58,7 @@ export class CreatureScene {
       this.camera = camera;
       this.group = group;
       container.appendChild(renderer.domElement);
+      renderer.domElement.classList.add('ag-3dcanvas');
       renderer.domElement.style.width = '100%';
       renderer.domElement.style.height = '100%';
       renderer.domElement.style.display = 'block';
@@ -71,8 +72,11 @@ export class CreatureScene {
 
   private resize(): void {
     if (!this.renderer || !this.camera) return;
-    const w = this.container.clientWidth || 1;
-    const h = this.container.clientHeight || 1;
+    // size to the canvas's OWN box, so it renders correctly whether it fills the
+    // whole stage (SELF-PORTRAIT) or just the top third (STACKED).
+    const el = this.renderer.domElement;
+    const w = el.clientWidth || this.container.clientWidth || 1;
+    const h = el.clientHeight || this.container.clientHeight || 1;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -110,7 +114,7 @@ export class CreatureScene {
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.renderer || !this.scene || !this.camera || !this.group) return;
-    if (this.container.clientWidth !== this.renderer.domElement.width / this.renderer.getPixelRatio()) this.resize();
+    if (this.renderer.domElement.clientWidth !== this.renderer.domElement.width / this.renderer.getPixelRatio()) this.resize();
     this.group.rotation.y += 0.0035;
     this.group.rotation.x = Math.sin(performance.now() * 0.0002) * 0.25;
     this.renderer.render(this.scene, this.camera);

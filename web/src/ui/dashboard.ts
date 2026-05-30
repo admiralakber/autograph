@@ -385,7 +385,7 @@ export class AutographDashboard {
     this.portraitDim = dim;
     need(this.root, '#ag-dim-3d').classList.toggle('active', dim === '3d');
     need(this.root, '#ag-dim-2d').classList.toggle('active', dim === '2d');
-    if (this.mode === 'render') this.applyMode();
+    if (this.mode === 'render' || this.mode === 'stacked') this.applyMode();
   }
 
   private applyMode(): void {
@@ -395,15 +395,18 @@ export class AutographDashboard {
     const c2d = need(this.root, '#ag-stage-2d');
     const stacked = this.mode === 'stacked';
     stage.classList.toggle('stacked', stacked);
-    const want3d = this.mode === 'render' && this.portraitDim === '3d' && this.webgl;
+    const portrait3d = this.portraitDim === '3d' && this.webgl;
+    // the 3-D self-portrait fills the stage (render) or the top cell (stacked)
+    const want3d = (this.mode === 'render' || stacked) && portrait3d;
+    const sliceTop = stacked && !portrait3d; // stacked top falls back to the 2-D output
 
     // in STACKED all three layers show at once (output · brain · DNA)
     dna.classList.toggle('hidden', !(stacked || this.mode === 'dna'));
     net.classList.toggle('hidden', !(stacked || this.mode === 'net'));
-    c2d.classList.toggle('hidden', !(stacked || (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl))));
+    c2d.classList.toggle('hidden', !((this.mode === 'render' && !portrait3d) || sliceTop));
     this.scene?.setCanvasVisible(want3d);
-    // the 2D/3D toggle is only meaningful for the full self-portrait
-    need(this.root, '#ag-dim').classList.toggle('hidden', this.mode !== 'render' || !this.webgl);
+    // the 2D/3D toggle is meaningful for the self-portrait — full or stacked-top
+    need(this.root, '#ag-dim').classList.toggle('hidden', !((this.mode === 'render' || stacked) && this.webgl));
 
     this.renderPortrait();
     this.setText('#ag-mode-caption', CAPTIONS[this.mode]);
@@ -416,8 +419,10 @@ export class AutographDashboard {
   private renderPortrait(): void {
     if (!this.focused) return;
     const c2d = need<HTMLCanvasElement>(this.root, '#ag-stage-2d');
-    if (this.mode === 'stacked') paintProjection(this.focused.pheno, c2d, 300);
-    else if (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl)) paintSlice(this.focused.pheno, c2d, 420, 0);
+    const portrait3d = this.portraitDim === '3d' && this.webgl;
+    // only paint the 2-D canvas when it's the one showing (3-D uses the WebGL cell)
+    if (this.mode === 'stacked' && !portrait3d) paintProjection(this.focused.pheno, c2d, 300);
+    else if (this.mode === 'render' && !portrait3d) paintSlice(this.focused.pheno, c2d, 420, 0);
   }
 
   /** Run the activation pulse on whichever network view is showing. */
