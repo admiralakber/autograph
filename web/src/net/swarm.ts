@@ -67,6 +67,14 @@ export interface SharedArchiveOptions {
 
 const WS_OPEN = 1;
 
+// Stay safely under the coordinator's LIMITS (maxElitesPerPush 64, maxMessageBytes
+// 128 KiB). A burst of new niches (initial fill / turbo) can mint many elites in
+// one flush window; without chunking, a single oversized `push` frame is dropped
+// server-side ('too-large') and those shares are silently lost. Chunking sends
+// several small frames instead — the wire format is unchanged.
+const MAX_PUSH_ELITES = 48;
+const MAX_PUSH_BYTES = 120 * 1024;
+
 /** A networked `Archive` backed by the PartyServer coordinator. Reads delegate to
  *  a local mirror (synchronous, UI-unchanged); local inserts update the mirror
  *  AND are signed + pushed; inbound migrations merge via the same keep-best path.
@@ -246,7 +254,20 @@ export class SharedArchive implements Archive {
         this.onError?.('sign-failed', 'could not sign an elite for sharing');
       }
     }
-    if (elites.length > 0) this.sendRaw({ type: 'push', elites });
+    // Fan out in frames that respect the coordinator's per-push count + size caps.
+    for (let i = 0; i < elites.length; ) {
+      const chunk: WireElite[] = [];
+      let bytes = 24; // envelope: {"type":"push","elites":[…]}
+      while (i < elites.length && chunk.length < MAX_PUSH_ELITES) {
+        const size = JSON.stringify(elites[i]).length + 1;
+        if (chunk.length > 0 && bytes + size > MAX_PUSH_BYTES) break;
+        chunk.push(elites[i]!);
+        bytes += size;
+        i++;
+      }
+      if (this.socket?.readyState !== WS_OPEN) break; // dropped mid-flush → stop cleanly
+      this.sendRaw({ type: 'push', elites: chunk });
+    }
   }
 
   private sendRaw(msg: ClientMessage): void {

@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke": "node --experimental-strip-types scripts/smoke.ts"
+    "smoke": "node --experimental-strip-types scripts/smoke.ts",
+    "swarm-live": "node --experimental-strip-types scripts/swarm-live.ts"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

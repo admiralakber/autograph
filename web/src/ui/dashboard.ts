@@ -25,6 +25,10 @@ const ROWS = HYPER.gridRows;
 const CELL = 34;
 const FOLLOW_EVERY = HYPER.followEvery;
 
+// The shared swarm a GENESIS visitor auto-joins. Opt out with `?swarm=off`,
+// rejoin with `?swarm=on`, or point elsewhere with `?swarm=wss://…`.
+const DEFAULT_COORDINATOR = 'wss://autograph-coordinator.usemeos.workers.dev';
+
 type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
 const CAPTIONS: Record<Mode, string> = {
@@ -57,7 +61,7 @@ export class AutographDashboard {
   private running = true;
   private follow = true;
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
-  private coordinatorUrl = ''; // empty → offline ("1 node · you"); set via ?swarm=wss://… or localStorage
+  private coordinatorUrl = ''; // resolved in start() — defaults to the live swarm; '' = offline
   private readonly options = { recurrent: true, selfConn: false, gating: false };
   private budget = HYPER.baseBudget;
   private frame = 0;
@@ -114,8 +118,7 @@ export class AutographDashboard {
     this.coordinatorUrl = this.readCoordinatorUrl();
     if (this.coordinatorUrl) {
       try {
-        this.identity = await generateIdentity();
-        this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
+        await this.ensureIdentity(); // ephemeral key so a fresh visitor can join
         this.garden = new Garden(GENESIS_SEED, COLS, ROWS, this.makeShared());
         this.setText('#ag-swarm-label', 'connecting…');
       } catch {
@@ -138,7 +141,7 @@ export class AutographDashboard {
     for (const e of stored) this.lineage.push(e);
     let genesis = this.lineage.find((e) => e.parents.length === 0);
     if (!genesis) {
-      const id = this.identity ?? (this.identity = await generateIdentity());
+      const id = await this.ensureIdentity();
       const g = seededGenome(GENESIS_SEED);
       genesis = await createEntry({ genome: g, parents: [], seed: GENESIS_SEED, fidelity: evaluate(g).fidelity, identity: id });
       this.lineage.unshift(genesis);
@@ -150,19 +153,39 @@ export class AutographDashboard {
     this.setText('#ag-tree-count', String(this.lineage.length));
   }
 
-  /** Coordinator URL: `?swarm=wss://…` (persisted) or stored, else empty = offline. */
+  /** Resolve the coordinator URL. A first-time visitor joins the live swarm by
+   *  default; every explicit choice is remembered:
+   *  - `?swarm=off|0|false|` (empty) → fully offline, opt-out persisted
+   *  - `?swarm=on|1`            → re-join the default live swarm
+   *  - `?swarm=wss://…`         → a custom coordinator
+   *  - no param                 → stored choice, else the default live swarm */
   private readCoordinatorUrl(): string {
     try {
       const q = new URLSearchParams(location.search).get('swarm');
       if (q !== null) {
-        if (q) localStorage.setItem('ag-coordinator', q);
-        else localStorage.removeItem('ag-coordinator');
-        return q;
+        const off = q === '' || q === 'off' || q === '0' || q === 'false';
+        const url = off ? '' : q === 'on' || q === '1' ? DEFAULT_COORDINATOR : q;
+        localStorage.setItem('ag-coordinator', off ? 'off' : url);
+        return url;
       }
-      return localStorage.getItem('ag-coordinator') ?? '';
+      const stored = localStorage.getItem('ag-coordinator');
+      if (stored === 'off') return ''; // visitor previously opted out
+      return stored ?? DEFAULT_COORDINATOR; // custom, else live-by-default
     } catch {
-      return '';
+      return DEFAULT_COORDINATOR; // storage blocked — still join the swarm
     }
+  }
+
+  /** The visitor's signing key. Auto-created (ephemeral) the first time it's
+   *  needed so a fresh GENESIS visitor joins the swarm without a manual keypair
+   *  step — the keypair-as-signature concept is intact; pressing "keypair" later
+   *  just mints a fresh one. */
+  private async ensureIdentity(): Promise<Identity> {
+    if (!this.identity) {
+      this.identity = await generateIdentity();
+      this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
+    }
+    return this.identity;
   }
 
   /** Build a swarm-backed archive: a local MapElites mirror (UI-unchanged) that
@@ -171,7 +194,7 @@ export class AutographDashboard {
     return new SharedArchive({
       url: this.coordinatorUrl,
       mirror: new MapElites(COLS, ROWS),
-      signer: { sign: (g, e) => createEntry({ genome: g, parents: [], seed: null, fidelity: e.fidelity, identity: this.identity! }) },
+      signer: { sign: async (g, e) => createEntry({ genome: g, parents: [], seed: null, fidelity: e.fidelity, identity: await this.ensureIdentity() }) },
       onPeers: (n) => this.setPeers(n),
       onError: (code) => this.setText('#ag-swarm-label', `offline · ${code}`),
     });
@@ -318,7 +341,9 @@ export class AutographDashboard {
   }
 
   private grow(seedStr: string): void {
-    const joinSwarm = this.coordinatorUrl !== '' && seedStr === GENESIS_SEED && this.identity !== null;
+    // GENESIS auto-joins the shared swarm; a custom seed is your own offline world.
+    // The signer mints an ephemeral key on first push, so no identity is required up-front.
+    const joinSwarm = this.coordinatorUrl !== '' && seedStr === GENESIS_SEED;
     this.garden = new Garden(seedStr, COLS, ROWS, joinSwarm ? this.makeShared() : undefined);
     if (joinSwarm) this.setText('#ag-swarm-label', 'connecting…');
     else {
@@ -616,10 +641,10 @@ export class AutographDashboard {
     this.treeRecording = true;
     this.lastTreeAt = now;
     try {
-      if (!this.identity) this.identity = await generateIdentity();
+      const id = await this.ensureIdentity();
       const ancestors = this.signedAncestors(chosen.parents ?? []);
       const parents = ancestors.length > 0 ? ancestors : this.genesisId ? [this.genesisId] : [];
-      const entry = await createEntry({ genome: chosen.genome, parents, seed: null, fidelity: chosen.evaluation.fidelity, identity: this.identity });
+      const entry = await createEntry({ genome: chosen.genome, parents, seed: null, fidelity: chosen.evaluation.fidelity, identity: id });
       this.signedByGid.set(chosen.gid, entry.id);
       this.lineage.push(entry);
       await saveEntry(entry);
@@ -663,15 +688,14 @@ export class AutographDashboard {
 
   private async keep(): Promise<void> {
     if (!this.focused) return;
-    if (!this.identity) this.identity = await generateIdentity();
-    this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
+    const id = await this.ensureIdentity();
     const parent = this.lineage.length > 0 ? [this.lineage[this.lineage.length - 1]!.id] : [];
     const entry = await createEntry({
       genome: this.focused.genome,
       parents: parent,
       seed: null,
       fidelity: this.focused.evaluation.fidelity,
-      identity: this.identity,
+      identity: id,
     });
     this.lineage.push(entry);
     await saveEntry(entry);
