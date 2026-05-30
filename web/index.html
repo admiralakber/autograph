@@ -116,11 +116,24 @@
 
         <!-- THE LOOP -->
         <section class="panel p-loop" aria-label="The strange loop">
-          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">does the self-portrait re-encode the DNA?</span></div>
-          <div class="loopflow">
-            <span class="lf">DNA</span><span class="lf-arr">→</span><span class="lf">PHENOTYPE</span><span class="lf-arr">→</span><span class="lf">SELF-PORTRAIT</span><span class="lf-arr">→</span><span class="lf">DNA′</span>
-          </div>
-          <div class="loop-legend"><span>DNA (target)</span><span>read-back (painted)</span></div>
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the portrait read back into DNA′ — and back into itself</span></div>
+          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 106" xmlns="http://www.w3.org/2000/svg" aria-label="DNA to brain to self-portrait, read back to DNA-prime, and round again">
+            <path id="ag-loop-path" class="lc-path" d="M28,32 H272 C295,32 295,76 272,76 H28 C5,76 5,32 28,32 Z" />
+            <g class="lc-fwd">
+              <text class="lc-arr" x="69" y="35">›</text>
+              <text class="lc-arr" x="151" y="35">›</text>
+              <text class="lc-arr" x="233" y="35">›</text>
+            </g>
+            <circle class="lc-node" cx="28" cy="32" r="2.6" /><text class="lc-st" x="28" y="20">DNA</text>
+            <circle class="lc-node" cx="110" cy="32" r="2.6" /><text class="lc-st" x="110" y="20">BRAIN</text>
+            <circle class="lc-node lc-out" cx="192" cy="32" r="3" /><text class="lc-st" x="192" y="20">PORTRAIT</text>
+            <circle class="lc-node" cx="272" cy="32" r="2.6" /><text class="lc-st" x="272" y="20">DNA′</text>
+            <text class="lc-back" x="150" y="95" text-anchor="middle">↺ read-back · the portrait re-encodes its own DNA</text>
+            <circle class="lc-token" r="3">
+              <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
+            </circle>
+          </svg>
+          <div class="loop-legend"><span>DNA gₙ (target)</span><span>read-back T·gₙ (painted)</span></div>
           <canvas id="ag-loop" class="loopcanvas"></canvas>
           <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>LOOP <strong id="ag-fid-label">—</strong></span></div>
         </section>

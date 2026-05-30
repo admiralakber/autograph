@@ -4,9 +4,9 @@
 // climbs AND closes to a fixed point (evolved converges, random only partially),
 // and that lineage verification rejects tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
-import { seededGenome, genomeVector } from '../src/engine/cppn.ts';
+import { seededGenome, genomeVector, paramToUnit } from '../src/engine/cppn.ts';
 import { evaluate, iterateLoop } from '../src/engine/fitness.ts';
-import { buildPhenotype } from '../src/engine/substrate.ts';
+import { buildPhenotype, substrateForward } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
 
@@ -68,6 +68,157 @@ function evolve(): void {
   }
 }
 
+/** #4 mirror-brain: can a NETWORK (not the hand-coded analytic inverse) learn the
+ *  read-back portrait→DNA? We fit a small linear encoder from a fixed portrait
+ *  fingerprint (density at M fixed probes) to a fixed DNA fingerprint (K-bin means
+ *  of the genome), across many creatures, and report held-out R². */
+function mirrorBrainExperiment(): void {
+  const M = 24;
+  const K = 12;
+  const ga = Math.PI * (3 - Math.sqrt(5));
+  const probes = new Float64Array(M * 3);
+  for (let k = 0; k < M; k++) {
+    const y = 1 - (k / (M - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = k * ga;
+    probes[k * 3] = Math.cos(a) * r * 0.85;
+    probes[k * 3 + 1] = y * 0.85;
+    probes[k * 3 + 2] = Math.sin(a) * r * 0.85;
+  }
+  const fingerprint = (g: ReturnType<typeof seededGenome>): Float64Array => {
+    const v = genomeVector(g);
+    const out = new Float64Array(K);
+    const cnt = new Float64Array(K);
+    for (let i = 0; i < v.length; i++) {
+      const b = Math.min(K - 1, Math.floor((i / v.length) * K));
+      out[b]! += paramToUnit(v[i]!);
+      cnt[b]!++;
+    }
+    for (let b = 0; b < K; b++) out[b] = cnt[b]! ? out[b]! / cnt[b]! : 0.5;
+    return out;
+  };
+  const N = 400;
+  const X: Float64Array[] = [];
+  const Y: Float64Array[] = [];
+  const o2: [number, number] = [0, 0];
+  for (let i = 0; i < N; i++) {
+    const g = seededGenome(`mirror-${i}`);
+    const p = buildPhenotype(g);
+    const x = new Float64Array(M);
+    for (let k = 0; k < M; k++) x[k] = substrateForward(p, probes[k * 3]!, probes[k * 3 + 1]!, probes[k * 3 + 2]!, o2)[0];
+    X.push(x);
+    Y.push(fingerprint(g));
+  }
+  const ntr = 320;
+  const W = Array.from({ length: K }, () => new Float64Array(M));
+  const b = new Float64Array(K);
+  const lr = 0.08;
+  for (let ep = 0; ep < 2500; ep++) {
+    const gW = Array.from({ length: K }, () => new Float64Array(M));
+    const gb = new Float64Array(K);
+    for (let n = 0; n < ntr; n++) {
+      const x = X[n]!;
+      const y = Y[n]!;
+      for (let kk = 0; kk < K; kk++) {
+        let pred = b[kk]!;
+        const wk = W[kk]!;
+        for (let m = 0; m < M; m++) pred += wk[m]! * x[m]!;
+        const e = pred - y[kk]!;
+        gb[kk]! += e;
+        const gk = gW[kk]!;
+        for (let m = 0; m < M; m++) gk[m]! += e * x[m]!;
+      }
+    }
+    for (let kk = 0; kk < K; kk++) {
+      b[kk]! -= (lr * gb[kk]!) / ntr;
+      const wk = W[kk]!;
+      const gk = gW[kk]!;
+      for (let m = 0; m < M; m++) wk[m]! -= lr * (gk[m]! / ntr + 1e-3 * wk[m]!);
+    }
+  }
+  const mean = new Float64Array(K);
+  for (let n = ntr; n < N; n++) for (let kk = 0; kk < K; kk++) mean[kk]! += Y[n]![kk]! / (N - ntr);
+  const r2 = (predict: (x: Float64Array) => Float64Array): number => {
+    let ssRes = 0;
+    let ssTot = 0;
+    for (let n = ntr; n < N; n++) {
+      const p = predict(X[n]!);
+      for (let kk = 0; kk < K; kk++) {
+        ssRes += (p[kk]! - Y[n]![kk]!) ** 2;
+        ssTot += (Y[n]![kk]! - mean[kk]!) ** 2;
+      }
+    }
+    return ssTot > 0 ? 1 - ssRes / ssTot : 0;
+  };
+  const r2lin = r2((x) => {
+    const p = new Float64Array(K);
+    for (let kk = 0; kk < K; kk++) {
+      let s = b[kk]!;
+      for (let m = 0; m < M; m++) s += W[kk]![m]! * x[m]!;
+      p[kk] = s;
+    }
+    return p;
+  });
+
+  // a small nonlinear "mirror brain": M → H tanh → K, trained by backprop
+  const H = 16;
+  const rng = (() => {
+    let s = 12345;
+    return (): number => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 0.4;
+  })();
+  const W1 = Array.from({ length: H }, () => Float64Array.from({ length: M }, rng));
+  const b1 = new Float64Array(H);
+  const W2 = Array.from({ length: K }, () => Float64Array.from({ length: H }, rng));
+  const b2 = new Float64Array(K);
+  const fwd = (x: Float64Array): { h: Float64Array; p: Float64Array } => {
+    const h = new Float64Array(H);
+    for (let j = 0; j < H; j++) {
+      let s = b1[j]!;
+      for (let m = 0; m < M; m++) s += W1[j]![m]! * x[m]!;
+      h[j] = Math.tanh(s);
+    }
+    const p = new Float64Array(K);
+    for (let kk = 0; kk < K; kk++) {
+      let s = b2[kk]!;
+      for (let j = 0; j < H; j++) s += W2[kk]![j]! * h[j]!;
+      p[kk] = s;
+    }
+    return { h, p };
+  };
+  const lr2 = 0.06;
+  for (let ep = 0; ep < 1500; ep++) {
+    for (let n = 0; n < ntr; n++) {
+      const x = X[n]!;
+      const y = Y[n]!;
+      const { h, p } = fwd(x);
+      const dh = new Float64Array(H);
+      for (let kk = 0; kk < K; kk++) {
+        const e = p[kk]! - y[kk]!;
+        b2[kk]! -= lr2 * e;
+        for (let j = 0; j < H; j++) {
+          dh[j]! += e * W2[kk]![j]!;
+          W2[kk]![j]! -= lr2 * e * h[j]!;
+        }
+      }
+      for (let j = 0; j < H; j++) {
+        const g = dh[j]! * (1 - h[j]! * h[j]!);
+        b1[j]! -= lr2 * g;
+        for (let m = 0; m < M; m++) W1[j]![m]! -= lr2 * g * x[m]!;
+      }
+    }
+  }
+  const r2mlp = r2((x) => fwd(x).p);
+
+  const best = Math.max(r2lin, r2mlp);
+  console.log(`MIRROR-BRAIN (a NETWORK learns the read-back portrait→DNA): linear R² ${r2lin.toFixed(2)} · MLP R² ${r2mlp.toFixed(2)}`);
+  console.log(
+    best > 0.2
+      ? '  → a shared mirror network CAN read the portrait back non-trivially across the population.'
+      : '  → a shared mirror network barely beats the mean: the render→DNA inverse is creature-specific, not one learnable map. (Per creature, the analytic read-back still recovers DNA at the loop fidelity above — the portrait DOES encode its own DNA.)',
+  );
+  console.log('  full closure is unchanged either way: iterating decode∘render collapses to the empty fixed point — life = imperfect self-knowledge.');
+}
+
 async function lineageCheck(): Promise<void> {
   const identity = await generateIdentity();
   const founder = await createEntry({ genome: seededGenome(GENESIS_SEED), parents: [], seed: GENESIS_SEED, fidelity: 0.5, identity });
@@ -87,6 +238,7 @@ async function main(): Promise<void> {
   determinismCheck();
   baseline();
   evolve();
+  mirrorBrainExperiment();
   await lineageCheck();
 }
 

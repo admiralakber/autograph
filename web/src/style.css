@@ -522,6 +522,17 @@ code {
   letter-spacing: 0.08em;
   color: var(--faint);
 }
+.loopcycle { display: block; width: calc(100% - 24px); margin: 8px 12px 2px; height: auto; }
+.lc-path { fill: none; stroke: rgba(235, 235, 235, 0.2); stroke-width: 1; }
+.lc-st { fill: var(--ink); font: 8px ui-monospace, monospace; letter-spacing: 0.06em; text-anchor: middle; }
+.lc-arr { fill: var(--faint); font: 9px ui-monospace, monospace; text-anchor: middle; }
+.lc-node { fill: rgba(235, 235, 235, 0.7); }
+.lc-out { fill: #fff; stroke: rgba(235, 235, 235, 0.5); }
+.lc-back { fill: var(--dim); font: 7.5px ui-monospace, monospace; letter-spacing: 0.02em; }
+.lc-token { fill: #fff; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85)); }
+@media (prefers-reduced-motion: reduce) {
+  .lc-token { display: none; }
+}
 .loopcanvas {
   display: block;
   width: calc(100% - 24px);
