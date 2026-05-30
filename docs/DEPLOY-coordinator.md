@@ -14,7 +14,7 @@ v1 Autograph evolves a [MAP-Elites](https://arxiv.org/abs/1504.04909) archive **
 
 The chosen path:
 
-- **[PartyServer](https://github.com/cloudflare/partyserver)** — PartyKit-style stateful servers — running on **Cloudflare [Workers](https://developers.cloudflare.com/workers/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/)**. One Durable Object instance owns the authoritative archive + lineage for a room and fans out updates over WebSockets; **[Workers KV](https://developers.cloudflare.com/kv/)** holds periodic archive snapshots for cheap cold reads.
+- **[PartyServer](https://github.com/cloudflare/partykit)** — PartyKit-style stateful servers — running on **Cloudflare [Workers](https://developers.cloudflare.com/workers/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/)**. One Durable Object instance owns the authoritative archive + lineage for a room and fans out updates over WebSockets; **[Workers KV](https://developers.cloudflare.com/kv/)** holds periodic archive snapshots for cheap cold reads.
 - Deployed **sandboxed inside the meoslabs Cloudflare account**, and credited on the site as **“coordinator sponsored by meoslabs.”** meoslabs lends the infrastructure; it gets a small, honest credit — nothing more.
 
 It implements the **`Archive` seam** already in the codebase (see “Wiring” below), so no engine or UI rewrite is needed to switch a tab from the local archive to the shared one.

@@ -11,6 +11,18 @@ We describe **Autograph**, a browser-native instrument for a live evolutionary e
 
 ---
 
+## Key findings (what the live instrument actually shows)
+
+1. **The self-encoding loop is a real neural quine.** A creature's DNA grows a brain that draws a self-portrait, from which the DNA can be read back; **loop fidelity** — how faithfully one pass re-encodes the DNA — is *measured live, never faked* (~0.9 for evolved creatures; §3.1).
+2. **No universal mirror; perfect self-encoding ⇒ emptiness.** A *learned* encoder (a "mirror brain", linear and MLP) does **not** invert render→DNA across the population (held-out $R^2 \approx 0$): the inverse is each creature's own. And *fully iterating* the loop drives any creature to the only perfect fixed point — the trivial flat creature (vitality 0). So **life is imperfect self-knowledge**: a living creature can only ever *approach* closure (§3.1).
+3. **The search is open-ended — it does not plateau.** With Novelty Search + MAP-Elites quality-diversity + NEAT complexification, behavioural **novelty** and **QD-score** keep climbing long after fidelity saturates (headless: novelty ~6×, fidelity flat) — it keeps discovering new *kinds*, never converged-and-static (§3.3).
+4. **Real NEAT, made visible.** The DNA starts minimal and **augments its own topology** (add-node / add-connection with innovation numbers; optional recurrent + gated links), with compatibility-distance **speciation** protecting new structure; node/connection counts grow on screen (§3.2).
+5. **An honest, signed tree of life + an archipelago swarm.** Champions are content-addressed and ECDSA-signed into a *branching* Merkle-DAG phylogeny (crossover → two parents); the swarm roadmap is an asynchronous **island model** (best-per-niche migration) behind a swap-able archive seam — local-first today, one shared garden tomorrow (§3.4, §3.8).
+
+The framing throughout is **Hofstadter's strange loop of consciousness** [10] — a process that models itself until an "I" precipitates — held honestly as structure made visible, never a claim of consciousness.
+
+---
+
 ## 1. Introduction
 
 Most contemporary machine learning optimises a fixed objective on a fixed architecture with gradient descent at industrial scale. An older, stranger tradition asks a different question: *can a process be open-ended* — endlessly generating novel, interesting, learnable artefacts — and *what do the artefacts so produced look like on the inside?* Recent position work argues open-endedness is essential to the next era of capable AI [9], and recent empirical work suggests that artefacts produced by open-ended evolutionary search can possess markedly cleaner internal structure than their gradient-trained counterparts [11].
@@ -194,7 +206,7 @@ This is deliberately testable, and each clause can fail:
 3. L. Wang et al. *Tensorized NEAT (TensorNEAT): GPU-accelerated NeuroEvolution*. arXiv:2404.01817. https://arxiv.org/abs/2404.01817
 4. F. Lim et al. *Accelerated Quality-Diversity through Massive Parallelism* (QDax). arXiv:2202.01258. https://arxiv.org/abs/2202.01258
 5. J.-B. Mouret & J. Clune. *Illuminating Search Spaces by Mapping Elites* (MAP-Elites). arXiv:1504.04909. https://arxiv.org/abs/1504.04909
-6. J. Secretan, K. O. Stanley et al. *Picbreeder: A Case Study in Collaborative Evolutionary Exploration of Design Space* (CPPNs). Evolutionary Computation, 2011. https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf · site: https://nbenko1.github.io/
+6. J. Secretan, K. O. Stanley et al. *Picbreeder: A Case Study in Collaborative Evolutionary Exploration of Design Space* (CPPNs). Evolutionary Computation 19(3):373–403, 2011. Picbreeder (live, authoritative): https://nbenko1.github.io/
 7. R. Wang, J. Lehman, J. Clune & K. O. Stanley. *Paired Open-Ended Trailblazer (POET)*. arXiv:1901.01753. https://arxiv.org/abs/1901.01753
 8. J. Lehman, J. Gordon, S. Jain, K. Ndousse, C. Yeh & K. O. Stanley. *Evolution through Large Models (ELM)*. arXiv:2206.08896. https://arxiv.org/abs/2206.08896
 9. E. Hughes, M. Dennis, J. Parker-Holder, F. Behbahani, A. Mavalankar, Y. Shi, T. Schaul & T. Rocktäschel. *Open-Endedness is Essential for Artificial Superhuman Intelligence*. ICML 2024. arXiv:2406.04268. https://arxiv.org/abs/2406.04268
