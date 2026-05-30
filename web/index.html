@@ -35,7 +35,7 @@
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
         </dl>
         <div class="bar-end">
-          <span class="swarm"><span class="dot" aria-hidden="true"></span> PART OF THE SWARM · LOCAL NODE</span>
+          <span class="swarm" title="today Autograph runs only on your device — the participant count rises when the coordinator goes live"><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;node&nbsp;(you) · <strong id="ag-swarm-explored">0</strong>&nbsp;explored</span>
           <button id="ag-help-open" class="btn" type="button" title="what am I looking at? a quick tour of the parts">? WHAT IS THIS</button>
           <button id="ag-info-open" class="btn" type="button">INFO</button>
         </div>
@@ -90,6 +90,7 @@
             <span id="ag-viewstat" class="mono-dim viewstat">—</span>
           </div>
           <div id="ag-stage" class="stage">
+            <span id="ag-sel-badge" class="sel-badge" aria-hidden="true">● FOLLOWING · most enlightened</span>
             <canvas id="ag-stage-2d" class="layer hidden"></canvas>
             <svg id="ag-net-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
             <svg id="ag-dna-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -103,7 +104,7 @@
 
         <!-- THE POPULATION -->
         <section class="panel p-population" aria-label="The diversity map">
-          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">quality-diversity · complexity → · symmetry ↑ · brightness = fidelity</span></div>
+          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">quality-diversity · complexity → · symmetry ↑ · brightness = fidelity · ⬚ border = watched</span></div>
           <div class="grid-wrap">
             <div class="grid-box">
               <canvas id="ag-grid"></canvas>
@@ -134,8 +135,55 @@
       <footer class="foot">
         <span class="foot-thesis">You can't copy a mind — only re-grow it from a recipe, and prove the lineage.</span>
         <span class="foot-mid">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://meos.do" rel="noopener">meos</a></span>
+        <nav class="foot-social social" aria-label="Aqeel Akber, elsewhere">
+          <a href="https://instagram.com/crying.at.a.sushi.train" rel="noopener" title="Instagram · crying.at.a.sushi.train">Instagram</a>
+          <a href="https://x.com/admiralakber" rel="noopener" title="X · @admiralakber">X</a>
+          <a href="https://bsky.app/profile/aqeelakber.com" rel="noopener" title="Bluesky · @aqeelakber.com">Bluesky</a>
+          <a href="https://linkedin.com/in/aqeelakber" rel="noopener" title="LinkedIn · Aqeel Akber">LinkedIn</a>
+          <a href="https://aqeelakber.com" rel="noopener">aqeelakber.com</a>
+        </nav>
         <span class="foot-end"><a href="https://github.com/admiralakber/autograph" rel="noopener">SOURCE</a> · MIT · NO QUBITS HERE</span>
       </footer>
+    </div>
+
+    <!-- ░░ WELCOME — first thing on landing (dismissible, re-openable from “?”) ░░ -->
+    <div id="ag-welcome" class="overlay welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <div class="overlay-inner welcome-inner">
+        <p class="welcome-kicker">↺ AUTOGRAPH · a living instrument</p>
+        <h1 id="welcome-title">A network, drawing its true self.</h1>
+        <p class="welcome-draft">✎ FIRST DRAFT — placeholder words, for Aqeel to make his own.</p>
+
+        <div class="welcome-body">
+          <p>For as long as we have had minds, we have tried to know them. We cut open the body, mapped the brain, asked what a <em>self</em> even is — and learned, slowly, that a person is not a thing but a <em>process</em>: a pattern that holds itself together while everything inside it changes.</p>
+
+          <p>Now we are growing minds that are not ours. If we mean to live well beside them, we owe them — and ourselves — the oldest question: <em>what is in there?</em> Autograph is a small, honest attempt to watch a machine try to know itself — to draw its true self out of the false. Every claim here is measured, never faked.</p>
+
+          <p>No mind knows itself alone. A self is learned from others; a science is built by many hands; a search this open needs more eyes and more compute than any one of us holds. So this is made to be <strong>shared</strong> — many machines, one slowly-growing tree of life. What you see is your small part in a collective act of knowing.</p>
+
+          <p>And we had better understand the algorithms we already live inside. Feeds, markets, models — they are optimisation loops with fixed points of their own, and we are in them whether we look or not. To watch one simple rule become a whole creature, here, in the open, is practice for seeing the rules that quietly shape us.</p>
+
+          <p>We place an AI inside a game and watch what it becomes. It is worth remembering that we are inside one too — older, and largely unchosen. This little world is honest about the cost: a creature that <em>perfectly</em> closes the loop on itself collapses into emptiness. Perfect self-knowledge is a kind of death; life is the imperfect, unfinished, still-curious kind.</p>
+
+          <p>Which leaves one direction worth the name — not deeper into the game we were dealt, but up, and out of it.</p>
+        </div>
+
+        <blockquote class="welcome-creed">Evolution is amoral, culture serves the genome, and for humanity to survive we must transcend. We must… transcend.</blockquote>
+
+        <nav class="welcome-social social" aria-label="Aqeel Akber, elsewhere">
+          <a href="https://instagram.com/crying.at.a.sushi.train" rel="noopener">Instagram</a>
+          <a href="https://x.com/admiralakber" rel="noopener">X</a>
+          <a href="https://bsky.app/profile/aqeelakber.com" rel="noopener">Bluesky</a>
+          <a href="https://linkedin.com/in/aqeelakber" rel="noopener">LinkedIn</a>
+          <a href="https://aqeelakber.com" rel="noopener">aqeelakber.com</a>
+          <a href="https://meos.do" rel="noopener">meos.do</a>
+        </nav>
+
+        <div class="welcome-actions">
+          <button id="ag-welcome-begin" class="btn welcome-begin" type="button">BEGIN ↺</button>
+          <span class="mono-dim">reopen anytime from “?”</span>
+        </div>
+        <p class="ov-foot">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://meos.do" rel="noopener">meos</a> · MIT · honest, never faked.</p>
+      </div>
     </div>
 
     <!-- ░░ WHAT IS THIS? — quick in-context tour ░░ -->
@@ -153,7 +201,7 @@
           <dt>🌳 TREE OF LIFE</dt><dd>Every champion is signed &amp; hash-chained into a genealogy that grows on its own and persists across visits.</dd>
           <dt>⚙ CONTROLS</dt><dd><strong>STACKED</strong> shows all three at once (tap one to open). <strong>FOLLOW BEST</strong> tracks the finest self-encoder. <strong>TURBO</strong> evolves faster. <strong>NOVELTY</strong> rewards being <em>different</em>, not just faithful (Lehman &amp; Stanley). <strong>KEEP</strong> signs a creature into your tree.</dd>
         </dl>
-        <p class="ov-foot">Want the full story, and what's real vs illustrative? Open <strong>INFO</strong>.</p>
+        <p class="ov-foot">Want the full story, and what's real vs illustrative? Open <strong>INFO</strong> — or revisit the <button id="ag-welcome-open" class="linklike" type="button">welcome note ✶</button>.</p>
       </div>
     </div>
 

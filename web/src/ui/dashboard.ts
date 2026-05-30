@@ -102,6 +102,7 @@ export class AutographDashboard {
     this.refreshFocused(seededGenome(GENESIS_SEED));
     this.setText('#ag-focus-note', 'GROWN FROM GENESIS · the canonical world');
     this.setMode('stacked');
+    this.maybeWelcome();
     requestAnimationFrame(() => this.tick());
   }
 
@@ -136,7 +137,10 @@ export class AutographDashboard {
     });
     need(this.root, '#ag-reset').addEventListener('click', () => this.grow(GENESIS_SEED));
     const follow = need<HTMLInputElement>(this.root, '#ag-follow');
-    follow.addEventListener('change', () => (this.follow = follow.checked));
+    follow.addEventListener('change', () => {
+      this.follow = follow.checked;
+      this.updateSelBadge();
+    });
     const turbo = need<HTMLInputElement>(this.root, '#ag-turbo');
     turbo.addEventListener('change', () => (this.budget = turbo.checked ? 60 : 20));
     const novelty = need<HTMLInputElement>(this.root, '#ag-novelty');
@@ -166,6 +170,31 @@ export class AutographDashboard {
     need(this.root, '#ag-info-close').addEventListener('click', () => this.toggleInfo(false));
     need(this.root, '#ag-help-open').addEventListener('click', () => need(this.root, '#ag-help').classList.add('open'));
     need(this.root, '#ag-help-close').addEventListener('click', () => need(this.root, '#ag-help').classList.remove('open'));
+    need(this.root, '#ag-welcome-begin').addEventListener('click', () => this.closeWelcome());
+    need(this.root, '#ag-welcome-open').addEventListener('click', () => {
+      need(this.root, '#ag-help').classList.remove('open');
+      need(this.root, '#ag-welcome').classList.add('open');
+    });
+  }
+
+  /** Show the welcome on first visit only; re-openable from the “?” help. */
+  private maybeWelcome(): void {
+    let seen = false;
+    try {
+      seen = localStorage.getItem('ag-welcomed') === '1';
+    } catch {
+      /* storage off — show it, it just won't be remembered */
+    }
+    if (!seen) need(this.root, '#ag-welcome').classList.add('open');
+  }
+
+  private closeWelcome(): void {
+    need(this.root, '#ag-welcome').classList.remove('open');
+    try {
+      localStorage.setItem('ag-welcomed', '1');
+    } catch {
+      /* ignore */
+    }
   }
 
   private toggleInfo(open: boolean): void {
@@ -220,6 +249,7 @@ export class AutographDashboard {
     this.setText('#ag-pop', `${s.filled}/${s.cells}`);
     this.setText('#ag-cov', `${Math.round(s.coverage * 100)}%`);
     this.setText('#ag-species', String(s.species));
+    this.setText('#ag-swarm-explored', this.formatCount(s.evaluations));
     const now = performance.now();
     if (this.lastGenAt === 0) {
       this.lastGenAt = now;
@@ -261,9 +291,21 @@ export class AutographDashboard {
     this.drawLoop(genome, pheno);
     this.updateViewStat();
     this.moveHighlight(index);
+    this.updateSelBadge();
     void this.updateFingerprint(genome);
     this.setText('#ag-fid', `${(evaluation.fidelity * 100).toFixed(1)}%`);
     this.setText('#ag-edges', String(evaluation.liveConns));
+  }
+
+  /** The unmistakable "which creature am I watching" badge on the main view. */
+  private updateSelBadge(): void {
+    this.setText('#ag-sel-badge', this.follow ? '● FOLLOWING · most enlightened' : '◆ PINNED · your pick');
+  }
+
+  private formatCount(n: number): string {
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+    return String(n);
   }
 
   /** Move the bright selection border onto the focused cell (follow or click). */
