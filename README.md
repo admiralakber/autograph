@@ -162,10 +162,14 @@ autograph/
 │   ├── src/ui/              # the instrument controller
 │   └── scripts/smoke.ts     # headless verification ("don't trust, verify")
 ├── docs/                    # WHITEPAPER.md · BLOG.md · DEPLOY-coordinator.md
+│   └── notes/               # design deep-dives — architecture · runtime+GPU · crypto · quantum · prior-art
 ├── VISION.md                # the soul + teaching goals + aesthetic doctrine
-├── TWEETS.md
 └── LICENSE                  # MIT
 ```
+
+### Design notes 📓
+
+Deeper dives for the curious — the engineering, the maths, and an honest map of what's real vs roadmap — live in [`docs/notes/`](./docs/notes/): [architecture & the swarm](./docs/notes/architecture.md) · [runtime & GPU](./docs/notes/runtime-and-gpu.md) · [cryptography](./docs/notes/cryptography.md) · [quantum](./docs/notes/quantum.md) · [prior art & novelty](./docs/notes/prior-art.md).
 
 ---
 

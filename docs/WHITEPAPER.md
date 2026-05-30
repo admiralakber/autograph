@@ -2,6 +2,7 @@
 
 **A working paper.** *Version 0.1.*
 **Author:** Aqeel Akber.
+**Design notes (further reading):** [architecture & the swarm](./notes/architecture.md) · [runtime & GPU](./notes/runtime-and-gpu.md) · [cryptography](./notes/cryptography.md) · [quantum](./notes/quantum.md) · [prior art & novelty](./notes/prior-art.md).
 
 ---
 
