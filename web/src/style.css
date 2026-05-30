@@ -684,11 +684,7 @@ code {
 /* ---- Welcome modal ---- */
 .welcome-inner { max-width: 680px; padding-top: 64px; }
 .welcome-kicker { font-size: 10px; letter-spacing: 0.24em; color: var(--faint); margin: 0 0 14px; }
-.welcome-inner h1 { font-size: 22px; letter-spacing: 0.01em; line-height: 1.22; color: var(--bright); margin: 0 0 8px; text-transform: none; }
-.welcome-draft {
-  font-size: 10px; letter-spacing: 0.12em; color: var(--faint);
-  border: 1px dashed var(--line); display: inline-block; padding: 3px 8px; margin: 0 0 24px;
-}
+.welcome-inner h1 { font-size: 22px; letter-spacing: 0.01em; line-height: 1.22; color: var(--bright); margin: 0 0 24px; text-transform: none; }
 .welcome-body p { font-size: 14px; line-height: 1.85; color: var(--dim); margin: 0 0 14px; }
 .welcome-body em { color: var(--ink); font-style: italic; }
 .welcome-creed {
