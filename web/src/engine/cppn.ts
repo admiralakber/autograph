@@ -103,6 +103,13 @@ export function paramToUnit(p: number): number {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 
+/** Inverse of paramToUnit: a painted [0,1] density back into a DNA param. The
+ *  decode half of the encode∘render map used by the fixed-point iteration. */
+export function unitToParam(u: number): number {
+  const c = u < 0 ? 0 : u > 1 ? 1 : u;
+  return (c - 0.5) * 2 * W_SCALE;
+}
+
 /** Stable little-endian serialisation for content hashing (binds the topology). */
 export function genomeBytes(g: Genome): Uint8Array {
   const header = 8;

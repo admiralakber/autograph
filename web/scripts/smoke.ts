@@ -4,7 +4,7 @@
 // lineage verification rejects tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
 import { seededGenome } from '../src/engine/cppn.ts';
-import { evaluate } from '../src/engine/fitness.ts';
+import { evaluate, iterateLoop } from '../src/engine/fitness.ts';
 import { buildPhenotype } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
@@ -48,6 +48,12 @@ function evolve(): void {
       `best LIVELY creature (showcase): loop fidelity ${(e.fidelity * 100).toFixed(1)}% | ` +
         `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | conns ${e.liveConns}`,
     );
+    const show = (a: number[]): string => a.filter((_, i) => i % 3 === 0).map((x) => x.toFixed(3)).join(' ');
+    const tEvo = iterateLoop(lively.cell.genome, 24, 0.55);
+    console.log(`  FIXED-POINT iteration (evolved): drift ${show(tEvo.drift)} → residual ${tEvo.residual.toFixed(3)} ${tEvo.converged ? '✓ CONVERGED' : '(partial)'}`);
+    console.log(`                                   fidelity ${show(tEvo.fidelity)}`);
+    const tRnd = iterateLoop(seededGenome('random-control-9'), 24, 0.55);
+    console.log(`  FIXED-POINT iteration (random):  residual ${tRnd.residual.toFixed(3)} ${tRnd.converged ? '✓ converged' : '(partial)'}`);
   }
 }
 

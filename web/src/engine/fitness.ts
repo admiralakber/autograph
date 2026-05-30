@@ -1,18 +1,19 @@
-import { GENOME_DIM } from './arch.ts';
+import { GENOME_DIM, WEIGHT_COUNT } from './arch.ts';
 import type { Genome } from './cppn.ts';
-import { genomeVector, paramToUnit } from './cppn.ts';
+import { genomeVector, paramToUnit, unitToParam, cloneGenome, W_SCALE } from './cppn.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
 
-// THE STRANGE LOOP (measured live, never faked).
+// THE STRANGE LOOP — a genuine fixed point, not just a score.
 //
-//   DNA (CPPN) → phenotype (substrate) → volumetric self-portrait
-//             → read the density at known 3D probe points → DNA'
-//
-// The loop "closes" to the extent the drawn density at probe k re-states DNA
-// param k. This is a genuine fixed-point search over genomes; closure is partial
-// (the substrate field has finite expressivity, and exactness is impossible
-// across devices anyway), so we report the achieved fidelity honestly.
+//   T(g) = decode( render( g ) ):  DNA → brain → self-portrait → read density
+//          back into a DNA′.  Iterate g → T(g) → T(T(g)) → … and a self-encoding
+//          creature *settles* to a fixed point g* with T(g*) ≈ g* — a quine
+//          reaching its fixed point (Kleene/Banach). `loopFidelity` scores one
+//          step (how close T(g) is to g); `iterateLoop` runs the map under
+//          relaxation so you can watch it close. Closure is honest: it settles to
+//          a residual floor (finite substrate expressivity), never faked, and the
+//          vitality gate + MAP-Elites keep it off the trivial empty fixed point.
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
@@ -59,6 +60,71 @@ export function loopFidelity(g: Genome, p: Phenotype): number {
   }
   const f = 1 - Math.sqrt(se / GENOME_DIM);
   return f < 0 ? 0 : f > 1 ? 1 : f;
+}
+
+// --- The fixed-point iteration (the loop literally closing) -----------------
+
+/** Read the painted self-portrait back into a genome (DNA′): the density at each
+ *  probe becomes the matching weight/bias; activations carry over as the body
+ *  plan (a density field can't honestly encode the discrete activation choices).
+ *  This is the *decode* half of T = decode∘render. */
+export function readBackGenome(p: Phenotype, template: Genome): Genome {
+  const painted = paintedAtProbes(p);
+  const weights = new Float32Array(WEIGHT_COUNT);
+  const biases = new Float32Array(GENOME_DIM - WEIGHT_COUNT);
+  for (let k = 0; k < GENOME_DIM; k++) {
+    const v = unitToParam(painted[k]!);
+    if (k < WEIGHT_COUNT) weights[k] = v;
+    else biases[k - WEIGHT_COUNT] = v;
+  }
+  return { weights, biases, acts: template.acts.slice() };
+}
+
+export interface LoopTrajectory {
+  /** ‖g_{n+1} − g_n‖ per step, normalised to [0,1] → 0 at a fixed point. */
+  readonly drift: number[];
+  /** one-step loop fidelity of g_n (climbs toward 1 as it settles). */
+  readonly fidelity: number[];
+  readonly final: Genome;
+  /** true if drift fell below the convergence tolerance. */
+  readonly converged: boolean;
+  /** the residual drift it settled to (the honest floor). */
+  readonly residual: number;
+}
+
+const DRIFT_NORM = 1 / (2 * W_SCALE);
+
+/** Iterate T under under-relaxation so the creature *settles* to a fixed point:
+ *  g_{n+1} = g_n + α·(T(g_n) − g_n). Records drift→0 (closing) and the per-step
+ *  fidelity (climbing). Same self-consistency condition as `loopFidelity`,
+ *  approached gently so it can be watched. */
+export function iterateLoop(g0: Genome, steps = 24, alpha = 0.55, tol = 0.012): LoopTrajectory {
+  let g = cloneGenome(g0);
+  const drift: number[] = [];
+  const fidelity: number[] = [];
+  let converged = false;
+  for (let n = 0; n < steps; n++) {
+    const p = buildPhenotype(g);
+    fidelity.push(loopFidelity(g, p));
+    const t = readBackGenome(p, g);
+    const next = cloneGenome(g);
+    let se = 0;
+    for (let i = 0; i < g.weights.length; i++) {
+      const nv = g.weights[i]! + alpha * (t.weights[i]! - g.weights[i]!);
+      se += (nv - g.weights[i]!) ** 2;
+      next.weights[i] = nv;
+    }
+    for (let i = 0; i < g.biases.length; i++) {
+      const nv = g.biases[i]! + alpha * (t.biases[i]! - g.biases[i]!);
+      se += (nv - g.biases[i]!) ** 2;
+      next.biases[i] = nv;
+    }
+    const d = Math.sqrt(se / GENOME_DIM) * DRIFT_NORM;
+    drift.push(d);
+    g = next;
+    if (d < tol) converged = true;
+  }
+  return { drift, fidelity, final: g, converged, residual: drift[drift.length - 1] ?? 1 };
 }
 
 export interface Evaluation {

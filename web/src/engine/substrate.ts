@@ -173,6 +173,16 @@ export function phenotypeNodes(p: Phenotype): SubNode[] {
   return nodes;
 }
 
+/** A copy of the phenotype with hidden neuron `j` silenced (its in/out weights
+ *  zeroed) — for showing a neuron's receptive field by ablation diff. */
+export function ablateHidden(p: Phenotype, j: number): Phenotype {
+  const Wih = p.Wih.slice();
+  const Who = p.Who.slice();
+  for (let i = 0; i < SUB_INPUTS; i++) Wih[i * SUB_HIDDEN + j] = 0;
+  for (let o = 0; o < SUB_OUTPUTS; o++) Who[j * SUB_OUTPUTS + o] = 0;
+  return { ...p, Wih, Who };
+}
+
 export function phenotypeConns(p: Phenotype, nodes: SubNode[] = phenotypeNodes(p)): SubConn[] {
   const inOff = 0;
   const hidOff = SUB_INPUTS;

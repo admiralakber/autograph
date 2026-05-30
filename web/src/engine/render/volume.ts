@@ -1,5 +1,5 @@
 import type { Phenotype } from '../substrate.ts';
-import { substrateForward } from '../substrate.ts';
+import { substrateForward, ablateHidden } from '../substrate.ts';
 import { lifeRgb, lifeRgbF, LIFE_ALPHA } from '../palette.ts';
 
 // Sampling the phenotype's volumetric self-portrait. The substrate's density
@@ -72,6 +72,38 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
       data[o] = Math.round(cr * a);
       data[o + 1] = Math.round(cg * a);
       data[o + 2] = Math.round(cb * a);
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const o3: [number, number] = [0, 0];
+
+/** A neuron's receptive field: where silencing hidden neuron `j` changes the
+ *  self-portrait most (ablation diff of the z-slice), drawn as a white heat.
+ *  The genotype→brain→image link a neuroscientist can read. */
+export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanvasElement, size: number, z = 0): void {
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const abl = ablateHidden(base, j);
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  const inv = 2 / (size - 1);
+  for (let yi = 0; yi < size; yi++) {
+    const y = yi * inv - 1;
+    for (let xi = 0; xi < size; xi++) {
+      const x = xi * inv - 1;
+      const d0 = substrateForward(base, x, y, z, o2)[0];
+      const d1 = substrateForward(abl, x, y, z, o3)[0];
+      const diff = Math.min(1, Math.abs(d0 - d1) * 3.2);
+      const v = Math.round(diff * 255);
+      const o = (yi * size + xi) * 4;
+      data[o] = v;
+      data[o + 1] = v;
+      data[o + 2] = v;
       data[o + 3] = 255;
     }
   }
