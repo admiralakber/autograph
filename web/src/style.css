@@ -312,6 +312,71 @@ code {
   color: var(--bg);
   background: var(--ink);
 }
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dim {
+  display: flex;
+}
+.dim-btn {
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  background: transparent;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-right: 0;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.dim-btn:last-child {
+  border-right: 1px solid var(--line);
+}
+.dim-btn.active {
+  color: var(--bg);
+  background: var(--ink);
+}
+.mode-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 12px 0;
+  flex: none;
+}
+.mode-caption {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--dim);
+  max-width: 64ch;
+}
+.viewstat {
+  white-space: nowrap;
+  flex: none;
+  padding-top: 1px;
+}
+/* SVG network diagrams */
+.ag-axis {
+  fill: var(--dim);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+}
+.ag-axis-dim {
+  fill: var(--faint);
+}
+.ag-nlabel {
+  fill: rgba(236, 236, 236, 0.62);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.03em;
+}
+.ag-pulse circle {
+  pointer-events: none;
+}
 .stage {
   position: relative;
   flex: 1;

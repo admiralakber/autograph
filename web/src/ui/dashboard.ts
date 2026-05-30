@@ -7,19 +7,13 @@ import { evaluate, targetAtProbes, paintedAtProbes } from '../engine/fitness.ts'
 import type { Phenotype } from '../engine/substrate.ts';
 import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substrate.ts';
 import { Garden } from '../engine/evolution.ts';
-import { volumeCloud, paintProjection } from '../engine/render/volume.ts';
+import { volumeCloud, paintProjection, paintSlice } from '../engine/render/volume.ts';
 import { CreatureScene } from '../engine/render/scene3d.ts';
 import type { Identity, LineageEntry, LineageFile } from '../engine/lineage.ts';
-import {
-  generateIdentity,
-  createEntry,
-  verifyLineage,
-  makeLineageFile,
-  hashGenome,
-  fingerprint,
-} from '../engine/lineage.ts';
+import { generateIdentity, createEntry, verifyLineage, makeLineageFile, hashGenome, fingerprint } from '../engine/lineage.ts';
 import { loadLineage, saveEntry } from '../engine/storage.ts';
-import { drawCppnGraph, drawSubstrate2D } from './netdraw.ts';
+import type { NetLayout } from './netdraw.ts';
+import { drawCppnGraph, drawSubstrateGraph, NetworkPulse } from './netdraw.ts';
 import { renderGenealogy } from './genealogy.ts';
 import { need } from './dom.ts';
 
@@ -29,10 +23,21 @@ const CELL = 34;
 const FOLLOW_EVERY = 48;
 
 type Mode = 'render' | 'net' | 'dna';
+
+const CAPTIONS: Record<Mode, string> = {
+  render:
+    'SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.',
+  net: 'PHENOTYPE · the brain the DNA painted, with neurons ES-placed. Signal flows input→output; queried over space, it draws the self-portrait above.',
+  dna: 'DNA · the genotype, a tiny CPPN. Given two points it returns one connection — it paints every weight and places every neuron of the brain.',
+};
+
 interface Focused {
   genome: Genome;
   pheno: Phenotype;
   evaluation: Evaluation;
+  net: NetLayout | null;
+  dna: NetLayout | null;
+  cloudCount: number;
 }
 
 export class AutographDashboard {
@@ -43,11 +48,13 @@ export class AutographDashboard {
   private identity: Identity | null = null;
   private focused: Focused | null = null;
   private mode: Mode = 'render';
+  private portraitDim: '3d' | '2d' = '3d';
   private running = true;
   private follow = true;
   private budget = 20;
   private frame = 0;
 
+  private readonly pulse = new NetworkPulse();
   private readonly lineage: LineageEntry[] = [];
 
   private readonly grid: HTMLCanvasElement;
@@ -77,28 +84,25 @@ export class AutographDashboard {
     const stage = need(this.root, '#ag-stage');
     this.scene = new CreatureScene(stage);
     this.webgl = this.scene.ok;
+    if (!this.webgl) this.portraitDim = '2d';
     this.setText('#ag-backend', this.webgl ? '3D · WEBGL' : '2D · CANVAS');
-
     this.setText('#ag-genesis-seed', GENESIS_SEED);
     this.wire();
     this.paintEmptyGrid();
 
-    // Inoculate the world from Genesis, then load any persisted genealogy.
     this.garden.seedWith([seededGenome(GENESIS_SEED)]);
     await this.bootGenealogy();
     this.syncDirty();
     this.refreshFocused(seededGenome(GENESIS_SEED));
+    this.setText('#ag-focus-note', 'GROWN FROM GENESIS · the canonical world');
     this.applyMode();
     requestAnimationFrame(() => this.tick());
   }
-
-  // --- Genealogy persistence (IndexedDB) ------------------------------------
 
   private async bootGenealogy(): Promise<void> {
     const stored = await loadLineage();
     for (const e of stored) this.lineage.push(e);
     if (!this.lineage.some((e) => e.parents.length === 0)) {
-      // Establish the Genesis root once (signed by an ephemeral world key).
       const id = this.identity ?? (this.identity = await generateIdentity());
       const g = seededGenome(GENESIS_SEED);
       const entry = await createEntry({ genome: g, parents: [], seed: GENESIS_SEED, fidelity: evaluate(g).fidelity, identity: id });
@@ -117,7 +121,7 @@ export class AutographDashboard {
     seed.addEventListener('keydown', (e) => {
       if ((e as KeyboardEvent).key === 'Enter') this.grow(seed.value.trim() || GENESIS_SEED);
     });
-    need(this.root, '#ag-key').addEventListener('click', () => void this.growFromKey(seed));
+    need(this.root, '#ag-key').addEventListener('click', () => void this.makeKey());
 
     const run = need<HTMLButtonElement>(this.root, '#ag-run');
     run.addEventListener('click', () => {
@@ -133,6 +137,8 @@ export class AutographDashboard {
     for (const m of ['render', 'net', 'dna'] as const) {
       need(this.root, `#ag-mode-${m}`).addEventListener('click', () => this.setMode(m));
     }
+    need(this.root, '#ag-dim-3d').addEventListener('click', () => this.setDim('3d'));
+    need(this.root, '#ag-dim-2d').addEventListener('click', () => this.setDim('2d'));
 
     this.grid.addEventListener('click', (e) => this.onGridClick(e));
 
@@ -157,16 +163,20 @@ export class AutographDashboard {
     this.follow = true;
     need<HTMLInputElement>(this.root, '#ag-follow').checked = true;
     this.refreshFocused(seededGenome(seedStr));
-    this.setText('#ag-focus-note', seedStr === GENESIS_SEED ? 'GROWN FROM GENESIS' : 'GROWN FROM YOUR SEED');
+    this.setText(
+      '#ag-focus-note',
+      seedStr === GENESIS_SEED
+        ? 'GROWN FROM GENESIS · the canonical world'
+        : 'YOUR OWN WORLD · in the swarm, creatures you KEEP migrate into the one genealogy from Genesis',
+    );
   }
 
-  private async growFromKey(seed: HTMLInputElement): Promise<void> {
+  /** A keypair is your *signature* on creatures you keep — it does not change the
+   *  world you are exploring (Genesis or your own seed). */
+  private async makeKey(): Promise<void> {
     this.identity = await generateIdentity();
     this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
-    const keySeed = `key:${this.identity.publicKeyHex}`;
-    seed.value = `key:${fingerprint(this.identity.publicKeyHex).replace(/ /g, '').slice(0, 8)}…`;
-    this.grow(keySeed);
-    this.setText('#ag-focus-note', 'GROWN FROM YOUR PUBLIC KEY');
+    this.setText('#ag-verify', 'SIGNATURE READY · creatures you KEEP are now signed by your key');
   }
 
   // --- Frame loop -----------------------------------------------------------
@@ -192,72 +202,115 @@ export class AutographDashboard {
     this.setText('#ag-cov', `${Math.round(s.coverage * 100)}%`);
     if (this.focused) {
       this.setText('#ag-fid', `${(this.focused.evaluation.fidelity * 100).toFixed(1)}%`);
-      this.setText('#ag-conns', String(this.focused.evaluation.liveConns));
+      this.setText('#ag-edges', String(this.focused.evaluation.liveConns));
     }
   }
 
-  // --- The focused individual (the three equivalent views) ------------------
+  // --- The focused individual (three equivalent views) ----------------------
 
   private refreshFocused(genome: Genome): void {
     const pheno = buildPhenotype(genome);
     const evaluation = evaluate(genome, pheno);
-    this.focused = { genome, pheno, evaluation };
-
+    let cloudCount = 0;
     if (this.webgl && this.scene) {
-      this.scene.setCloud(volumeCloud(pheno));
-      this.scene.setNet(phenotypeNodes(pheno), phenotypeConns(pheno));
-    } else {
-      const stage2d = need<HTMLCanvasElement>(this.root, '#ag-stage-2d');
-      paintProjection(pheno, stage2d, 360);
-      drawSubstrate2D(need(this.root, '#ag-net-svg') as unknown as SVGSVGElement, phenotypeNodes(pheno), phenotypeConns(pheno));
+      const cloud = volumeCloud(pheno);
+      cloudCount = cloud.count;
+      this.scene.setCloud(cloud);
     }
-    drawCppnGraph(need(this.root, '#ag-dna-svg') as unknown as SVGSVGElement, genome, (t) => this.setText('#ag-hover', t));
+    const hover = (t: string): void => this.setText('#ag-hover', t);
+    const subNodes = phenotypeNodes(pheno);
+    const net = drawSubstrateGraph(need(this.root, '#ag-net-svg') as unknown as SVGSVGElement, subNodes, phenotypeConns(pheno, subNodes), hover);
+    const dna = drawCppnGraph(need(this.root, '#ag-dna-svg') as unknown as SVGSVGElement, genome, hover);
+    this.focused = { genome, pheno, evaluation, net, dna, cloudCount };
+
+    this.renderPortrait();
+    this.attachPulse();
     this.drawLoop(genome, pheno);
+    this.updateViewStat();
     void this.updateFingerprint(genome);
     this.setText('#ag-fid', `${(evaluation.fidelity * 100).toFixed(1)}%`);
+    this.setText('#ag-edges', String(evaluation.liveConns));
   }
 
   private setMode(mode: Mode): void {
     this.mode = mode;
-    for (const m of ['render', 'net', 'dna'] as const) {
-      need(this.root, `#ag-mode-${m}`).classList.toggle('active', m === mode);
-    }
+    for (const m of ['render', 'net', 'dna'] as const) need(this.root, `#ag-mode-${m}`).classList.toggle('active', m === mode);
+    this.setText('#ag-mode-caption', CAPTIONS[mode]);
     this.applyMode();
+  }
+
+  private setDim(dim: '3d' | '2d'): void {
+    this.portraitDim = dim;
+    need(this.root, '#ag-dim-3d').classList.toggle('active', dim === '3d');
+    need(this.root, '#ag-dim-2d').classList.toggle('active', dim === '2d');
+    if (this.mode === 'render') this.applyMode();
   }
 
   private applyMode(): void {
     const dna = need(this.root, '#ag-dna-svg');
-    const net2d = need(this.root, '#ag-net-svg');
+    const net = need(this.root, '#ag-net-svg');
     const c2d = need(this.root, '#ag-stage-2d');
+    const wantSlice = this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl);
+    const want3d = this.mode === 'render' && this.portraitDim === '3d' && this.webgl;
+
     dna.classList.toggle('hidden', this.mode !== 'dna');
-    if (this.webgl && this.scene) {
-      this.scene.setCanvasVisible(this.mode !== 'dna');
-      if (this.mode === 'render') this.scene.setMode('cloud');
-      if (this.mode === 'net') this.scene.setMode('net');
-      net2d.classList.add('hidden');
-      c2d.classList.add('hidden');
-    } else {
-      c2d.classList.toggle('hidden', this.mode !== 'render');
-      net2d.classList.toggle('hidden', this.mode !== 'net');
+    net.classList.toggle('hidden', this.mode !== 'net');
+    c2d.classList.toggle('hidden', !wantSlice);
+    this.scene?.setCanvasVisible(want3d);
+    // the 2D/3D toggle is only meaningful for the self-portrait
+    need(this.root, '#ag-dim').classList.toggle('hidden', this.mode !== 'render' || !this.webgl);
+
+    if (wantSlice) this.renderPortrait();
+    this.setText('#ag-mode-caption', CAPTIONS[this.mode]);
+    this.attachPulse();
+    this.updateViewStat();
+  }
+
+  /** Paint the flat 2-D slice when the self-portrait is in 2-D (or no WebGL). */
+  private renderPortrait(): void {
+    if (!this.focused) return;
+    if (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl)) {
+      paintSlice(this.focused.pheno, need<HTMLCanvasElement>(this.root, '#ag-stage-2d'), 420, 0);
     }
+  }
+
+  /** Run the activation pulse on whichever network view is showing. */
+  private attachPulse(): void {
+    if (!this.focused) return;
+    if (this.mode === 'net' && this.focused.net) {
+      this.pulse.attach(need(this.root, '#ag-net-svg') as unknown as SVGSVGElement, this.focused.net);
+    } else if (this.mode === 'dna' && this.focused.dna) {
+      this.pulse.attach(need(this.root, '#ag-dna-svg') as unknown as SVGSVGElement, this.focused.dna);
+    } else {
+      this.pulse.stop();
+    }
+  }
+
+  private updateViewStat(): void {
+    if (!this.focused) return;
+    let s = '';
+    if (this.mode === 'render') s = this.webgl && this.portraitDim === '3d' ? `≈ ${this.focused.cloudCount.toLocaleString('en-GB')} living points` : '2-D slice · z = 0';
+    else if (this.mode === 'net') s = `${this.focused.net?.nodes.length ?? 0} nodes · ${this.focused.net?.edges.length ?? 0} edges`;
+    else s = `${this.focused.dna?.nodes.length ?? 0} nodes · ${this.focused.dna?.edges.length ?? 0} edges`;
+    this.setText('#ag-viewstat', s);
   }
 
   private drawLoop(genome: Genome, pheno: Phenotype): void {
     const target = targetAtProbes(genome);
     const painted = paintedAtProbes(pheno);
     const ctx = this.loopCtx;
-    const W = (this.loop.width = GENOME_DIM * 5);
-    const H = (this.loop.height = 54);
-    const sw = W / GENOME_DIM;
+    const Wd = (this.loop.width = GENOME_DIM * 5);
+    const Hd = (this.loop.height = 54);
+    const sw = Wd / GENOME_DIM;
     const rh = 22;
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, Wd, Hd);
     for (let k = 0; k < GENOME_DIM; k++) {
       const tg = Math.round(target[k]! * 255);
       ctx.fillStyle = `rgb(${tg},${tg},${tg})`;
       ctx.fillRect(k * sw, 0, Math.ceil(sw), rh);
       const pg = Math.round(painted[k]! * 255);
       ctx.fillStyle = `rgb(${pg},${pg},${pg})`;
-      ctx.fillRect(k * sw, H - rh, Math.ceil(sw), rh);
+      ctx.fillRect(k * sw, Hd - rh, Math.ceil(sw), rh);
     }
     const pct = (this.focused?.evaluation.fidelity ?? 0) * 100;
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
@@ -289,7 +342,7 @@ export class AutographDashboard {
   }
 
   private syncDirty(): void {
-    let budget = 8; // cap thumbnail rebuilds per frame
+    let budget = 8;
     for (const idx of this.garden.archive.drainDirty()) {
       if (budget-- <= 0) break;
       const cell = this.garden.archive.get(idx);
@@ -298,7 +351,6 @@ export class AutographDashboard {
       const cy = Math.floor(idx / COLS) * CELL;
       paintProjection(buildPhenotype(cell.genome), this.thumb, CELL);
       this.gridCtx.drawImage(this.thumb, cx, cy);
-      // fitness (loop fidelity) → greyscale border; new elites flash bright.
       const fg = Math.round((0.35 + cell.evaluation.fidelity * 0.6) * 255);
       this.gridCtx.strokeStyle = `rgba(${fg},${fg},${fg},0.9)`;
       this.gridCtx.lineWidth = 1.5;
@@ -315,6 +367,7 @@ export class AutographDashboard {
     this.follow = false;
     need<HTMLInputElement>(this.root, '#ag-follow').checked = false;
     this.refreshFocused(cell.genome);
+    this.setText('#ag-focus-note', 'PINNED · a creature you chose from the population');
     this.highlight.style.opacity = '1';
     this.highlight.style.left = `${(cx / COLS) * 100}%`;
     this.highlight.style.top = `${(cy / ROWS) * 100}%`;

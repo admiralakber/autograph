@@ -28,7 +28,7 @@
           <div><dt>POP</dt><dd id="ag-pop">0/144</dd></div>
           <div><dt>COVERAGE</dt><dd id="ag-cov">0%</dd></div>
           <div><dt>LOOP FIDELITY</dt><dd id="ag-fid">—</dd></div>
-          <div><dt>CONNS</dt><dd id="ag-conns">—</dd></div>
+          <div><dt>EDGES</dt><dd id="ag-edges" title="expressed connections in the phenotype brain">—</dd></div>
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
         </dl>
         <div class="bar-end">
@@ -44,19 +44,19 @@
           <code id="ag-genesis-seed" title="the canonical seed of the world">…</code>
         </div>
         <div class="strip-controls">
-          <input id="ag-seed" type="text" autocomplete="off" spellcheck="false" placeholder="enter a seed — grow a lifeform" />
-          <button id="ag-grow" class="btn" type="button">GROW</button>
-          <button id="ag-key" class="btn" type="button">KEYPAIR</button>
-          <span id="ag-identity" class="mono-dim">ANON</span>
+          <input id="ag-seed" type="text" autocomplete="off" spellcheck="false" placeholder="a seed → your own world  (blank = Genesis)" title="type anything to start your OWN local world; the canonical world grows from the Genesis seed shown left" />
+          <button id="ag-grow" class="btn" type="button" title="start a new local world from this seed">GROW</button>
+          <button id="ag-key" class="btn" type="button" title="generate your signing keypair — your signature on creatures you KEEP; it does not change the world">KEYPAIR</button>
+          <span id="ag-identity" class="mono-dim" title="your signing key (anonymous until you generate one)">ANON</span>
           <span class="vr" aria-hidden="true"></span>
-          <button id="ag-run" class="btn" type="button">PAUSE</button>
-          <button id="ag-reset" class="btn" type="button">RESET</button>
-          <label class="chk"><input id="ag-follow" type="checkbox" checked /> FOLLOW</label>
-          <label class="chk"><input id="ag-turbo" type="checkbox" /> TURBO</label>
+          <button id="ag-run" class="btn" type="button" title="pause / resume evolution">PAUSE</button>
+          <button id="ag-reset" class="btn" type="button" title="return to the Genesis world">RESET</button>
+          <label class="chk" title="auto-focus the best self-encoder as it evolves; turn off to keep one pinned"><input id="ag-follow" type="checkbox" checked /> FOLLOW&nbsp;BEST</label>
+          <label class="chk" title="evolve faster — more offspring per frame"><input id="ag-turbo" type="checkbox" /> TURBO&nbsp;⚡</label>
           <span class="vr" aria-hidden="true"></span>
-          <button id="ag-keep" class="btn" type="button">KEEP</button>
-          <button id="ag-export" class="btn" type="button">EXPORT</button>
-          <label class="btn">IMPORT<input id="ag-import" type="file" accept="application/json,.json" hidden /></label>
+          <button id="ag-keep" class="btn" type="button" title="sign this creature into your tree of life (persists across visits)">KEEP</button>
+          <button id="ag-export" class="btn" type="button" title="download your signed genealogy as JSON">EXPORT</button>
+          <label class="btn" title="import a genealogy file and re-verify every hash & signature">IMPORT<input id="ag-import" type="file" accept="application/json,.json" hidden /></label>
           <span id="ag-verify" class="mono-dim">tree of life · signed, hash-chained, persisted</span>
         </div>
       </section>
@@ -67,11 +67,21 @@
         <section class="panel p-individual" aria-label="The individual">
           <div class="panel-head">
             <span class="panel-title">THE INDIVIDUAL</span>
-            <div class="modes" role="tablist">
-              <button id="ag-mode-render" class="mode active" type="button">SELF-PORTRAIT</button>
-              <button id="ag-mode-net" class="mode" type="button">PHENOTYPE</button>
-              <button id="ag-mode-dna" class="mode" type="button">DNA</button>
+            <div class="head-right">
+              <div id="ag-dim" class="dim" role="group" aria-label="self-portrait dimension">
+                <button id="ag-dim-3d" class="dim-btn active" type="button" title="volumetric 3-D point cloud">3D</button>
+                <button id="ag-dim-2d" class="dim-btn" type="button" title="flat 2-D slice — crisper patterns">2D</button>
+              </div>
+              <div class="modes" role="tablist">
+                <button id="ag-mode-render" class="mode active" type="button" title="the volumetric picture the brain draws">SELF-PORTRAIT</button>
+                <button id="ag-mode-net" class="mode" type="button" title="the brain — nodes + weighted connections">PHENOTYPE</button>
+                <button id="ag-mode-dna" class="mode" type="button" title="the genotype — the CPPN that paints the brain">DNA</button>
+              </div>
             </div>
+          </div>
+          <div class="mode-bar">
+            <p id="ag-mode-caption" class="mode-caption">SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.</p>
+            <span id="ag-viewstat" class="mono-dim viewstat">—</span>
           </div>
           <div id="ag-stage" class="stage">
             <canvas id="ag-stage-2d" class="layer hidden"></canvas>
@@ -117,7 +127,7 @@
       <!-- ░░ FOOTER ░░ -->
       <footer class="foot">
         <span class="foot-thesis">You can't copy a mind — only re-grow it from a recipe, and prove the lineage.</span>
-        <span class="foot-mid">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://getmeos.com" rel="noopener">meos</a></span>
+        <span class="foot-mid">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://meos.do" rel="noopener">meos</a></span>
         <span class="foot-end"><a href="https://github.com/admiralakber/autograph" rel="noopener">SOURCE</a> · MIT · NO QUBITS HERE</span>
       </footer>
     </div>
@@ -136,7 +146,7 @@
         <p>The single most misunderstood thing: a beautiful render <em>is</em> a neural network, and that network has a DNA. Toggle <em>SELF-PORTRAIT / PHENOTYPE / DNA</em> on the same individual to see one thing three ways. That is genotype → phenotype → render, shown rather than lectured.</p>
 
         <h2>You, and the swarm</h2>
-        <p>Today this runs entirely on your device — a single local node, no backend, no telemetry. The roadmap is a shared world: many machines growing <em>one</em> genealogy, coordinated by a sandboxed <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>. The signed tree of life persists in your browser and grows across visits; one day it becomes everyone's. Because devices run at different speeds and sync sporadically, that swarm is an <em>asynchronous island model</em> — isolated demes emerge on their own and trade their best-per-niche elites, so isolation breeds diversity (an archipelago). None of the swarm exists yet — you are a local node of one.</p>
+        <p>Today this runs entirely on your device — a single local node, no backend, no telemetry. The roadmap is a shared world: many machines growing <em>one</em> genealogy, coordinated by a sandboxed <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>. The signed tree of life persists in your browser and grows across visits; one day it becomes everyone's.</p>
 
         <h2>What's real vs illustrative</h2>
         <ul>
@@ -147,7 +157,7 @@
         <h2>How this was made 🤖</h2>
         <p>Autograph was built by AI coding agents working autonomously from the vision, taste and direction of <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>. The ideas it stands on are his — a long romance with open-ended neuroevolution (NEAT, POET) and a belief in decentralised, local-first compute as a commons — and so is the ethos: be honest, build no grift, credit the lineage, and let the people's hardware make something beautiful. The code, prose and art were AI-generated under that direction. <strong>The inspiration and ethos are Aqeel's; the typing was done by machines.</strong> 🤲↺</p>
 
-        <p class="ov-foot">Open source · <a href="https://github.com/admiralakber/autograph" rel="noopener">GitHub</a> · MIT · built by <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>, who also builds <a href="https://getmeos.com" rel="noopener">meos</a>. Standing on the shoulders of Hofstadter, Gödel, Escher, Bach, Kleene, von Neumann, Chang &amp; Lipson, Stanley, Secretan, Lehman, Clune, and the BOINC tradition.</p>
+        <p class="ov-foot">Open source · <a href="https://github.com/admiralakber/autograph" rel="noopener">GitHub</a> · MIT · built by <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>, who also builds <a href="https://meos.do" rel="noopener">meos</a>. Standing on the shoulders of Hofstadter, Gödel, Escher, Bach, Kleene, von Neumann, Chang &amp; Lipson, Stanley, Secretan, Lehman, Clune, and the BOINC tradition.</p>
       </div>
     </div>
   </body>
