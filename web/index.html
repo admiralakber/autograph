@@ -3,482 +3,152 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0e1c" />
-    <title>Autograph — a network that learns to draw its own beginning</title>
+    <meta name="theme-color" content="#070707" />
+    <title>AUTOGRAPH — an instrument for a network drawing its true self</title>
     <meta
       name="description"
-      content="Autograph evolves tiny neural networks — live, in your browser — until they can draw the code that draws them. Escher's Drawing Hands, alive. A strange loop you can watch, seed, and sign."
+      content="A full-screen instrument for a live (ES-)HyperNEAT experiment: tiny neural networks evolving in 3D until their self-portrait re-encodes their own DNA. Escher's Drawing Hands, alive. You are part of the swarm."
     />
-    <meta property="og:title" content="Autograph — a network that learns to draw its own beginning" />
-    <meta
-      property="og:description"
-      content="A crowd-grown strange loop: CPPNs that evolve until their picture re-encodes the network that painted it. You can't copy a mind — only re-grow it from a recipe, and prove the lineage."
-    />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:title" content="AUTOGRAPH" />
+    <meta property="og:description" content="A network drawing its true self out of the false — live, in your browser. (ES-)HyperNEAT, a signed tree of life, you in the swarm." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <a class="skip-link" href="#demo">Skip to the live demo</a>
-
-    <header class="site-header">
-      <a class="brand" href="#top" aria-label="Autograph home">
-        <span class="brand-mark" aria-hidden="true">↺</span>
-        <span class="brand-name">Autograph</span>
-      </a>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="#demo">The proof</a>
-        <a href="#braid">The braid</a>
-        <a href="#maths">The maths</a>
-        <a href="#crypto">Crypto</a>
-        <a href="#quantum">Quantum</a>
-        <a href="#contribute">Contribute</a>
-        <a href="#about">About</a>
-        <a class="nav-cta" href="https://github.com/admiralakber/autograph" rel="noopener">GitHub</a>
-      </nav>
-    </header>
-
-    <main id="top">
-      <!-- ░░ HERO ░░ -->
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="eyebrow">A crowd-grown strange loop 🤲↺</p>
-          <h1 id="hero-title">Autograph</h1>
-          <p class="tagline">A network that learns to draw its own beginning.</p>
-          <p class="lede">
-            Autograph evolves tiny neural networks — live, in a browser tab — until the picture they
-            paint turns out to be an encoding of the very network that painted it. It is
-            <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Escher's <em>Drawing Hands</em></a>,
-            alive: a self-portrait that draws itself, and — because it can sign its own ancestry — a
-            self that can prove it.
-          </p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="#demo">Grow your creature ↘</a>
-            <a class="btn btn-ghost" href="https://github.com/admiralakber/autograph/blob/main/docs/WHITEPAPER.md" rel="noopener">Read the whitepaper</a>
-          </div>
+    <div class="dash">
+      <!-- ░░ STATUS BAR ░░ -->
+      <header class="bar">
+        <div class="bar-brand">
+          <span class="logo" aria-hidden="true">↺</span>
+          <span class="wordmark">AUTOGRAPH</span>
+          <span class="sub">an instrument for a network drawing its true self</span>
         </div>
-        <figure class="hero-art" aria-label="Evolving self-portraits drawn by Autograph's CPPNs">
-          <div class="hero-stack">
-            <canvas id="ag-hero-a" width="300" height="300"></canvas>
-            <canvas id="ag-hero-b" width="300" height="300"></canvas>
-            <span class="hero-ring" aria-hidden="true"></span>
-          </div>
-          <figcaption>Real creatures, grown by the engine below — each a different way to be a strange loop.</figcaption>
-        </figure>
-      </section>
+        <dl class="readouts" aria-label="Live readouts">
+          <div><dt>GEN</dt><dd id="ag-gen">0</dd></div>
+          <div><dt>POP</dt><dd id="ag-pop">0/144</dd></div>
+          <div><dt>COVERAGE</dt><dd id="ag-cov">0%</dd></div>
+          <div><dt>LOOP FIDELITY</dt><dd id="ag-fid">—</dd></div>
+          <div><dt>CONNS</dt><dd id="ag-conns">—</dd></div>
+          <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
+        </dl>
+        <div class="bar-end">
+          <span class="swarm"><span class="dot" aria-hidden="true"></span> PART OF THE SWARM · LOCAL NODE</span>
+          <button id="ag-info-open" class="btn" type="button">INFO</button>
+        </div>
+      </header>
 
-      <!-- ░░ THESIS ░░ -->
-      <section class="thesis" data-reveal>
-        <blockquote>
-          You can't copy a mind — you can only <em>re-grow</em> it from a recipe, and <em>prove</em> the lineage.
-        </blockquote>
-        <p class="thesis-sub">
-          It sounds like poetry. It is, independently, a result in three different subjects — and Autograph is
-          the place you can watch all three agree.
-        </p>
-        <div class="cards three">
-          <div class="card">
-            <h3>🧮 The maths says it</h3>
-            <p>
-              Self-reference is a <a href="https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem" rel="noopener">fixed point</a>;
-              a <a href="https://en.wikipedia.org/wiki/Quine_(computing)" rel="noopener">quine</a> is a program whose output is its own source. The recipe is primary, not the copy.
-            </p>
-          </div>
-          <div class="card">
-            <h3>🔐 Cryptography says it</h3>
-            <p>
-              Provenance is proved by <em>re-deriving</em> from a seed and checking a signature — not by trusting a copy. It is exactly how
-              <a href="https://git-scm.com/book/en/v2/Git-Internals-Git-Objects" rel="noopener">Git</a> proves history, with no blockchain.
-            </p>
-          </div>
-          <div class="card">
-            <h3>⚛️ Physics says it</h3>
-            <p>
-              The <a href="https://en.wikipedia.org/wiki/No-cloning_theorem" rel="noopener">no-cloning theorem</a> forbids photocopying a live state, so reproduction <em>must</em> pass on a recipe and regrow the body — von Neumann's trick, enforced by nature.
-            </p>
-          </div>
+      <!-- ░░ CONTROL STRIP ░░ -->
+      <section class="strip" aria-label="Genesis and controls">
+        <div class="strip-genesis">
+          <span class="tag">GENESIS</span>
+          <code id="ag-genesis-seed" title="the canonical seed of the world">…</code>
+        </div>
+        <div class="strip-controls">
+          <input id="ag-seed" type="text" autocomplete="off" spellcheck="false" placeholder="enter a seed — grow a lifeform" />
+          <button id="ag-grow" class="btn" type="button">GROW</button>
+          <button id="ag-key" class="btn" type="button">KEYPAIR</button>
+          <span id="ag-identity" class="mono-dim">ANON</span>
+          <span class="vr" aria-hidden="true"></span>
+          <button id="ag-run" class="btn" type="button">PAUSE</button>
+          <button id="ag-reset" class="btn" type="button">RESET</button>
+          <label class="chk"><input id="ag-follow" type="checkbox" checked /> FOLLOW</label>
+          <label class="chk"><input id="ag-turbo" type="checkbox" /> TURBO</label>
+          <span class="vr" aria-hidden="true"></span>
+          <button id="ag-keep" class="btn" type="button">KEEP</button>
+          <button id="ag-export" class="btn" type="button">EXPORT</button>
+          <label class="btn">IMPORT<input id="ag-import" type="file" accept="application/json,.json" hidden /></label>
+          <span id="ag-verify" class="mono-dim">tree of life · signed, hash-chained, persisted</span>
         </div>
       </section>
 
-      <!-- ░░ THE LIVE DEMO ░░ -->
-      <section id="demo" class="demo" aria-labelledby="demo-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">The proof — running on your device, right now</p>
-          <h2 id="demo-title">Watch a network learn to draw itself</h2>
-          <p class="section-intro">
-            Below is a genuine <a href="https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf" rel="noopener">CPPN</a>
-            evolution. Each creature paints an image; each is also asked to <em>re-paint its own weights</em>
-            at known spots in that image. When the painted values match the weights that painted them, the loop
-            has closed — a self-portrait in the literal, recursive sense.
-          </p>
-        </header>
-
-        <div class="demo-grid">
-          <!-- Focused creature + the closing loop -->
-          <div class="panel focus-panel">
-            <div class="focus-canvas-wrap">
-              <canvas id="ag-canvas" width="360" height="360" aria-label="The focused creature"></canvas>
-              <span class="backend-badge">rendering: <span id="ag-backend">…</span></span>
-            </div>
-            <p id="ag-seed-note" class="seed-note">grown deterministically from a seed</p>
-
-            <div class="loop-block">
-              <div class="loop-legend">
-                <span><span class="swatch-key it"></span> what it <strong>is</strong> (its weights)</span>
-                <span><span class="swatch-key paints"></span> what it <strong>paints</strong> there</span>
-              </div>
-              <canvas id="ag-loop" width="495" height="64" aria-label="Self-encoding loop: target weights versus painted values"></canvas>
-              <div class="fidelity">
-                <div class="fidelity-track"><div id="ag-fidelity-bar" class="fidelity-bar"></div></div>
-                <span class="fidelity-num">loop fidelity <strong id="ag-fidelity-label">—</strong></span>
-              </div>
-              <p class="fingerprint">fingerprint <code id="ag-fingerprint">—</code></p>
+      <!-- ░░ BODY GRID ░░ -->
+      <div class="body">
+        <!-- THE INDIVIDUAL -->
+        <section class="panel p-individual" aria-label="The individual">
+          <div class="panel-head">
+            <span class="panel-title">THE INDIVIDUAL</span>
+            <div class="modes" role="tablist">
+              <button id="ag-mode-render" class="mode active" type="button">SELF-PORTRAIT</button>
+              <button id="ag-mode-net" class="mode" type="button">PHENOTYPE</button>
+              <button id="ag-mode-dna" class="mode" type="button">DNA</button>
             </div>
           </div>
+          <div id="ag-stage" class="stage">
+            <canvas id="ag-stage-2d" class="layer hidden"></canvas>
+            <svg id="ag-net-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="ag-dna-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+          <div class="panel-foot">
+            <span id="ag-focus-note">GROWN FROM GENESIS</span>
+            <span id="ag-hover" class="mono-dim">hover the DNA · the same creature, three ways: render = network = code</span>
+            <span class="fp">FINGERPRINT <code id="ag-fingerprint">—</code></span>
+          </div>
+        </section>
 
-          <!-- The MAP-Elites garden -->
-          <div class="panel garden-panel">
-            <div class="garden-head">
-              <h3>The garden — a <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> wall</h3>
-              <p>Axes: structural complexity → and mirror symmetry ↑. Each cell keeps the best self-encoder of its kind. Click any creature to study it.</p>
-            </div>
-            <div id="ag-grid-wrap" class="grid-wrap">
-              <canvas id="ag-grid" aria-label="MAP-Elites archive of evolved creatures"></canvas>
+        <!-- THE POPULATION -->
+        <section class="panel p-population" aria-label="The population">
+          <div class="panel-head"><span class="panel-title">THE POPULATION</span><span class="mono-dim">complexity → · symmetry ↑ · fitness = border</span></div>
+          <div class="grid-wrap">
+            <div class="grid-box">
+              <canvas id="ag-grid"></canvas>
               <div id="ag-grid-highlight" class="grid-highlight" aria-hidden="true"></div>
             </div>
-            <dl class="stats">
-              <div><dt>generation</dt><dd id="ag-gen">0</dd></div>
-              <div><dt>coverage</dt><dd id="ag-coverage">0%</dd></div>
-              <div><dt>evaluations</dt><dd id="ag-evals">0</dd></div>
-            </dl>
           </div>
-        </div>
+        </section>
 
-        <!-- Controls -->
-        <div class="controls">
-          <div class="control-row">
-            <label class="field">
-              <span>your seed</span>
-              <input id="ag-seed" type="text" autocomplete="off" spellcheck="false" placeholder="a word, a name, anything" />
-            </label>
-            <button id="ag-grow" class="btn btn-primary" type="button">Grow</button>
-            <button id="ag-key" class="btn btn-ghost" type="button">Generate a keypair 🔑</button>
-            <span id="ag-identity" class="identity">anonymous</span>
+        <!-- THE LOOP -->
+        <section class="panel p-loop" aria-label="The strange loop">
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">does the self-portrait re-encode the DNA?</span></div>
+          <div class="loopflow">
+            <span class="lf">DNA</span><span class="lf-arr">→</span><span class="lf">PHENOTYPE</span><span class="lf-arr">→</span><span class="lf">SELF-PORTRAIT</span><span class="lf-arr">→</span><span class="lf">DNA′</span>
           </div>
-          <div class="control-row">
-            <button id="ag-run" class="btn" type="button" aria-pressed="true">Pause</button>
-            <button id="ag-reset" class="btn" type="button">Reset</button>
-            <label class="toggle"><input id="ag-follow" type="checkbox" checked /> follow the frontier</label>
-            <label class="toggle"><input id="ag-turbo" type="checkbox" /> turbo</label>
-          </div>
-        </div>
+          <div class="loop-legend"><span>DNA (target)</span><span>read-back (painted)</span></div>
+          <canvas id="ag-loop" class="loopcanvas"></canvas>
+          <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>LOOP <strong id="ag-fid-label">—</strong></span></div>
+        </section>
 
-        <!-- Lineage -->
-        <div class="panel lineage-panel">
-          <div class="lineage-head">
-            <h3>The tree of life 🌳 — signed &amp; hash-chained</h3>
-            <p>
-              Keep a creature and it becomes a node in a <a href="https://en.wikipedia.org/wiki/Merkle_tree" rel="noopener">Merkle-DAG</a>
-              lineage: its id is the hash of its content <em>including its parents' ids</em>, signed with your key
-              (<a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API" rel="noopener">Web Crypto</a>, ECDSA P-256).
-              Export it, send it to a friend, re-import it — every hash and signature is re-checked. No chain. No token.
-            </p>
-          </div>
-          <div class="lineage-actions">
-            <button id="ag-keep" class="btn btn-primary" type="button">Keep this creature</button>
-            <button id="ag-export" class="btn" type="button">Export lineage ↓</button>
-            <label class="btn btn-file">Import &amp; verify ↑<input id="ag-import" type="file" accept="application/json,.json" hidden /></label>
-          </div>
-          <p id="ag-verify-result" class="verify-result" role="status">your kept creatures will appear below</p>
-          <ul id="ag-tree" class="tree"></ul>
-        </div>
+        <!-- THE GENEALOGY -->
+        <section class="panel p-genealogy" aria-label="The genealogy">
+          <div class="panel-head"><span class="panel-title">TREE OF LIFE</span><span class="mono-dim"><span id="ag-tree-count">0</span> · from genesis</span></div>
+          <div id="ag-tree" class="tree"></div>
+        </section>
+      </div>
 
-        <!-- Honesty callout -->
-        <aside class="honest" data-reveal>
-          <h3>🛡️ What's real here, and what's illustrative</h3>
-          <ul>
-            <li><strong>Real:</strong> a genuinely-evolving CPPN, real <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> quality-diversity, the deterministic seed→creature ritual, and a real signed, hash-chained lineage you can export and verify (Web Crypto).</li>
-            <li><strong>Real, but approximate:</strong> the self-encoding loop closes to a <em>tolerance</em>, never bit-exactly — this is the honest, single-device cousin of Chang &amp; Lipson's <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a>. The loop fidelity you see is measured live, never faked.</li>
-            <li><strong>Watch out for the trivial fixed point:</strong> a blank, near-flat creature "encodes itself" perfectly — and says nothing. That's why we showcase the <em>lively</em> ones: structured pictures that still re-state their own weights. Self-reference only matters when it is load-bearing.</li>
-            <li><strong>Illustrative / roadmap:</strong> the worldwide <em>swarm</em> (this runs only on your device), <a href="#crypto">zkML "proof of becoming"</a>, and the <a href="#quantum">quantum</a> framing — narrative and lineage, never a claim. There are no qubits here.</li>
-          </ul>
-        </aside>
-      </section>
+      <!-- ░░ FOOTER ░░ -->
+      <footer class="foot">
+        <span class="foot-thesis">You can't copy a mind — only re-grow it from a recipe, and prove the lineage.</span>
+        <span class="foot-mid">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://getmeos.com" rel="noopener">meos</a></span>
+        <span class="foot-end"><a href="https://github.com/admiralakber/autograph" rel="noopener">SOURCE</a> · MIT · NO QUBITS HERE</span>
+      </footer>
+    </div>
 
-      <!-- ░░ THE BRAID ░░ -->
-      <section id="braid" class="braid" aria-labelledby="braid-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">The soul</p>
-          <h2 id="braid-title">A strange loop, braided three ways</h2>
-          <p class="section-intro">
-            The spine is borrowed, with love, from Hofstadter's
-            <a href="https://en.wikipedia.org/wiki/G%C3%B6del,_Escher,_Bach" rel="noopener"><em>Gödel, Escher, Bach</em></a> —
-            three faces of one idea.
-          </p>
-        </header>
-        <div class="braid-table">
-          <div class="braid-row">
-            <div class="braid-face"><span class="braid-glyph">🔢</span><h3>Gödel</h3></div>
-            <p class="braid-what">A formula that talks about itself — self-reference via a <a href="https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems" rel="noopener">fixed point</a>.</p>
-            <p class="braid-here">A genome that encodes a description of itself.</p>
-          </div>
-          <div class="braid-row">
-            <div class="braid-face"><span class="braid-glyph">🎨</span><h3>Escher</h3></div>
-            <p class="braid-what"><a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener"><em>Drawing Hands</em></a> — each hand draws the other into being.</p>
-            <p class="braid-here">A CPPN whose picture <em>is</em> its own generator.</p>
-          </div>
-          <div class="braid-row">
-            <div class="braid-face"><span class="braid-glyph">🎵</span><h3>Bach</h3></div>
-            <p class="braid-what">The <a href="https://en.wikipedia.org/wiki/Musical_Offering" rel="noopener">endlessly rising canon</a> — climbs forever, returns home.</p>
-            <p class="braid-here">An evolutionary search that never stops climbing.</p>
-          </div>
-        </div>
+    <!-- ░░ INFO OVERLAY ░░ -->
+    <div id="ag-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+      <div class="overlay-inner">
+        <button id="ag-info-close" class="btn overlay-close" type="button">CLOSE ✕</button>
+        <h1 id="ov-title">AUTOGRAPH — the manual</h1>
+        <p class="ov-lead">These are lifeforms trying to draw their true self out of the false. You're lending compute to the search. What you're watching is real evolution; where something is illustrative rather than proven, we say so.</p>
 
-        <div class="loop-diagram" aria-label="The loop: genome renders to an image, which is an encoding of the genome">
-          <span class="node">🧬 genome<small>network weights</small></span>
-          <span class="arrow">renders →</span>
-          <span class="node">🖼️ image<small>what it draws</small></span>
-          <span class="arrow back">↺ is an encoding of</span>
-        </div>
-        <p class="braid-foot">
-          When that loop closes, the creature has written its own signature — hence the name.
-          <strong>Autograph</strong>: <em>auto-</em> (self) + <em>-graph</em> (writing, drawing, network). Self-writing is the quine;
-          self-signature is the crypto; the graph is the net.
-        </p>
-      </section>
+        <h2>The strange loop</h2>
+        <p>Each creature is a tiny neural network. Its <strong>DNA</strong> is a compositional pattern-producing network (a <a href="https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf" rel="noopener">CPPN</a>). In <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.jair04.pdf" rel="noopener">HyperNEAT</a> the DNA <em>paints the weights</em> of a second network — the <strong>phenotype</strong>, the brain — and (simplified <a href="https://eplex.cs.ucf.edu/ESHyperNEAT/" rel="noopener">ES-HyperNEAT</a>) it also <em>places</em> that brain's neurons. The phenotype, read over 3D space, draws a volumetric <strong>self-portrait</strong>. Read the self-portrait back at known points and you recover a DNA′. The closer DNA′ is to the DNA, the more the loop has closed — Escher's <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Drawing Hands</a>, alive. Loop fidelity is measured live and never faked.</p>
 
-      <!-- ░░ THE MATHS ░░ -->
-      <section id="maths" class="maths" aria-labelledby="maths-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">Grounding</p>
-          <h2 id="maths-title">The maths, in thirty seconds</h2>
-        </header>
-        <div class="cards three">
-          <div class="card">
-            <h3>Self-reference is a fixed point</h3>
-            <p>
-              <a href="https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem" rel="noopener">Kleene's recursion theorem</a>
-              guarantees programs that can read their own description <em>exist</em>;
-              <a href="https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems" rel="noopener">Gödel's incompleteness</a>
-              is the same diagonal trick aimed at provability. A quine is just a fixed point of "run me".
-            </p>
-          </div>
-          <div class="card">
-            <h3>Replication is that trick, made physical</h3>
-            <p>
-              Von Neumann's <a href="https://en.wikipedia.org/wiki/Von_Neumann_universal_constructor" rel="noopener">universal constructor</a>
-              uses a description <em>twice</em>: decoded (built) and copied (inherited) — anticipating DNA. Your CPPN genome is exactly that
-              genotype/phenotype split.
-            </p>
-          </div>
-          <div class="card">
-            <h3>And it's been built in a net</h3>
-            <p>
-              Chang &amp; Lipson's <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a> (2018) trains a network to output
-              its own weights via the HyperNEAT coordinate→weight trick. Autograph evolves the <em>picture</em> version of that idea.
-            </p>
-          </div>
-        </div>
-        <p class="aside-note">
-          A lovely bonus: a 2025 result finds that
-          <a href="https://arxiv.org/abs/2505.11581" rel="noopener">open-endedly evolved networks</a> develop cleaner, more
-          <em>factored</em> internal structure than ones hammered into shape by gradient descent — so a crowd-grown self-portrait may be more
-          legible than what a datacentre would produce. Open-endedness, a 2024 position paper argues, may be
-          <a href="https://arxiv.org/abs/2406.04268" rel="noopener">essential to the next era of AI</a>.
-        </p>
-      </section>
+        <h2>Render = network = code</h2>
+        <p>The single most misunderstood thing: a beautiful render <em>is</em> a neural network, and that network has a DNA. Toggle <em>SELF-PORTRAIT / PHENOTYPE / DNA</em> on the same individual to see one thing three ways. That is genotype → phenotype → render, shown rather than lectured.</p>
 
-      <!-- ░░ CRYPTO ░░ -->
-      <section id="crypto" class="pillar crypto" aria-labelledby="crypto-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">Pillar I · the cryptographic mirror 🔐</p>
-          <h2 id="crypto-title">A creature that can prove itself</h2>
-          <p class="section-intro">
-            Self-drawing is one step from self-<em>certifying</em>. The interest here is cryptography-as-mathematics —
-            hashes, commitments, signatures, proofs — <strong>never coins</strong>. Every idea below stands without a token.
-          </p>
-        </header>
-        <div class="pillar-tiers">
-          <div class="tier real">
-            <span class="tier-tag">✅ real, in the demo above</span>
-            <h3>A signed tree of life</h3>
-            <p>
-              A phylogeny is a DAG (crossover has two parents). Make it a <strong>signed, content-addressed Merkle-DAG</strong>:
-              every genome's id is the hash of its weights, its parents' ids, its seed and its fitness, signed with the author's key.
-              You get tamper-evident ancestry, attribution and anti-fraud — the way
-              <a href="https://git-scm.com/book/en/v2/Git-Internals-Git-Objects" rel="noopener">Git</a> and
-              <a href="https://datatracker.ietf.org/doc/html/rfc6962" rel="noopener">Certificate Transparency</a> do it, with no chain.
-            </p>
-          </div>
-          <div class="tier real">
-            <span class="tier-tag">✅ real, in the demo above</span>
-            <h3>Your key grows your creature</h3>
-            <p>
-              A public key is just high-entropy bytes; feed it through a deterministic generator and the same key always grows the same
-              creature — a publicly checkable witness to the key. This is the
-              <a href="https://docs.artblocks.io/protocol/overview/" rel="noopener">Art Blocks</a> /
-              <a href="https://docs.fxhash.xyz/creating-on-fxhash/programming-open-form-genart" rel="noopener">fxhash</a>
-              "hash seeds a deterministic generator" pattern — the determinism does the work, not a marketplace.
-            </p>
-          </div>
-          <div class="tier north">
-            <span class="tier-tag">🔭 north star · research-grade, not built</span>
-            <h3>Proof of becoming (zkML)</h3>
-            <p>
-              The dream: each elite carries a succinct <a href="https://en.wikipedia.org/wiki/Zero-knowledge_proof" rel="noopener">zero-knowledge proof</a>
-              that it truly achieved its fitness — verified, not re-run. Our nets are tiny, where
-              <a href="https://github.com/zkonduit/ezkl" rel="noopener">zkML</a>'s prover/verifier asymmetry is friendliest
-              (<a href="https://arxiv.org/abs/2210.08674" rel="noopener">~5&nbsp;KB proofs, ~1&nbsp;s to verify</a>). Folding the whole history into one
-              <a href="https://eprint.iacr.org/2021/370" rel="noopener">recursive proof</a> (à la <a href="https://minaprotocol.com/blog/22kb-sized-blockchain-a-technical-reference" rel="noopener">Mina</a>)
-              is the horizon — proving cost is the gate, so we name it a telescope, not a feature.
-            </p>
-          </div>
-        </div>
-        <p class="grift-line">🚩 <strong>Anti-grift red line:</strong> no token, no manufactured scarcity, no "buy in to participate". If a feature only makes sense with a coin attached, it isn't in Autograph.</p>
-      </section>
+        <h2>You, and the swarm</h2>
+        <p>Today this runs entirely on your device — a single local node, no backend, no telemetry. The roadmap is a shared world: many machines growing <em>one</em> genealogy, coordinated by a sandboxed <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>. The signed tree of life persists in your browser and grows across visits; one day it becomes everyone's.</p>
 
-      <!-- ░░ QUANTUM ░░ -->
-      <section id="quantum" class="pillar quantum" aria-labelledby="quantum-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">Pillar II · the soul's physics ⚛️</p>
-          <h2 id="quantum-title">A creature that cannot be cloned — only re-grown</h2>
-          <p class="section-intro">
-            This is the one place the poetry is, word for word, a law of physics.
-          </p>
-        </header>
-        <div class="quantum-body">
-          <p>
-            The <a href="https://en.wikipedia.org/wiki/No-cloning_theorem" rel="noopener">no-cloning theorem</a>
-            (<a href="https://www.nature.com/articles/299802a0" rel="noopener">Wootters &amp; Zurek, 1982</a>) forbids photocopying an arbitrary unknown
-            quantum state. Naïvely that kills self-replication — until you notice that replication was never about cloning the live thing.
-            Von Neumann's constructor passes on a <em>description</em> (copied) and regrows the <em>body</em> (built); life does the same with DNA;
-            <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4345487/" rel="noopener">Marletto (2015)</a> shows this is fully compatible with quantum theory.
-            <strong>The prohibition is the gift:</strong> the impossibility of copying is exactly what makes reproduction <em>real</em> rather than mere duplication —
-            and, à la <a href="https://www.cambridge.org/core/journals/philosophy-of-science/article/impossibility-of-accurate-state-selfmeasurements/80B368D210379DA587D41603B551B95D" rel="noopener">Breuer (1995)</a>,
-            a creature can pass on its recipe yet never perfectly measure itself. Gödel even shows up in real physics — the
-            <a href="https://www.nature.com/articles/nature16059" rel="noopener">spectral gap is undecidable</a>.
-          </p>
-          <aside class="honest-note">
-            ⚛️ <strong>Honest quantum note:</strong> there are no qubits here. Quantum mechanics is our metaphor and our lineage, not our runtime.
-            We claim no quantum speedup — <a href="https://scottaaronson.blog/?p=198" rel="noopener">none exists</a> for this embarrassingly-parallel,
-            classical workload. The qubits stay in the museum.
-          </aside>
-        </div>
-      </section>
+        <h2>What's real vs illustrative</h2>
+        <ul>
+          <li><strong>Real:</strong> the evolving CPPN + HyperNEAT substrate, simplified ES-HyperNEAT placement, the 3D volumetric render, MAP-Elites quality-diversity, loop fidelity (measured), and a signed, hash-chained lineage persisted in IndexedDB.</li>
+          <li><strong>Illustrative / roadmap:</strong> the worldwide swarm (single device for now), zk "proof of becoming", full quadtree ES-HyperNEAT (we ship a simplified placement), and the quantum framing — metaphor and lineage only. <strong>There are no qubits here.</strong></li>
+        </ul>
 
-      <!-- ░░ CONTRIBUTE ░░ -->
-      <section id="contribute" class="contribute" aria-labelledby="contribute-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">Lend a hand 🙋</p>
-          <h2 id="contribute-title">How to grow it further</h2>
-          <p class="section-intro">
-            Today, Autograph runs entirely on your one device — no backend, no swarm, no telemetry. The crowd is the roadmap.
-            Here's the honest map of now and next.
-          </p>
-        </header>
-        <div class="cards three">
-          <div class="card">
-            <h3>Fork the engine</h3>
-            <p>
-              It's open source and dependency-light: a real CPPN, MAP-Elites, a WGSL render core with a Canvas fallback, and a Web-Crypto lineage.
-              <a href="https://github.com/admiralakber/autograph" rel="noopener">Clone it</a>, break it, make it yours.
-            </p>
-          </div>
-          <div class="card">
-            <h3>The swarm (roadmap)</h3>
-            <p>
-              One WGSL core, <a href="https://web.dev/blog/webgpu-supported-major-browsers" rel="noopener">WebGPU now Baseline</a>,
-              evaluated identically from a phone to a headless H100; volunteer results made trustworthy with
-              <a href="https://github.com/BOINC/boinc/wiki/Job-replication" rel="noopener">BOINC-style</a> replication. Opt-in, visible, revocable — never stealth mining.
-            </p>
-          </div>
-          <div class="card">
-            <h3>The Atlas of Self-Reference</h3>
-            <p>
-              Every discovered <em>kind</em> of strange loop, published as an open, browsable dataset with lineage — free for artists, teachers,
-              mathematicians and the merely curious.
-            </p>
-          </div>
-        </div>
-        <p class="energy-note">
-          🔋 <strong>Honest energy note:</strong> per watt, datacentres win. A browser swarm's value is harvesting <em>already-powered, idle</em>
-          hardware for loss-tolerant quality-diversity search at ~zero marginal cost — not efficiency, and emphatically not training frontier models.
-        </p>
-      </section>
+        <h2>How this was made 🤖</h2>
+        <p>Autograph was built by AI coding agents working autonomously from the vision, taste and direction of <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>. The ideas it stands on are his — a long romance with open-ended neuroevolution (NEAT, POET) and a belief in decentralised, local-first compute as a commons — and so is the ethos: be honest, build no grift, credit the lineage, and let the people's hardware make something beautiful. The code, prose and art were AI-generated under that direction. <strong>The inspiration and ethos are Aqeel's; the typing was done by machines.</strong> 🤲↺</p>
 
-      <!-- ░░ ABOUT ░░ -->
-      <section id="about" class="about" aria-labelledby="about-title" data-reveal>
-        <header class="section-head">
-          <p class="eyebrow">Standing on shoulders 🙏</p>
-          <h2 id="about-title">Who, and on whose work</h2>
-        </header>
-        <div class="about-grid">
-          <div class="about-author">
-            <h3>Built by Aqeel Akber</h3>
-            <p>
-              Aqeel is an experimental physicist by training — a former nuclear-structure researcher at the
-              <a href="https://www.anu.edu.au/" rel="noopener">Australian National University</a>, with
-              <a href="https://scholar.google.com/scholar?q=Aqeel+Akber" rel="noopener">published work</a> on subjects including the
-              carbon-forging Hoyle state — who left physics for machine learning and never lost the physicist's habit of refusing to over-claim.
-              He builds companies that try to make the ethical decision the economic one. Find him at
-              <a href="https://aqeelakber.com" rel="noopener">aqeelakber.com</a>,
-              <a href="https://scholar.google.com/scholar?q=Aqeel+Akber" rel="noopener">Google Scholar</a>, and on
-              <a href="https://github.com/admiralakber" rel="noopener">GitHub</a>. Autograph is a weekend project in that same spirit:
-              serious underneath, playful on top, and honest about the seams.
-            </p>
-          </div>
-          <div class="about-shoulders">
-            <h3>The shoulders</h3>
-            <p class="shoulders">
-              <a href="https://en.wikipedia.org/wiki/G%C3%B6del,_Escher,_Bach" rel="noopener">Hofstadter</a> ·
-              <a href="https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems" rel="noopener">Gödel</a> ·
-              <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Escher</a> ·
-              <a href="https://en.wikipedia.org/wiki/Musical_Offering" rel="noopener">Bach</a> ·
-              <a href="https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem" rel="noopener">Kleene</a> ·
-              <a href="https://en.wikipedia.org/wiki/Von_Neumann_universal_constructor" rel="noopener">von Neumann</a> ·
-              <a href="https://arxiv.org/abs/1803.05859" rel="noopener">Chang &amp; Lipson</a> ·
-              <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.jair04.pdf" rel="noopener">Stanley &amp; Miikkulainen (NEAT)</a> ·
-              <a href="https://wiki.santafe.edu/images/1/1e/Secretan_ecj11.pdf" rel="noopener">Secretan et al. (Picbreeder)</a> ·
-              <a href="https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf" rel="noopener">Lehman &amp; Stanley (novelty)</a> ·
-              <a href="https://arxiv.org/abs/1504.04909" rel="noopener">Mouret &amp; Clune (MAP-Elites)</a> ·
-              <a href="https://arxiv.org/abs/2505.11581" rel="noopener">Kumar, Clune, Lehman &amp; Stanley</a> ·
-              the <a href="https://github.com/BOINC/boinc/wiki/Job-replication" rel="noopener">BOINC</a> tradition.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ░░ COLOPHON — how this was made ░░ -->
-      <section id="colophon" class="colophon" aria-labelledby="colophon-title" data-reveal>
-        <div class="colophon-panel">
-          <p class="colophon-badge">🤖 How this was made</p>
-          <h2 id="colophon-title" class="colophon-title">Directed by a human, typed by machines</h2>
-          <p>
-            Autograph was built by AI coding agents working autonomously from the vision, taste and direction of
-            <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>. The ideas it stands on are his — a long romance with
-            open-ended neuroevolution (<a href="https://nn.cs.utexas.edu/downloads/papers/stanley.jair04.pdf" rel="noopener">NEAT</a>,
-            <a href="https://arxiv.org/abs/1901.01753" rel="noopener">POET</a>) and a belief in decentralised, local-first compute as a
-            commons — and so is the ethos: be honest, build no grift, credit the lineage, and let the people's hardware make something
-            beautiful. The code, prose and art here were AI-generated under that direction; where something is illustrative rather than
-            proven, we say so plainly. <strong>The inspiration and ethos are Aqeel's; the typing was done by machines.</strong> 🤲↺
-          </p>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div class="footer-loop" aria-hidden="true">↺</div>
-      <p class="footer-thesis">You can't copy a mind — only re-grow it from a recipe, and prove the lineage.</p>
-      <p class="footer-credit">
-        Built by <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>, who also builds
-        <a href="https://getmeos.com" rel="noopener">meos</a>.
-      </p>
-      <p class="footer-meta">
-        <a href="https://github.com/admiralakber/autograph" rel="noopener">Source on GitHub</a> ·
-        <a href="https://github.com/admiralakber/autograph/blob/main/LICENSE" rel="noopener">MIT licence</a> ·
-        <span>© <span id="ag-year">2026</span></span>
-      </p>
-    </footer>
+        <p class="ov-foot">Open source · <a href="https://github.com/admiralakber/autograph" rel="noopener">GitHub</a> · MIT · built by <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>, who also builds <a href="https://getmeos.com" rel="noopener">meos</a>. Standing on the shoulders of Hofstadter, Gödel, Escher, Bach, Kleene, von Neumann, Chang &amp; Lipson, Stanley, Secretan, Lehman, Clune, and the BOINC tradition.</p>
+      </div>
+    </div>
   </body>
 </html>
