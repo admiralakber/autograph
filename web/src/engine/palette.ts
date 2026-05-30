@@ -1,57 +1,47 @@
-import type { Genome } from './cppn.ts';
+import { Hsluv } from 'hsluv';
 
-// A duotone ink -> paper ramp with a per-creature accent glow at the midtones,
-// evoking an Escher lithograph (graphite on warm paper). Mirrored exactly in
-// the WGSL shader so the WebGPU and Canvas paths look identical.
+// COLOUR POLICY (hard rule).
+// The "sunrise" palette — HSLuv, Lightness 72, Saturation 100, hue swept
+// 0→360, alpha ~0.7 — colours *life only*: the creature renders, the
+// generative volume, accents that stand for living things. The instrument
+// chrome (panels, rules, labels, readouts) stays strictly greyscale + monospace
+// (enforced in CSS). A precise greyscale instrument framing vivid, living colour.
+//
+// HSLuv (hsluv.org, MIT) gives a perceptually-even hue sweep, so the cycle
+// glows evenly with no muddy or blown-out arcs — the "sunrise" quality.
 
-export type RGB = readonly [number, number, number];
+const LUT_N = 720;
+export const SUNRISE_L = 72;
+export const SUNRISE_S = 100;
+export const LIFE_ALPHA = 0.7;
 
-export const INK: RGB = [12, 16, 33]; // deep indigo-black
-export const PAPER: RGB = [240, 233, 218]; // warm paper
+const clamp255 = (x: number): number => (x < 0 ? 0 : x > 255 ? 255 : Math.round(x));
 
-const clamp255 = (x: number): number => (x < 0 ? 0 : x > 255 ? 255 : x);
+/** Precomputed sunrise LUT: hue 0→360 at L72/S100 → 8-bit RGB. */
+const SUNRISE: Uint8Array = (() => {
+  const conv = new Hsluv();
+  const arr = new Uint8Array(LUT_N * 3);
+  for (let i = 0; i < LUT_N; i++) {
+    conv.hsluv_h = (i / LUT_N) * 360;
+    conv.hsluv_s = SUNRISE_S;
+    conv.hsluv_l = SUNRISE_L;
+    conv.hsluvToRgb();
+    arr[i * 3] = clamp255(conv.rgb_r * 255);
+    arr[i * 3 + 1] = clamp255(conv.rgb_g * 255);
+    arr[i * 3 + 2] = clamp255(conv.rgb_b * 255);
+  }
+  return arr;
+})();
 
-function hslToRgb(h: number, s: number, l: number): RGB {
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hp = (((h % 360) + 360) % 360) / 60;
-  const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (hp < 1) [r, g, b] = [c, x, 0];
-  else if (hp < 2) [r, g, b] = [x, c, 0];
-  else if (hp < 3) [r, g, b] = [0, c, x];
-  else if (hp < 4) [r, g, b] = [0, x, c];
-  else if (hp < 5) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const m = l - c / 2;
-  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+/** Sunrise colour for a living thing, from a hue in [0,1]. */
+export function lifeRgb(hue01: number): [number, number, number] {
+  const h = ((hue01 % 1) + 1) % 1;
+  const i = Math.min(LUT_N - 1, Math.floor(h * LUT_N));
+  return [SUNRISE[i * 3]!, SUNRISE[i * 3 + 1]!, SUNRISE[i * 3 + 2]!];
 }
 
-/** A stable accent hue in degrees for a creature, from its weights. */
-export function accentHue(g: Genome): number {
-  let acc = 0;
-  for (let i = 0; i < g.weights.length; i++) acc += g.weights[i]! * (i + 1);
-  for (let i = 0; i < g.acts.length; i++) acc += g.acts[i]! * 13.37;
-  return ((acc * 47.0) % 360 + 360) % 360;
-}
-
-export function accentRgb(g: Genome): RGB {
-  return hslToRgb(accentHue(g), 0.62, 0.6);
-}
-
-const smoothstep = (v: number): number => v * v * (3 - 2 * v);
-
-/** Map an ink scalar in [0,1] to an 8-bit RGB triple, given an accent colour. */
-export function colourise(v: number, accent: RGB): RGB {
-  const t = smoothstep(v < 0 ? 0 : v > 1 ? 1 : v);
-  const baseR = INK[0] + (PAPER[0] - INK[0]) * t;
-  const baseG = INK[1] + (PAPER[1] - INK[1]) * t;
-  const baseB = INK[2] + (PAPER[2] - INK[2]) * t;
-  const glow = Math.pow(1 - Math.abs(2 * v - 1), 1.5) * 0.55;
-  return [
-    clamp255(baseR + (accent[0] - baseR) * glow),
-    clamp255(baseG + (accent[1] - baseG) * glow),
-    clamp255(baseB + (accent[2] - baseB) * glow),
-  ];
+/** Sunrise colour as normalised floats [0,1] (for WebGL / three.js buffers). */
+export function lifeRgbF(hue01: number): [number, number, number] {
+  const [r, g, b] = lifeRgb(hue01);
+  return [r / 255, g / 255, b / 255];
 }

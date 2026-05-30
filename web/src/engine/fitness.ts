@@ -1,95 +1,102 @@
 import { GENOME_DIM } from './arch.ts';
 import type { Genome } from './cppn.ts';
-import { evalInk, genomeVector, paramToInk } from './cppn.ts';
+import { genomeVector, paramToUnit } from './cppn.ts';
+import type { Phenotype } from './substrate.ts';
+import { buildPhenotype, substrateForward } from './substrate.ts';
 
-// --- The self-encoding loop (the "quine") -----------------------------------
+// THE STRANGE LOOP (measured live, never faked).
 //
-// Each genome parameter k is assigned a fixed probe coordinate in the image
-// plane (a golden-angle phyllotaxis spiral, for even, pretty coverage). The
-// creature "encodes itself" when the ink it paints *at* probe k equals param
-// k's normalised value. This is the continuous, evolvable, single-device cousin
-// of Chang & Lipson's neural-network quine (the HyperNEAT coordinate->weight
-// trick): the picture, read at known spots, re-states the network that painted
-// it. It closes only to a tolerance — never bit-exactly — which is the honest
-// story (cross-device float non-determinism makes exactness impossible anyway).
+//   DNA (CPPN) → phenotype (substrate) → volumetric self-portrait
+//             → read the density at known 3D probe points → DNA'
+//
+// The loop "closes" to the extent the drawn density at probe k re-states DNA
+// param k. This is a genuine fixed-point search over genomes; closure is partial
+// (the substrate field has finite expressivity, and exactness is impossible
+// across devices anyway), so we report the achieved fidelity honestly.
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
-/** Probe coordinates, interleaved [x0,y0,x1,y1,...], one per genome param. */
-export const PROBES: Float32Array = (() => {
-  const p = new Float32Array(GENOME_DIM * 2);
+/** GENOME_DIM probe points on a Fibonacci sphere (radius 0.85). */
+export const PROBES3D: Float32Array = (() => {
+  const p = new Float32Array(GENOME_DIM * 3);
   for (let k = 0; k < GENOME_DIM; k++) {
-    const r = Math.sqrt((k + 0.5) / GENOME_DIM) * 0.92;
+    const y = 1 - (k / (GENOME_DIM - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
     const a = k * GOLDEN_ANGLE;
-    p[k * 2] = r * Math.cos(a);
-    p[k * 2 + 1] = r * Math.sin(a);
+    p[k * 3] = Math.cos(a) * r * 0.85;
+    p[k * 3 + 1] = y * 0.85;
+    p[k * 3 + 2] = Math.sin(a) * r * 0.85;
   }
   return p;
 })();
 
-/** The painted ink at every probe coordinate, for visualising the loop. */
-export function paintedAtProbes(g: Genome): Float32Array {
+const o2: [number, number] = [0, 0];
+
+/** Density the phenotype paints at each probe (what the loop "reads back"). */
+export function paintedAtProbes(p: Phenotype): Float32Array {
   const out = new Float32Array(GENOME_DIM);
-  for (let k = 0; k < GENOME_DIM; k++) {
-    out[k] = evalInk(g, PROBES[k * 2]!, PROBES[k * 2 + 1]!);
-  }
+  for (let k = 0; k < GENOME_DIM; k++) out[k] = substrateForward(p, PROBES3D[k * 3]!, PROBES3D[k * 3 + 1]!, PROBES3D[k * 3 + 2]!, o2)[0];
   return out;
 }
 
-/** The target ink at every probe coordinate (the genome's own normalised values). */
+/** The DNA's own normalised values — the targets the read-back must match. */
 export function targetAtProbes(g: Genome): Float32Array {
   const v = genomeVector(g);
   const out = new Float32Array(GENOME_DIM);
-  for (let k = 0; k < GENOME_DIM; k++) out[k] = paramToInk(v[k]!);
+  for (let k = 0; k < GENOME_DIM; k++) out[k] = paramToUnit(v[k]!);
   return out;
 }
 
-/** Loop fidelity in [0,1]: 1 means the picture perfectly re-encodes the genome. */
-export function loopFidelity(g: Genome): number {
+/** Loop fidelity in [0,1]: 1 ⇒ the self-portrait perfectly re-encodes the DNA. */
+export function loopFidelity(g: Genome, p: Phenotype): number {
   const v = genomeVector(g);
   let se = 0;
   for (let k = 0; k < GENOME_DIM; k++) {
-    const painted = evalInk(g, PROBES[k * 2]!, PROBES[k * 2 + 1]!);
-    const target = paramToInk(v[k]!);
+    const painted = substrateForward(p, PROBES3D[k * 3]!, PROBES3D[k * 3 + 1]!, PROBES3D[k * 3 + 2]!, o2)[0];
+    const target = paramToUnit(v[k]!);
     const d = painted - target;
     se += d * d;
   }
-  const rmse = Math.sqrt(se / GENOME_DIM);
-  const f = 1 - rmse;
+  const f = 1 - Math.sqrt(se / GENOME_DIM);
   return f < 0 ? 0 : f > 1 ? 1 : f;
 }
-
-// --- Behaviour descriptors (the MAP-Elites axes) ----------------------------
 
 export interface Evaluation {
   /** Behaviour descriptor in [0,1]^2: [structural complexity, mirror symmetry]. */
   readonly bd: readonly [number, number];
-  /** Self-encoding loop fidelity in [0,1]. */
+  /** Self-encoding loop fidelity in [0,1] (measured). */
   readonly fidelity: number;
-  /** Vitality in [0,1] — image contrast; ~0 for trivial flat creatures. */
+  /** Vitality in [0,1] — volumetric contrast; ~0 for trivial empty creatures. */
   readonly vitality: number;
+  /** Count of expressed phenotype connections (a "size" readout). */
+  readonly liveConns: number;
 }
 
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
-/** Sample the ink field on a size×size grid (coordinates in [-1,1]). */
-export function sampleField(g: Genome, size: number): Float32Array {
-  const out = new Float32Array(size * size);
-  const inv = 2 / (size - 1);
-  for (let yi = 0; yi < size; yi++) {
+/** A G×G silhouette of the volume (mean density along z), for the QD descriptors. */
+function projection(p: Phenotype, g: number): Float32Array {
+  const field = new Float32Array(g * g);
+  const zs = [-0.55, -0.18, 0.18, 0.55];
+  const inv = 2 / (g - 1);
+  for (let yi = 0; yi < g; yi++) {
     const y = yi * inv - 1;
-    for (let xi = 0; xi < size; xi++) {
-      out[yi * size + xi] = evalInk(g, xi * inv - 1, y);
+    for (let xi = 0; xi < g; xi++) {
+      const x = xi * inv - 1;
+      let acc = 0;
+      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      field[yi * g + xi] = acc / zs.length;
     }
   }
-  return out;
+  return field;
 }
 
-/** Evaluate a genome's behaviour, fidelity and vitality from one low-res render. */
-export function evaluate(g: Genome, size = 24): Evaluation {
-  const f = sampleField(g, size);
+/** Evaluate a genome's loop fidelity + behaviour from its phenotype. */
+export function evaluate(g: Genome, pheno?: Phenotype): Evaluation {
+  const p = pheno ?? buildPhenotype(g);
+  const G = 12;
+  const f = projection(p, G);
 
-  // Mean + variance -> vitality (contrast).
   let mean = 0;
   for (let i = 0; i < f.length; i++) mean += f[i]!;
   mean /= f.length;
@@ -98,43 +105,34 @@ export function evaluate(g: Genome, size = 24): Evaluation {
     const d = f[i]! - mean;
     varSum += d * d;
   }
-  const std = Math.sqrt(varSum / f.length);
-  const vitality = clamp01(std * 3.0);
+  const vitality = clamp01(Math.sqrt(varSum / f.length) * 3.4);
 
-  // Structural complexity: mean absolute gradient between neighbours.
   let grad = 0;
   let gn = 0;
-  for (let yi = 0; yi < size; yi++) {
-    for (let xi = 0; xi < size; xi++) {
-      const v = f[yi * size + xi]!;
-      if (xi + 1 < size) {
-        grad += Math.abs(v - f[yi * size + xi + 1]!);
+  for (let yi = 0; yi < G; yi++) {
+    for (let xi = 0; xi < G; xi++) {
+      const v = f[yi * G + xi]!;
+      if (xi + 1 < G) {
+        grad += Math.abs(v - f[yi * G + xi + 1]!);
         gn++;
       }
-      if (yi + 1 < size) {
-        grad += Math.abs(v - f[(yi + 1) * size + xi]!);
+      if (yi + 1 < G) {
+        grad += Math.abs(v - f[(yi + 1) * G + xi]!);
         gn++;
       }
     }
   }
-  const complexity = clamp01((grad / gn) * 4.5);
+  const complexity = clamp01((grad / gn) * 6.0);
 
-  // Mirror symmetry across the vertical axis.
   let mdiff = 0;
   let mn = 0;
-  for (let yi = 0; yi < size; yi++) {
-    for (let xi = 0; xi < size >> 1; xi++) {
-      const a = f[yi * size + xi]!;
-      const b = f[yi * size + (size - 1 - xi)]!;
-      mdiff += Math.abs(a - b);
+  for (let yi = 0; yi < G; yi++) {
+    for (let xi = 0; xi < G >> 1; xi++) {
+      mdiff += Math.abs(f[yi * G + xi]! - f[yi * G + (G - 1 - xi)]!);
       mn++;
     }
   }
-  const symmetry = clamp01(1 - (mdiff / mn) * 2.2);
+  const symmetry = clamp01(1 - (mdiff / mn) * 2.4);
 
-  return {
-    bd: [complexity, symmetry],
-    fidelity: loopFidelity(g),
-    vitality,
-  };
+  return { bd: [complexity, symmetry], fidelity: loopFidelity(g, p), vitality, liveConns: p.liveConns };
 }

@@ -1,72 +1,68 @@
-// The fixed CPPN topology — the single source of truth shared by the CPU
-// evaluator, the WebGPU shader, and the self-encoding ("quine") probe layout.
+// Topology — the single source of truth for both networks in the loop.
 //
-// We use a *fixed* topology with evolvable weights and per-node activation
-// functions. This is a genuine CPPN (heterogeneous activations queried over
-// coordinates); full NEAT-style topology growth is on the roadmap, not in this
-// client-side MVP. Keeping the topology fixed lets one shader evaluate any
-// genome from a uniform/storage buffer with no per-genome recompile.
+//   GENOTYPE (the DNA): a small *connective* CPPN. It maps a pair of substrate
+//   node positions in 3D to a connection weight (+ a link-expression output that
+//   gates whether the connection exists). Kept deliberately compact: a small DNA
+//   is both easier for the self-portrait to re-encode and clearer to draw as a
+//   graph.
+//
+//   PHENOTYPE (the substrate / "brain"): a HyperNEAT substrate whose weights are
+//   *painted* by the CPPN and whose hidden neurons are *placed* by it
+//   (simplified ES-HyperNEAT). Queried over 3D space, it outputs a density and a
+//   hue — the volumetric self-portrait.
 
-/** Coordinate inputs fed to every creature: x, y, radius, and a constant bias. */
-export const INPUTS = 4;
+// --- CPPN genotype (DNA) ----------------------------------------------------
 
-/** Hidden layer widths. Small on purpose: a smaller genome lets the
- *  self-encoding loop visibly close while staying expressive enough to be pretty. */
-export const HIDDEN = [7, 7] as const;
+/** CPPN inputs: x1,y1,z1, x2,y2,z2, bias — the two node positions it connects. */
+export const CPPN_INPUTS = 7;
+/** Compact hidden layer(s). Small DNA → closable loop + legible graph. */
+export const CPPN_HIDDEN = [6] as const;
+/** CPPN outputs: [weight, leo] — the painted weight and a link-expression gate. */
+export const CPPN_OUTPUTS = 2;
 
-/** A single scalar "ink" output in [0,1], later mapped through a duotone palette. */
-export const OUTPUTS = 1;
+export const CPPN_LAYERS: readonly number[] = [CPPN_INPUTS, ...CPPN_HIDDEN, CPPN_OUTPUTS];
+export const CPPN_TRANSITIONS = CPPN_LAYERS.length - 1;
+export const CPPN_MAX_WIDTH: number = CPPN_LAYERS.reduce((a, b) => Math.max(a, b), 0);
 
-/** Layer sizes from input to output, e.g. [4, 7, 7, 1]. */
-export const LAYERS: readonly number[] = [INPUTS, ...HIDDEN, OUTPUTS];
-
-/** Number of weight matrices / bias vectors (one per inter-layer transition). */
-export const TRANSITIONS = LAYERS.length - 1;
-
-/** Total evolvable weights across all transitions (dense connectivity). */
 export const WEIGHT_COUNT: number = (() => {
   let n = 0;
-  for (let i = 0; i < TRANSITIONS; i++) n += LAYERS[i]! * LAYERS[i + 1]!;
+  for (let i = 0; i < CPPN_TRANSITIONS; i++) n += CPPN_LAYERS[i]! * CPPN_LAYERS[i + 1]!;
   return n;
 })();
-
-/** Total evolvable biases (one per non-input node). */
 export const BIAS_COUNT: number = (() => {
   let n = 0;
-  for (let i = 1; i < LAYERS.length; i++) n += LAYERS[i]!;
+  for (let i = 1; i < CPPN_LAYERS.length; i++) n += CPPN_LAYERS[i]!;
   return n;
 })();
 
-/** Activations are evolvable for every hidden + output node. */
-export const ACTIVATION_NODE_COUNT = BIAS_COUNT;
-
-/** The genome's full real-valued dimension (weights ++ biases). This is the
- *  vector the creature tries to re-paint as its own self-portrait. */
+/** The DNA's real-valued dimension (weights ++ biases) — what the self-portrait
+ *  must re-encode. Activation choices are the discrete part of the genome. */
 export const GENOME_DIM = WEIGHT_COUNT + BIAS_COUNT;
 
-/** Largest layer width — used to size scratch buffers and the shader's arrays. */
-export const MAX_WIDTH: number = LAYERS.reduce((a, b) => Math.max(a, b), 0);
-
-/** Start index, in the flat weight buffer, of each transition's dense matrix.
- *  Shared by the CPU evaluator and the generated WGSL shader (single source of
- *  truth — the whole point of the "one core" story). */
 export const WEIGHT_OFFSETS: readonly number[] = (() => {
   const offs: number[] = [];
   let n = 0;
-  for (let t = 0; t < TRANSITIONS; t++) {
+  for (let t = 0; t < CPPN_TRANSITIONS; t++) {
     offs.push(n);
-    n += LAYERS[t]! * LAYERS[t + 1]!;
+    n += CPPN_LAYERS[t]! * CPPN_LAYERS[t + 1]!;
+  }
+  return offs;
+})();
+export const NODE_OFFSETS: readonly number[] = (() => {
+  const offs: number[] = [];
+  let n = 0;
+  for (let l = 1; l < CPPN_LAYERS.length; l++) {
+    offs.push(n);
+    n += CPPN_LAYERS[l]!;
   }
   return offs;
 })();
 
-/** Start index, in the flat bias/activation buffers, of each non-input layer. */
-export const NODE_OFFSETS: readonly number[] = (() => {
-  const offs: number[] = [];
-  let n = 0;
-  for (let l = 1; l < LAYERS.length; l++) {
-    offs.push(n);
-    n += LAYERS[l]!;
-  }
-  return offs;
-})();
+// --- Substrate phenotype (the brain that draws) -----------------------------
+
+/** Substrate input features per queried point: x, y, z, r=|p|, bias. */
+export const SUB_INPUTS = 5;
+/** Hidden neurons, placed in the volume by the CPPN (simplified ES-HyperNEAT). */
+export const SUB_HIDDEN = 8;
+/** Substrate outputs: [density (alpha), hue]. */
+export const SUB_OUTPUTS = 2;
