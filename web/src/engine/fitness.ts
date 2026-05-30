@@ -1,5 +1,6 @@
 import type { Genome } from './cppn.ts';
 import { genomeVector, paramToUnit, unitToParam, applyParams, paramCount, cloneGenome, W_SCALE } from './cppn.ts';
+import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
 
@@ -94,7 +95,7 @@ const DRIFT_NORM = 1 / (2 * W_SCALE);
  *  g_{n+1} = g_n + α·(T(g_n) − g_n). Records drift→0 (closing) and per-step
  *  fidelity (climbing). Topology is fixed during the iteration, so the parameter
  *  vector keeps a stable length. */
-export function iterateLoop(g0: Genome, steps = 24, alpha = 0.55, tol = 0.012): LoopTrajectory {
+export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha, tol = HYPER.loopTol): LoopTrajectory {
   let g = cloneGenome(g0);
   const drift: number[] = [];
   const fidelity: number[] = [];

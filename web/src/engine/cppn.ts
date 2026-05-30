@@ -26,6 +26,9 @@ export interface ConnGene {
   readonly to: number; // target node id
   weight: number;
   enabled: boolean;
+  /** Optional gater node id (neataptic-style): its activation modulates this
+   *  connection's signal. undefined = ungated. */
+  gater?: number;
 }
 export interface Genome {
   nodes: NodeGene[];
@@ -62,7 +65,7 @@ export function seededGenome(seed: string): Genome {
 export function cloneGenome(g: Genome): Genome {
   return {
     nodes: g.nodes.map((n) => ({ id: n.id, kind: n.kind, act: n.act, bias: n.bias })),
-    conns: g.conns.map((c) => ({ innov: c.innov, from: c.from, to: c.to, weight: c.weight, enabled: c.enabled })),
+    conns: g.conns.map((c) => ({ innov: c.innov, from: c.from, to: c.to, weight: c.weight, enabled: c.enabled, gater: c.gater })),
   };
 }
 
@@ -77,6 +80,8 @@ export interface Compiled {
   readonly incoming: Int32Array[];
   readonly incW: Float32Array[];
   readonly incRec: Uint8Array[];
+  /** Per node: gater node index per incoming edge (-1 = ungated). */
+  readonly incGater: Int32Array[];
   readonly inputIdx: number[]; // node index for each canonical input 0..6
   readonly outIdx: number[]; // node index for each output (weight, leo)
   readonly passes: number;
@@ -111,11 +116,13 @@ export function compileCPPN(g: Genome): Compiled {
   const incoming: Int32Array[] = [];
   const incW: Float32Array[] = [];
   const incRec: Uint8Array[] = [];
+  const incGater: Int32Array[] = [];
   let recurrent = false;
   for (let i = 0; i < n; i++) {
     const srcs: number[] = [];
     const ws: number[] = [];
     const rec: number[] = [];
+    const gat: number[] = [];
     for (const c of g.conns) {
       if (!c.enabled) continue;
       const b = idToIdx.get(c.to);
@@ -127,10 +134,12 @@ export function compileCPPN(g: Genome): Compiled {
       srcs.push(a);
       ws.push(c.weight);
       rec.push(isRec);
+      gat.push(c.gater !== undefined ? (idToIdx.get(c.gater) ?? -1) : -1);
     }
     incoming.push(Int32Array.from(srcs));
     incW.push(Float32Array.from(ws));
     incRec.push(Uint8Array.from(rec));
+    incGater.push(Int32Array.from(gat));
   }
 
   const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => depth[a]! - depth[b]! || g.nodes[a]!.id - g.nodes[b]!.id);
@@ -148,6 +157,7 @@ export function compileCPPN(g: Genome): Compiled {
     incoming,
     incW,
     incRec,
+    incGater,
     inputIdx,
     outIdx,
     passes: recurrent ? 3 : 1,
@@ -167,7 +177,7 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
   IN_BUF[4] = y2;
   IN_BUF[5] = z2;
   IN_BUF[6] = 1; // bias input
-  const { val, prev, order, incoming, incW, incRec, nodeAct, nodeBias, nodeKind, inputIdx } = c;
+  const { val, prev, order, incoming, incW, incRec, incGater, nodeAct, nodeBias, nodeKind, inputIdx } = c;
   for (let i = 0; i < CPPN_INPUTS; i++) val[inputIdx[i]!] = IN_BUF[i]!;
   for (let pass = 0; pass < c.passes; pass++) {
     if (c.passes > 1) prev.set(val);
@@ -176,8 +186,14 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
       const src = incoming[i]!;
       const ws = incW[i]!;
       const rec = incRec[i]!;
+      const gat = incGater[i]!;
       let sum = nodeBias[i]!;
-      for (let k = 0; k < src.length; k++) sum += (rec[k] ? prev[src[k]!]! : val[src[k]!]!) * ws[k]!;
+      for (let k = 0; k < src.length; k++) {
+        let contrib = (rec[k] ? prev[src[k]!]! : val[src[k]!]!) * ws[k]!;
+        const gi = gat[k]!;
+        if (gi >= 0) contrib *= rec[k] ? prev[gi]! : val[gi]!; // gating: a neuron modulates the signal
+        sum += contrib;
+      }
       val[i] = activate(nodeAct[i]!, sum);
     }
   }
@@ -249,7 +265,7 @@ export function genomeBytes(g: Genome): Uint8Array {
   const nodes = g.nodes.slice().sort((a, b) => a.id - b.id);
   const conns = sortedConns(g);
   const header = 8;
-  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 16);
+  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 20);
   const dv = new DataView(bytes.buffer);
   dv.setUint16(0, CPPN_INPUTS, true);
   dv.setUint16(2, CPPN_OUTPUTS, true);
@@ -268,7 +284,8 @@ export function genomeBytes(g: Genome): Uint8Array {
     dv.setInt32(o + 4, c.from, true);
     dv.setInt32(o + 8, c.to, true);
     dv.setFloat32(o + 12, c.enabled ? c.weight : 0, true);
-    o += 16;
+    dv.setInt32(o + 16, c.gater ?? -1, true); // gater node id (-1 = ungated)
+    o += 20;
   }
   return bytes;
 }

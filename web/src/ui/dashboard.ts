@@ -14,12 +14,13 @@ import { loadLineage, saveEntry } from '../engine/storage.ts';
 import type { NetLayout } from './netdraw.ts';
 import { drawCppnGraph, drawSubstrateGraph, NetworkPulse } from './netdraw.ts';
 import { renderGenealogy } from './genealogy.ts';
+import { HYPER, PARAMS } from '../engine/hyperparams.ts';
 import { need } from './dom.ts';
 
-const COLS = 12;
-const ROWS = 12;
+const COLS = HYPER.gridCols;
+const ROWS = HYPER.gridRows;
 const CELL = 34;
-const FOLLOW_EVERY = 48;
+const FOLLOW_EVERY = HYPER.followEvery;
 
 type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
@@ -52,7 +53,8 @@ export class AutographDashboard {
   private running = true;
   private follow = true;
   private novelty = false;
-  private budget = 20;
+  private readonly options = { recurrent: true, selfConn: false, gating: false };
+  private budget = HYPER.baseBudget;
   private frame = 0;
   private lastGenAt = 0;
   private lastGenValue = 0;
@@ -142,7 +144,7 @@ export class AutographDashboard {
       this.updateSelBadge();
     });
     const turbo = need<HTMLInputElement>(this.root, '#ag-turbo');
-    turbo.addEventListener('change', () => (this.budget = turbo.checked ? 60 : 20));
+    turbo.addEventListener('change', () => (this.budget = turbo.checked ? HYPER.turboBudget : HYPER.baseBudget));
     const novelty = need<HTMLInputElement>(this.root, '#ag-novelty');
     novelty.addEventListener('change', () => {
       this.novelty = novelty.checked;
@@ -175,6 +177,53 @@ export class AutographDashboard {
       need(this.root, '#ag-help').classList.remove('open');
       need(this.root, '#ag-welcome').classList.add('open');
     });
+
+    need(this.root, '#ag-tuning-open').addEventListener('click', () => {
+      this.renderParams();
+      need(this.root, '#ag-tuning').classList.add('open');
+    });
+    need(this.root, '#ag-tuning-close').addEventListener('click', () => need(this.root, '#ag-tuning').classList.remove('open'));
+    const optR = need<HTMLInputElement>(this.root, '#ag-opt-recurrent');
+    const optS = need<HTMLInputElement>(this.root, '#ag-opt-self');
+    const optG = need<HTMLInputElement>(this.root, '#ag-opt-gating');
+    const applyOpts = (): void => {
+      this.options.recurrent = optR.checked;
+      this.options.selfConn = optS.checked;
+      this.options.gating = optG.checked;
+      this.garden.setOptions(this.options);
+    };
+    optR.addEventListener('change', applyOpts);
+    optS.addEventListener('change', applyOpts);
+    optG.addEventListener('change', applyOpts);
+  }
+
+  /** Render the read-only hyperparameter table from the single config source. */
+  private renderParams(): void {
+    const host = need(this.root, '#ag-params-table');
+    host.replaceChildren();
+    let lastGroup = '';
+    for (const p of PARAMS) {
+      if (p.group !== lastGroup) {
+        const h = document.createElement('div');
+        h.className = 'params-group';
+        h.textContent = p.group;
+        host.appendChild(h);
+        lastGroup = p.group;
+      }
+      const row = document.createElement('div');
+      row.className = 'params-row';
+      const k = document.createElement('span');
+      k.className = 'pk';
+      k.textContent = p.label;
+      const v = document.createElement('span');
+      v.className = 'pv';
+      v.textContent = p.unit ? `${p.value} ${p.unit}` : String(p.value);
+      const note = document.createElement('span');
+      note.className = 'pn';
+      note.textContent = p.note + (p.selfTunes ? ' · self-tunes' : '');
+      row.append(k, v, note);
+      host.appendChild(row);
+    }
   }
 
   /** Show the welcome on first visit only; re-openable from the “?” help. */
@@ -204,6 +253,7 @@ export class AutographDashboard {
   private grow(seedStr: string): void {
     this.garden = new Garden(seedStr, COLS, ROWS);
     this.garden.setNovelty(this.novelty);
+    this.garden.setOptions(this.options);
     this.garden.seedWith([seededGenome(seedStr)]);
     this.paintEmptyGrid();
     this.syncDirty();

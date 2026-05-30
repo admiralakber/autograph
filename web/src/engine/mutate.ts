@@ -1,10 +1,22 @@
 import { ACTIVATION_COUNT } from './activations.ts';
 import { BASE_INNOV, FIRST_HIDDEN_ID } from './arch.ts';
+import { HYPER } from './hyperparams.ts';
 import type { Genome, NodeGene, ConnGene } from './cppn.ts';
 import { cloneGenome, W_SCALE } from './cppn.ts';
 import type { Rng } from './prng.ts';
 
 const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W_SCALE : x);
+
+/** neataptic-inspired structural options, toggleable from the UI. */
+export interface MutateOptions {
+  /** allow back/lateral (recurrent) connections (ADD_BACK_CONN). */
+  recurrent: boolean;
+  /** allow a node to connect to itself (ADD_SELF_CONN). */
+  selfConn: boolean;
+  /** allow a neuron to gate a connection (ADD_GATE). */
+  gating: boolean;
+}
+export const DEFAULT_OPTIONS: MutateOptions = { recurrent: true, selfConn: false, gating: false };
 
 // NEAT historical markings. Identical structural mutations (a given from→to
 // link, or a given connection split) get the SAME innovation number across the
@@ -33,37 +45,27 @@ export class Innovations {
   }
 }
 
-const RATES = {
-  weight: 0.7, // fraction of weights jittered
-  bias: 0.3,
-  resetWeight: 0.06,
-  activation: 0.08,
-  addConn: 0.14,
-  addNode: 0.08,
-  toggle: 0.02,
-  recurrent: 0.3, // chance an added connection is allowed to be a back-edge
-};
-
 /** Mutate a genome: weight/bias jitter, activation swaps, and the structural
- *  operators that make this real NEAT — add-connection and add-node — with
- *  recurrence allowed. Gradient-free, so it sidesteps the zero-quine trap. */
-export function mutate(g: Genome, rng: Rng, innov: Innovations): Genome {
+ *  operators that make this real NEAT — add-connection, add-node, and (optional,
+ *  neataptic-style) gating and self/recurrent links. All rates live in HYPER. */
+export function mutate(g: Genome, rng: Rng, innov: Innovations, opts: MutateOptions = DEFAULT_OPTIONS): Genome {
   const child = cloneGenome(g);
   for (const c of child.conns) {
-    if (rng.next() < RATES.weight) c.weight = clampW(c.weight + rng.normal() * 0.4);
-    if (rng.next() < RATES.resetWeight) c.weight = clampW(rng.normal() * 1.4);
+    if (rng.next() < HYPER.weightMutRate) c.weight = clampW(c.weight + rng.normal() * HYPER.weightMutSigma);
+    if (rng.next() < HYPER.weightResetRate) c.weight = clampW(rng.normal() * 1.4);
   }
   for (const n of child.nodes) {
     if (n.kind === 0) continue;
-    if (rng.next() < RATES.bias) n.bias = clampW(n.bias + rng.normal() * 0.3);
-    if (rng.next() < RATES.activation) n.act = rng.int(ACTIVATION_COUNT);
+    if (rng.next() < HYPER.biasMutRate) n.bias = clampW(n.bias + rng.normal() * HYPER.biasMutSigma);
+    if (rng.next() < HYPER.activationMutRate) n.act = rng.int(ACTIVATION_COUNT);
   }
-  if (rng.next() < RATES.toggle && child.conns.length > 0) {
+  if (rng.next() < HYPER.toggleRate && child.conns.length > 0) {
     const c = child.conns[rng.int(child.conns.length)]!;
     c.enabled = !c.enabled;
   }
-  if (rng.next() < RATES.addConn) addConnection(child, rng, innov);
-  if (rng.next() < RATES.addNode) addNode(child, rng, innov);
+  if (rng.next() < HYPER.addConnRate) addConnection(child, rng, innov, opts);
+  if (rng.next() < HYPER.addNodeRate) addNode(child, rng, innov);
+  if (opts.gating && rng.next() < HYPER.addGateRate) addGate(child, rng);
   return child;
 }
 
@@ -74,7 +76,7 @@ function depths(g: Genome): Map<number, number> {
   for (let i = 0; i < g.nodes.length; i++) {
     let changed = false;
     for (const c of g.conns) {
-      if (!c.enabled) continue;
+      if (!c.enabled || c.from === c.to) continue;
       const nd = (d.get(c.from) ?? 0) + 1;
       if (nd > (d.get(c.to) ?? 0)) {
         d.set(c.to, nd);
@@ -86,7 +88,7 @@ function depths(g: Genome): Map<number, number> {
   return d;
 }
 
-function addConnection(g: Genome, rng: Rng, innov: Innovations): void {
+function addConnection(g: Genome, rng: Rng, innov: Innovations, opts: MutateOptions): void {
   const existing = new Set<string>();
   for (const c of g.conns) existing.add(`${c.from}>${c.to}`);
   const sources = g.nodes;
@@ -95,17 +97,23 @@ function addConnection(g: Genome, rng: Rng, innov: Innovations): void {
   for (let attempt = 0; attempt < 12; attempt++) {
     const from = sources[rng.int(sources.length)]!;
     const to = targets[rng.int(targets.length)]!;
-    if (from.id === to.id) continue;
+    const self = from.id === to.id;
+    if (self && !opts.selfConn) continue;
     if (existing.has(`${from.id}>${to.id}`)) continue;
-    const isBack = (d.get(from.id) ?? 0) >= (d.get(to.id) ?? 0);
-    if (isBack && rng.next() >= RATES.recurrent) continue; // mostly keep it forward
+    if (self) {
+      if (rng.next() >= HYPER.selfConnRate) continue;
+    } else {
+      const isBack = (d.get(from.id) ?? 0) >= (d.get(to.id) ?? 0);
+      if (isBack && !opts.recurrent) continue;
+      if (isBack && rng.next() >= HYPER.recurrentRate) continue; // mostly keep it forward
+    }
     g.conns.push({ innov: innov.connInnov(from.id, to.id), from: from.id, to: to.id, weight: rng.normal() * 1.2, enabled: true });
     return;
   }
 }
 
 function addNode(g: Genome, rng: Rng, innov: Innovations): void {
-  const enabled = g.conns.filter((c) => c.enabled);
+  const enabled = g.conns.filter((c) => c.enabled && c.from !== c.to);
   if (enabled.length === 0) return;
   const c = enabled[rng.int(enabled.length)]!;
   c.enabled = false;
@@ -118,6 +126,14 @@ function addNode(g: Genome, rng: Rng, innov: Innovations): void {
   g.conns.push({ innov: outInnov, from: node, to: c.to, weight: c.weight, enabled: true });
 }
 
+/** neataptic ADD_GATE: a neuron's activation modulates an existing connection. */
+function addGate(g: Genome, rng: Rng): void {
+  const ungated = g.conns.filter((c) => c.enabled && c.gater === undefined);
+  if (ungated.length === 0) return;
+  const c = ungated[rng.int(ungated.length)]!;
+  c.gater = g.nodes[rng.int(g.nodes.length)]!.id;
+}
+
 /** Innovation-aligned crossover: matching genes inherited at random, disjoint and
  *  excess genes taken from the primary parent `a`. */
 export function crossover(a: Genome, b: Genome, rng: Rng): Genome {
@@ -127,9 +143,8 @@ export function crossover(a: Genome, b: Genome, rng: Rng): Genome {
   for (const ca of a.conns) {
     const cb = mb.get(ca.innov);
     const pick = cb && rng.next() < 0.5 ? cb : ca;
-    conns.push({ innov: pick.innov, from: pick.from, to: pick.to, weight: pick.weight, enabled: ca.enabled && (cb ? cb.enabled || rng.next() < 0.75 : true) });
+    conns.push({ innov: pick.innov, from: pick.from, to: pick.to, weight: pick.weight, enabled: ca.enabled && (cb ? cb.enabled || rng.next() < 0.75 : true), gater: pick.gater });
   }
-  // Nodes: every id referenced, taking the gene from a when present, else b.
   const need = new Set<number>();
   for (const c of conns) {
     need.add(c.from);

@@ -684,6 +684,26 @@ code {
   pointer-events: none;
 }
 
+/* ---- Tuning / hyperparameters panel ---- */
+.tuning-opts { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 10px; }
+.tuning-opts .chk { font-size: 12px; color: var(--ink); }
+.params-table { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; }
+.params-group {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--bright); margin: 16px 0 4px;
+}
+.params-row {
+  display: grid; grid-template-columns: 190px 92px 1fr; gap: 12px; align-items: baseline;
+  padding: 3px 0; border-bottom: 1px solid var(--line-soft);
+}
+.params-row .pk { color: var(--ink); font-size: 12px; }
+.params-row .pv { color: var(--bright); font-variant-numeric: tabular-nums; font-size: 12px; text-align: right; }
+.params-row .pn { color: var(--dim); font-size: 11px; line-height: 1.5; }
+@media (max-width: 640px) {
+  .params-row { grid-template-columns: 1fr auto; }
+  .params-row .pn { grid-column: 1 / -1; }
+}
+
 /* ---- Responsive: stack into a scrollable column on small screens ---- */
 @media (max-width: 940px) {
   html, body { overflow: auto; }

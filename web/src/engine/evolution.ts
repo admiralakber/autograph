@@ -5,7 +5,9 @@ import type { Rng } from './prng.ts';
 import { makeRng, cyrb128 } from './prng.ts';
 import { MapElites } from './mapelites.ts';
 import type { Cell } from './archive.ts';
-import { mutate, crossover, Innovations } from './mutate.ts';
+import { mutate, crossover, Innovations, DEFAULT_OPTIONS } from './mutate.ts';
+import type { MutateOptions } from './mutate.ts';
+import { HYPER } from './hyperparams.ts';
 
 export interface GardenStats {
   generation: number;
@@ -32,13 +34,19 @@ export class Garden {
   private generation = 0;
   private evaluations = 0;
   private species: { rep: Genome; members: number[] }[] = [];
-  private readonly speciesThreshold = 0.7;
+  private readonly speciesThreshold = HYPER.speciesThreshold;
   private noveltyOn = false;
+  private options: MutateOptions = { ...DEFAULT_OPTIONS };
 
   /** Toggle behavioural Novelty Search (Lehman & Stanley): bias reproduction
    *  toward the frontier of behaviour space rather than toward fidelity. */
   setNovelty(on: boolean): void {
     this.noveltyOn = on;
+  }
+
+  /** Set neataptic-style structural options (recurrent / self / gating). */
+  setOptions(o: Partial<MutateOptions>): void {
+    this.options = { ...this.options, ...o };
   }
 
   constructor(seed: string, cols = 14, rows = 14) {
@@ -53,7 +61,7 @@ export class Garden {
       this.archive.tryInsert(g, evaluate(g), this.generation);
       this.evaluations++;
     }
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < HYPER.founders; i++) {
       const g = randomGenome(this.rng);
       this.archive.tryInsert(g, evaluate(g), this.generation);
       this.evaluations++;
@@ -67,17 +75,19 @@ export class Garden {
       let child: Genome;
       if (!parentA) {
         child = randomGenome(this.rng);
-      } else if (this.rng.next() < 0.15) {
+      } else if (this.rng.next() < HYPER.crossoverRate) {
         const parentB = this.selectParent();
-        child = parentB ? mutate(crossover(parentA.genome, parentB.genome, this.rng), this.rng, this.innov) : mutate(parentA.genome, this.rng, this.innov);
+        child = parentB
+          ? mutate(crossover(parentA.genome, parentB.genome, this.rng), this.rng, this.innov, this.options)
+          : mutate(parentA.genome, this.rng, this.innov, this.options);
       } else {
-        child = mutate(parentA.genome, this.rng, this.innov);
+        child = mutate(parentA.genome, this.rng, this.innov, this.options);
       }
       this.archive.tryInsert(child, evaluate(child), this.generation);
       this.evaluations++;
     }
     this.generation++;
-    if (this.generation % 20 === 0) this.respeciate();
+    if (this.generation % HYPER.respeciateEvery === 0) this.respeciate();
   }
 
   /** Parent selection: half the time pick a random *species* then one of its

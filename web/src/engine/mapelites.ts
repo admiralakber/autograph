@@ -2,10 +2,11 @@ import { cloneGenome } from './cppn.ts';
 import type { Genome } from './cppn.ts';
 import type { Evaluation } from './fitness.ts';
 import type { Archive, ArchiveBest, Cell } from './archive.ts';
+import { HYPER } from './hyperparams.ts';
 
 /** Reject near-flat creatures: a self-portrait of nothing is the trivial
  *  fixed point the briefing warns about. We keep self-reference load-bearing. */
-const MIN_VITALITY = 0.05;
+const MIN_VITALITY = HYPER.minVitality;
 
 /** The **local, in-memory** implementation of the `Archive` seam (also exported
  *  as `LocalArchive`). A 2-D MAP-Elites grid: each cell keeps the highest-

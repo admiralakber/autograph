@@ -118,6 +118,33 @@ The genuinely deep resonance is not invented for this project — it is a 60-yea
 
 ---
 
+### 3.8 Hyperparameters
+
+Every tunable lives in **one config** (`web/src/engine/hyperparams.ts`) — the single source of truth that the engine imports, the UI renders read-only in a **TUNING** panel, and this table documents. Defaults:
+
+| Group | Parameter | Value | Meaning |
+|---|---|---|---|
+| Population | grid columns × rows | 12 × 12 | MAP-Elites behaviour grid (complexity × symmetry) |
+| Population | random founders | 24 | minimal genomes seeded at world start |
+| Population | vitality gate | 0.05 | reject the trivial empty fixed point |
+| Mutation | weight-mutate rate / σ | 0.7 / 0.4 | fraction of weights perturbed, and step size |
+| Mutation | weight-reset rate | 0.06 | chance a weight is re-drawn |
+| Mutation | bias-mutate rate / σ | 0.3 / 0.3 | as above, for node biases |
+| Mutation | activation-swap rate | 0.08 | chance a node changes its squash function |
+| Mutation | add-connection rate | 0.14 | NEAT structural: new edge |
+| Mutation | add-node rate | 0.08 | NEAT structural: split an edge |
+| Mutation | enable-toggle rate | 0.02 | flip a connection on/off |
+| Mutation | add-gate rate | 0.05 | neataptic-style gating (optional) |
+| Mutation | recurrent / self-conn chance | 0.3 / 0.2 | back-edges / self-loops when those options are on |
+| Speciation | compatibility threshold | 0.7 | distance above which creatures split species |
+| Speciation | crossover rate | 0.15 | fraction of offspring from crossover |
+| Speciation | respeciate interval | 20 gen | how often species membership is recomputed |
+| The loop | relaxation α / tolerance | 0.55 / 0.012 | the fixed-point iteration $g \leftarrow g + \alpha(T(g)-g)$ |
+| Tempo | offspring/frame (normal / TURBO) | 20 / 60 | search throughput |
+| Tempo | follow cadence | 48 frames | how often FOLLOW BEST re-selects |
+
+**Self-tuning.** None adapt automatically today; values were hand-set for a legible, lively search on a single device. The honest candidate for self-tuning is the **speciation threshold** — NEAT's classic *dynamic compatibility threshold*, nudged each generation to hold a target species count — which we have deliberately left fixed and flagged as future work rather than implying adaptivity we do not yet have.
+
 ## 4. The central claim, and how it is falsifiable
 
 **Claim.** *Open-ended quality-diversity search discovers a diverse population of approximate self-encoding creatures (CPPN-painted, ES-placed substrates) that (a) cannot be matched, in joint diversity-and-fidelity, by objective-only search, and (b) exhibit more factored internal representations than gradient-descent-trained self-encoders of equal output fidelity.*

@@ -36,6 +36,7 @@
         </dl>
         <div class="bar-end">
           <span class="swarm" title="today Autograph runs only on your device — the participant count rises when the coordinator goes live"><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;node&nbsp;(you) · <strong id="ag-swarm-explored">0</strong>&nbsp;explored</span>
+          <button id="ag-tuning-open" class="btn" type="button" title="structural options + the hyperparameters this run uses">⚙ TUNING</button>
           <button id="ag-help-open" class="btn" type="button" title="what am I looking at? a quick tour of the parts">? WHAT IS THIS</button>
           <button id="ag-info-open" class="btn" type="button">INFO</button>
         </div>
@@ -183,6 +184,24 @@
           <span class="mono-dim">reopen anytime from “?”</span>
         </div>
         <p class="ov-foot">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://meos.do" rel="noopener">meos</a> · MIT · honest, never faked.</p>
+      </div>
+    </div>
+
+    <!-- ░░ TUNING — neataptic-style options + read-only hyperparameters ░░ -->
+    <div id="ag-tuning" class="overlay" role="dialog" aria-modal="true" aria-labelledby="tuning-title">
+      <div class="overlay-inner">
+        <button id="ag-tuning-close" class="btn overlay-close" type="button">CLOSE ✕</button>
+        <h1 id="tuning-title">Tuning &amp; hyperparameters</h1>
+        <p class="ov-lead">Structural options you can toggle live (neataptic-style), then the full hyperparameter set this run uses. The numbers are read-only here — they live in one config, <code>hyperparams.ts</code>, the single source of truth.</p>
+        <h2>Options · neataptic-style</h2>
+        <div class="tuning-opts">
+          <label class="chk"><input id="ag-opt-recurrent" type="checkbox" checked /> recurrent connections <span class="mono-dim">— back / lateral edges (ADD_BACK_CONN)</span></label>
+          <label class="chk"><input id="ag-opt-self" type="checkbox" /> self-connections <span class="mono-dim">— a node feeding itself (ADD_SELF_CONN)</span></label>
+          <label class="chk"><input id="ag-opt-gating" type="checkbox" /> gating <span class="mono-dim">— a neuron modulates a connection (ADD_GATE)</span></label>
+        </div>
+        <h2>Hyperparameters</h2>
+        <div id="ag-params-table" class="params-table"></div>
+        <p class="ov-foot">None self-tune yet — the honest candidate is the speciation threshold (NEAT's dynamic-compatibility trick). Full notes live in the <a href="https://github.com/admiralakber/autograph/blob/main/docs/WHITEPAPER.md" rel="noopener">whitepaper</a>.</p>
       </div>
     </div>
 

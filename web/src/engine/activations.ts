@@ -13,6 +13,9 @@ export const ACTIVATIONS = [
   'cos',
   'relu',
   'tri',
+  'softsign',
+  'step',
+  'bent',
 ] as const;
 
 export type ActivationName = (typeof ACTIVATIONS)[number];
@@ -41,6 +44,14 @@ export function activate(id: number, x: number): number {
       return x < 0 ? 0 : x > 1 ? 1 : x; // clamped relu
     case 8:
       return (2 / Math.PI) * Math.asin(Math.sin(x)); // triangle wave in [-1,1]
+    case 9:
+      return x / (1 + Math.abs(x)); // softsign (neataptic)
+    case 10:
+      return x > 0 ? 1 : 0; // step
+    case 11: {
+      const b = (Math.sqrt(x * x + 1) - 1) / 2 + x; // bent identity (clamped tame)
+      return b < -1 ? -1 : b > 1 ? 1 : b;
+    }
     default:
       return Math.max(-1, Math.min(1, x)); // identity, clamped
   }
