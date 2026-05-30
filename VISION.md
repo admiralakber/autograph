@@ -26,10 +26,10 @@ flowchart LR
   DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints the weights ·<br/>places the neurons (ES)"| PHENO["🧠 brain · phenotype<br/>(a HyperNEAT substrate)"]
   PHENO -->|"queried over 3-D space →<br/>density + hue field"| ART["✨ self-portrait<br/>(volumetric, sunrise-coloured)"]
   ART -->|"read the density back at<br/>known 3-D probe points"| DNA2["🧬 DNA′"]
-  DNA2 -. "the closer DNA′ matches DNA,<br/>the more the loop closes — measured live" .-> DNA
+  DNA2 -. "iterate: DNA′ → brain → portrait → DNA″ → …<br/>until it settles to a fixed point — watched live" .-> DNA
 ```
 
-The creature draws a picture of itself; we read that picture back to recover its DNA; the closer the recovered **DNA′** is to the original **DNA**, the more the loop has *closed*. This is the true self, drawn out of the false — and it is never faked. **Loop fidelity is measured live.** It closes only partially, to a tolerance: exact closure is impossible, and the trivial near-empty creature that "closes perfectly" by saying nothing is a degenerate trap we refuse (see §3). What you watch is the real number, climbing as life gets richer.
+The creature draws a picture of itself; we read that picture back to recover its DNA — and then we **do it again, and again**: DNA′ grows its own brain, draws its own portrait, is read back to DNA″, and so on. We are not merely *scoring* one pass — we **iterate the loop** and watch it **settle**. For an evolved self-encoder the iteration genuinely closes: the change between steps shrinks to nothing and fidelity climbs to **1.000** — a true fixed point, a quine reaching itself, that you can watch converge in the strange-loop panel. For a random creature it only *partially* closes, settling at a residual — and we show that honestly too. This is the true self, drawn out of the false, and **it is never faked**: the near-empty creature that "closes perfectly" by saying nothing is a degenerate trap we refuse with a vitality gate (see §3). What you watch is the loop literally closing as life gets richer.
 
 ---
 
