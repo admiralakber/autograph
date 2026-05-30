@@ -1,13 +1,18 @@
 import { SUB_INPUTS, SUB_HIDDEN, SUB_OUTPUTS } from './arch.ts';
 import type { Genome } from './cppn.ts';
 import { evalCPPN } from './cppn.ts';
+import { activate } from './activations.ts';
 
 // The PHENOTYPE: a HyperNEAT substrate. Hidden neurons are *placed* by the CPPN
-// (simplified ES-HyperNEAT — see below), and every connection weight is
-// *painted* by the CPPN from the two nodes' 3D positions. Queried over space,
-// the substrate outputs a density and a hue: the volumetric self-portrait.
+// (simplified ES-HyperNEAT — see below), every connection weight is *painted* by
+// the CPPN from the two nodes' 3D positions, and each hidden neuron is given a
+// *heterogeneous activation* (also chosen by the CPPN). Queried over space, the
+// substrate outputs a density and a hue: the volumetric self-portrait.
 
 const WEIGHT_GAIN = 3.0;
+// Hidden-node activations drawn from the rich, pattern-making subset
+// (sin/gauss/tanh/sigmoid/abs) — heterogeneity is what makes the field beautiful.
+const HIDDEN_ACT_SET = 5;
 
 /** Fixed positions of the 5 input feature-nodes (x, y, z, r, bias) at z = -0.85. */
 const INPUT_POS: Float32Array = (() => {
@@ -44,18 +49,19 @@ const CANDIDATES: Float32Array = (() => {
 
 export interface Phenotype {
   readonly hidden: Float32Array; // SUB_HIDDEN * 3 positions
+  readonly hiddenAct: Uint8Array; // per-hidden activation id (heterogeneous → rich fields)
   readonly Wih: Float32Array; // SUB_INPUTS * SUB_HIDDEN
   readonly Who: Float32Array; // SUB_HIDDEN * SUB_OUTPUTS
   readonly liveIh: Uint8Array; // expressed (leo>0) input→hidden links
   readonly liveHo: Uint8Array; // expressed hidden→output links
-  /** Count of expressed connections — a phenotype "size" for the readouts. */
+  /** Count of expressed connections — the phenotype's edge count for the readouts. */
   readonly liveConns: number;
 }
 
 const out2: [number, number] = [0, 0];
 
 /** Build the phenotype deterministically from the DNA: ES-place hidden neurons,
- *  then paint every connection. */
+ *  choose their activations, then paint every connection. */
 export function buildPhenotype(g: Genome): Phenotype {
   // --- Simplified ES-HyperNEAT placement -----------------------------------
   // Score each candidate site by the *variance* of the incoming weight pattern
@@ -82,14 +88,17 @@ export function buildPhenotype(g: Genome): Phenotype {
     }
     info[c] = v;
   }
-  // top SUB_HIDDEN candidate indices by info
   const order = Array.from({ length: nCand }, (_, i) => i).sort((a, b) => info[b]! - info[a]!);
   const hidden = new Float32Array(SUB_HIDDEN * 3);
+  const hiddenAct = new Uint8Array(SUB_HIDDEN);
   for (let j = 0; j < SUB_HIDDEN; j++) {
     const c = order[j]!;
-    hidden[j * 3] = CANDIDATES[c * 3]!;
-    hidden[j * 3 + 1] = CANDIDATES[c * 3 + 1]!;
-    hidden[j * 3 + 2] = CANDIDATES[c * 3 + 2]!;
+    const hx = (hidden[j * 3] = CANDIDATES[c * 3]!);
+    const hy = (hidden[j * 3 + 1] = CANDIDATES[c * 3 + 1]!);
+    const hz = (hidden[j * 3 + 2] = CANDIDATES[c * 3 + 2]!);
+    // The CPPN also picks each neuron's activation (at its own coordinate).
+    const t = evalCPPN(g, hx, hy, hz, hx, hy, hz, out2)[0] * 0.5 + 0.5;
+    hiddenAct[j] = Math.max(0, Math.min(HIDDEN_ACT_SET - 1, Math.floor((((t % 1) + 1) % 1) * HIDDEN_ACT_SET)));
   }
 
   // --- Paint connection weights (gated by link-expression leo) --------------
@@ -116,7 +125,7 @@ export function buildPhenotype(g: Genome): Phenotype {
       live += on;
     }
   }
-  return { hidden, Wih, Who, liveIh, liveHo, liveConns: live };
+  return { hidden, hiddenAct, Wih, Who, liveIh, liveHo, liveConns: live };
 }
 
 const hbuf = new Float32Array(SUB_HIDDEN);
@@ -127,7 +136,7 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
   for (let j = 0; j < SUB_HIDDEN; j++) {
     let s = 0;
     for (let i = 0; i < SUB_INPUTS; i++) s += inp[i]! * p.Wih[i * SUB_HIDDEN + j]!;
-    hbuf[j] = Math.tanh(s);
+    hbuf[j] = activate(p.hiddenAct[j]!, s);
   }
   let d = 0;
   let h = 0;
@@ -135,8 +144,8 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
     d += hbuf[j]! * p.Who[j * SUB_OUTPUTS]!;
     h += hbuf[j]! * p.Who[j * SUB_OUTPUTS + 1]!;
   }
-  out[0] = 1 / (1 + Math.exp(-d)); // density
-  out[1] = (Math.sin(h) + 1) * 0.5; // hue
+  out[0] = 1 / (1 + Math.exp(-1.3 * d)); // density (alpha)
+  out[1] = (Math.sin(h * 1.4) + 1) * 0.5; // hue
   return out;
 }
 
@@ -147,6 +156,8 @@ export interface SubNode {
   readonly y: number;
   readonly z: number;
   readonly role: 'in' | 'hidden' | 'out';
+  /** Activation id for hidden nodes (undefined for inputs/outputs). */
+  readonly act?: number;
 }
 export interface SubConn {
   readonly a: SubNode;
@@ -157,13 +168,12 @@ export interface SubConn {
 export function phenotypeNodes(p: Phenotype): SubNode[] {
   const nodes: SubNode[] = [];
   for (let i = 0; i < SUB_INPUTS; i++) nodes.push({ x: INPUT_POS[i * 3]!, y: INPUT_POS[i * 3 + 1]!, z: INPUT_POS[i * 3 + 2]!, role: 'in' });
-  for (let j = 0; j < SUB_HIDDEN; j++) nodes.push({ x: p.hidden[j * 3]!, y: p.hidden[j * 3 + 1]!, z: p.hidden[j * 3 + 2]!, role: 'hidden' });
+  for (let j = 0; j < SUB_HIDDEN; j++) nodes.push({ x: p.hidden[j * 3]!, y: p.hidden[j * 3 + 1]!, z: p.hidden[j * 3 + 2]!, role: 'hidden', act: p.hiddenAct[j]! });
   for (let o = 0; o < SUB_OUTPUTS; o++) nodes.push({ x: OUTPUT_POS[o * 3]!, y: OUTPUT_POS[o * 3 + 1]!, z: OUTPUT_POS[o * 3 + 2]!, role: 'out' });
   return nodes;
 }
 
-export function phenotypeConns(p: Phenotype): SubConn[] {
-  const nodes = phenotypeNodes(p);
+export function phenotypeConns(p: Phenotype, nodes: SubNode[] = phenotypeNodes(p)): SubConn[] {
   const inOff = 0;
   const hidOff = SUB_INPUTS;
   const outOff = SUB_INPUTS + SUB_HIDDEN;

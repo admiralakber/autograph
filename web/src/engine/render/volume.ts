@@ -77,3 +77,35 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
   }
   ctx.putImageData(img, 0, 0);
 }
+
+const smooth = (e0: number, e1: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+
+/** Paint a flat 2-D *slice* of the field at depth `z` — the high-contrast,
+ *  CPPN-style pattern view (the "2D mode"). density → brightness, hue → sunrise. */
+export function paintSlice(p: Phenotype, canvas: HTMLCanvasElement, size: number, z = 0): void {
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  const inv = 2 / (size - 1);
+  for (let yi = 0; yi < size; yi++) {
+    const y = yi * inv - 1;
+    for (let xi = 0; xi < size; xi++) {
+      const x = xi * inv - 1;
+      const r = substrateForward(p, x, y, z, o2);
+      const a = smooth(0.38, 0.82, r[0]); // contrast curve → structure pops
+      const [cr, cg, cb] = lifeRgb(r[1]);
+      const o = (yi * size + xi) * 4;
+      data[o] = Math.round(cr * a);
+      data[o + 1] = Math.round(cg * a);
+      data[o + 2] = Math.round(cb * a);
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
