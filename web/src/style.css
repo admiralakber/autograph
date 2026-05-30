@@ -880,6 +880,47 @@ section > * {
   color: var(--accent);
 }
 
+/* ---- Colophon (how this was made) ---- */
+.colophon {
+  padding-top: 0;
+}
+.colophon-panel {
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 34px clamp(22px, 4vw, 46px);
+  max-width: 900px;
+  margin-inline: auto;
+  text-align: center;
+}
+.colophon-badge {
+  display: inline-block;
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin: 0 0 16px;
+}
+.colophon-title {
+  font-size: clamp(1.3rem, 3vw, 1.95rem);
+  margin-bottom: 16px;
+}
+.colophon-panel p:last-child {
+  color: var(--text-dim);
+  font-size: 1.03rem;
+  line-height: 1.7;
+  margin: 0 auto;
+  max-width: 66ch;
+}
+.colophon-panel strong {
+  color: var(--text);
+}
+
 /* ---- Footer ---- */
 .site-footer {
   text-align: center;
