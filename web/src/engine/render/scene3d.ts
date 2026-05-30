@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import type { PointCloud } from './volume.ts';
-import type { SubNode, SubConn } from '../substrate.ts';
 
-// One rotating 3D view that shows the SAME individual two ways — the volumetric
-// self-portrait (sunrise point cloud) and the phenotype network (greyscale
-// nodes + connections). Toggling between them is the heart of the equivalence
-// teaching: a render IS a network. Falls back (ok=false) if WebGL is missing.
+// The 3-D self-portrait: the substrate's density/hue field as a slowly-rotating
+// sunrise point cloud. (The phenotype and DNA are drawn as legible 2-D SVG
+// networks; this view is the volumetric "what the brain draws".) ok=false if
+// WebGL is unavailable, in which case the dashboard uses the 2-D slice instead.
 
 const POINT_VERT = /* glsl */ `
   attribute float alpha;
@@ -32,17 +31,13 @@ const POINT_FRAG = /* glsl */ `
   }
 `;
 
-export type SceneMode = 'cloud' | 'net';
-
 export class CreatureScene {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
   private group: THREE.Group | null = null;
   private cloud: THREE.Points | null = null;
-  private net: THREE.Group | null = null;
   private raf = 0;
-  private mode: SceneMode = 'cloud';
   readonly ok: boolean;
 
   constructor(private readonly container: HTMLElement) {
@@ -79,13 +74,7 @@ export class CreatureScene {
     this.camera.updateProjectionMatrix();
   }
 
-  setMode(mode: SceneMode): void {
-    this.mode = mode;
-    if (this.cloud) this.cloud.visible = mode === 'cloud';
-    if (this.net) this.net.visible = mode === 'net';
-  }
-
-  /** Show/hide the WebGL canvas (the DNA view sits over a hidden 3D stage). */
+  /** Show/hide the WebGL canvas (the 2-D views sit over a hidden 3-D stage). */
   setCanvasVisible(visible: boolean): void {
     if (this.renderer) this.renderer.domElement.style.display = visible ? 'block' : 'none';
   }
@@ -111,72 +100,13 @@ export class CreatureScene {
       vertexColors: true,
     });
     this.cloud = new THREE.Points(geo, mat);
-    this.cloud.visible = this.mode === 'cloud';
     this.group.add(this.cloud);
-  }
-
-  setNet(nodes: SubNode[], conns: SubConn[]): void {
-    if (!this.group) return;
-    if (this.net) {
-      this.group.remove(this.net);
-      this.net.traverse((o) => {
-        if (o instanceof THREE.Points || o instanceof THREE.LineSegments) o.geometry.dispose();
-      });
-    }
-    const net = new THREE.Group();
-
-    // Connections: sign via light-vs-dark grey, magnitude via brightness/opacity.
-    const segPos: number[] = [];
-    const segCol: number[] = [];
-    for (const c of conns) {
-      const mag = Math.min(1, Math.abs(c.weight) / 3);
-      const g = c.weight >= 0 ? 0.45 + 0.5 * mag : 0.34 - 0.22 * mag; // light = excite, dark = inhibit
-      segPos.push(c.a.x, c.a.y, c.a.z, c.b.x, c.b.y, c.b.z);
-      segCol.push(g, g, g, g, g, g);
-    }
-    const lgeo = new THREE.BufferGeometry();
-    lgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(segPos), 3));
-    lgeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(segCol), 3));
-    const lines = new THREE.LineSegments(
-      lgeo,
-      new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false }),
-    );
-    net.add(lines);
-
-    // Nodes: role via greyscale value + size (in dim/small, hidden mid, out bright/large).
-    const npos: number[] = [];
-    const ncol: number[] = [];
-    for (const n of nodes) {
-      npos.push(n.x, n.y, n.z);
-      const g = n.role === 'in' ? 0.5 : n.role === 'out' ? 1.0 : 0.78;
-      ncol.push(g, g, g);
-    }
-    const ngeo = new THREE.BufferGeometry();
-    ngeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(npos), 3));
-    ngeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(ncol), 3));
-    ngeo.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(nodes.map(() => 1)), 1));
-    const pts = new THREE.Points(
-      ngeo,
-      new THREE.ShaderMaterial({
-        uniforms: { uSize: { value: 90.0 } },
-        vertexShader: POINT_VERT,
-        fragmentShader: POINT_FRAG,
-        transparent: true,
-        depthWrite: false,
-        vertexColors: true,
-      }),
-    );
-    net.add(pts);
-
-    this.net = net;
-    this.net.visible = this.mode === 'net';
-    this.group.add(net);
   }
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.renderer || !this.scene || !this.camera || !this.group) return;
-    if (this.container.clientWidth !== this.renderer.domElement.width / (this.renderer.getPixelRatio())) this.resize();
+    if (this.container.clientWidth !== this.renderer.domElement.width / this.renderer.getPixelRatio()) this.resize();
     this.group.rotation.y += 0.0035;
     this.group.rotation.x = Math.sin(performance.now() * 0.0002) * 0.25;
     this.renderer.render(this.scene, this.camera);
