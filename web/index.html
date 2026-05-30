@@ -25,10 +25,13 @@
         </div>
         <dl class="readouts" aria-label="Live readouts">
           <div><dt>GEN</dt><dd id="ag-gen">0</dd></div>
+          <div><dt>GEN/S</dt><dd id="ag-gens" title="generations per second — the swarm's pulse">0</dd></div>
           <div><dt>POP</dt><dd id="ag-pop">0/144</dd></div>
           <div><dt>COVERAGE</dt><dd id="ag-cov">0%</dd></div>
+          <div><dt>SPECIES</dt><dd id="ag-species" title="NEAT species — protecting newly-evolved structure">1</dd></div>
           <div><dt>LOOP FIDELITY</dt><dd id="ag-fid">—</dd></div>
-          <div><dt>EDGES</dt><dd id="ag-edges" title="expressed connections in the phenotype brain">—</dd></div>
+          <div><dt>DNA</dt><dd id="ag-dna-size" title="focused creature: CPPN nodes · connections — grows as topology complexifies">9·14</dd></div>
+          <div><dt>BRAIN</dt><dd id="ag-edges" title="expressed connections in the phenotype brain">—</dd></div>
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
         </dl>
         <div class="bar-end">
@@ -73,8 +76,7 @@
                 <button id="ag-dim-2d" class="dim-btn" type="button" title="flat 2-D slice — crisper patterns">2D</button>
               </div>
               <div class="modes" role="tablist">
-                <button id="ag-mode-stacked" class="mode active" type="button" title="all three at once — tap one to open it">STACKED</button>
-                <button id="ag-mode-render" class="mode" type="button" title="the volumetric picture the brain draws">SELF-PORTRAIT</button>
+                <button id="ag-mode-render" class="mode active" type="button" title="the volumetric picture the brain draws">SELF-PORTRAIT</button>
                 <button id="ag-mode-net" class="mode" type="button" title="the brain — nodes + weighted connections">PHENOTYPE</button>
                 <button id="ag-mode-dna" class="mode" type="button" title="the genotype — the CPPN that paints the brain">DNA</button>
               </div>
@@ -85,7 +87,6 @@
             <span id="ag-viewstat" class="mono-dim viewstat">—</span>
           </div>
           <div id="ag-stage" class="stage">
-            <span id="ag-sel-badge" class="sel-badge" aria-hidden="true">● FOLLOWING · the most enlightened</span>
             <canvas id="ag-stage-2d" class="layer hidden"></canvas>
             <svg id="ag-net-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
             <svg id="ag-dna-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -98,8 +99,8 @@
         </section>
 
         <!-- THE POPULATION -->
-        <section class="panel p-population" aria-label="The population">
-          <div class="panel-head"><span class="panel-title">THE POPULATION</span><span class="mono-dim">complexity → · symmetry ↑ · fitness = border</span></div>
+        <section class="panel p-population" aria-label="The diversity map">
+          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">quality-diversity · complexity → · symmetry ↑ · brightness = fidelity</span></div>
           <div class="grid-wrap">
             <div class="grid-box">
               <canvas id="ag-grid"></canvas>
@@ -110,17 +111,13 @@
 
         <!-- THE LOOP -->
         <section class="panel p-loop" aria-label="The strange loop">
-          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">iterate DNA→brain→portrait→DNA′ until it settles to a fixed point</span></div>
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">does the self-portrait re-encode the DNA?</span></div>
           <div class="loopflow">
-            <span class="lf">DNA</span><span class="lf-arr">→</span><span class="lf">BRAIN</span><span class="lf-arr">→</span><span class="lf">PORTRAIT</span><span class="lf-arr">→</span><span class="lf">DNA′</span><span class="lf-arr">↺</span>
+            <span class="lf">DNA</span><span class="lf-arr">→</span><span class="lf">PHENOTYPE</span><span class="lf-arr">→</span><span class="lf">SELF-PORTRAIT</span><span class="lf-arr">→</span><span class="lf">DNA′</span>
           </div>
-          <div class="loop-legend"><span>DNA · gₙ</span><span>read-back · T·gₙ</span></div>
+          <div class="loop-legend"><span>DNA (target)</span><span>read-back (painted)</span></div>
           <canvas id="ag-loop" class="loopcanvas"></canvas>
-          <div class="loop-meta">
-            <span id="ag-loop-state" class="mono-dim">iterating…</span>
-            <canvas id="ag-loop-drift" class="driftcanvas" title="‖Δ‖ per iteration → 0 at the fixed point"></canvas>
-          </div>
-          <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>FIDELITY <strong id="ag-fid-label">—</strong></span></div>
+          <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>LOOP <strong id="ag-fid-label">—</strong></span></div>
         </section>
 
         <!-- THE GENEALOGY -->

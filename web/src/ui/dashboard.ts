@@ -52,6 +52,11 @@ export class AutographDashboard {
   private follow = true;
   private budget = 20;
   private frame = 0;
+  private lastGenAt = 0;
+  private lastGenValue = 0;
+  private champRecording = false;
+  private lastChampFid = 0;
+  private lastChampAt = 0;
 
   private readonly pulse = new NetworkPulse();
   private readonly lineage: LineageEntry[] = [];
@@ -187,8 +192,9 @@ export class AutographDashboard {
       this.updateReadouts();
       if (this.follow && this.frame % FOLLOW_EVERY === 0) {
         const best = this.garden.archive.bestLively(0.32, 0.22) ?? this.garden.archive.bestLively(0.2, 0.12) ?? this.garden.archive.best();
-        if (best) this.refreshFocused(best.cell.genome);
+        if (best) this.refreshFocused(best.cell.genome, best.index);
       }
+      if (this.frame % 30 === 0) void this.maybeRecordChampion();
     }
     this.frame++;
     requestAnimationFrame(() => this.tick());
@@ -199,15 +205,29 @@ export class AutographDashboard {
     this.setText('#ag-gen', s.generation.toLocaleString('en-GB'));
     this.setText('#ag-pop', `${s.filled}/${s.cells}`);
     this.setText('#ag-cov', `${Math.round(s.coverage * 100)}%`);
+    this.setText('#ag-species', String(s.species));
+    const now = performance.now();
+    if (this.lastGenAt === 0) {
+      this.lastGenAt = now;
+      this.lastGenValue = s.generation;
+    } else if (now - this.lastGenAt > 600) {
+      const gps = ((s.generation - this.lastGenValue) * 1000) / (now - this.lastGenAt);
+      this.setText('#ag-gens', gps.toFixed(gps < 10 ? 1 : 0));
+      this.lastGenAt = now;
+      this.lastGenValue = s.generation;
+    }
     if (this.focused) {
       this.setText('#ag-fid', `${(this.focused.evaluation.fidelity * 100).toFixed(1)}%`);
       this.setText('#ag-edges', String(this.focused.evaluation.liveConns));
+      let live = 0;
+      for (const c of this.focused.genome.conns) if (c.enabled) live++;
+      this.setText('#ag-dna-size', `${this.focused.genome.nodes.length}·${live}`);
     }
   }
 
   // --- The focused individual (three equivalent views) ----------------------
 
-  private refreshFocused(genome: Genome): void {
+  private refreshFocused(genome: Genome, index: number | null = null): void {
     const pheno = buildPhenotype(genome);
     const evaluation = evaluate(genome, pheno);
     let cloudCount = 0;
@@ -226,9 +246,25 @@ export class AutographDashboard {
     this.attachPulse();
     this.drawLoop(genome, pheno);
     this.updateViewStat();
+    this.moveHighlight(index);
     void this.updateFingerprint(genome);
     this.setText('#ag-fid', `${(evaluation.fidelity * 100).toFixed(1)}%`);
     this.setText('#ag-edges', String(evaluation.liveConns));
+  }
+
+  /** Move the bright selection border onto the focused cell (follow or click). */
+  private moveHighlight(index: number | null): void {
+    if (index === null) {
+      this.highlight.style.opacity = '0';
+      return;
+    }
+    const cx = index % COLS;
+    const cy = Math.floor(index / COLS);
+    this.highlight.style.opacity = '1';
+    this.highlight.style.left = `${(cx / COLS) * 100}%`;
+    this.highlight.style.top = `${(cy / ROWS) * 100}%`;
+    this.highlight.style.width = `${(1 / COLS) * 100}%`;
+    this.highlight.style.height = `${(1 / ROWS) * 100}%`;
   }
 
   private setMode(mode: Mode): void {
@@ -362,17 +398,41 @@ export class AutographDashboard {
     const rect = this.grid.getBoundingClientRect();
     const cx = Math.floor(((e.clientX - rect.left) / rect.width) * COLS);
     const cy = Math.floor(((e.clientY - rect.top) / rect.height) * ROWS);
-    const cell = this.garden.archive.get(cy * COLS + cx);
+    const idx = cy * COLS + cx;
+    const cell = this.garden.archive.get(idx);
     if (!cell) return;
     this.follow = false;
     need<HTMLInputElement>(this.root, '#ag-follow').checked = false;
-    this.refreshFocused(cell.genome);
-    this.setText('#ag-focus-note', 'PINNED · a creature you chose from the population');
-    this.highlight.style.opacity = '1';
-    this.highlight.style.left = `${(cx / COLS) * 100}%`;
-    this.highlight.style.top = `${(cy / ROWS) * 100}%`;
-    this.highlight.style.width = `${(1 / COLS) * 100}%`;
-    this.highlight.style.height = `${(1 / ROWS) * 100}%`;
+    this.refreshFocused(cell.genome, idx);
+    this.setText('#ag-focus-note', 'PINNED · a creature you chose from the diversity map');
+  }
+
+  /** Auto-record the champion lineage: when a new, more-faithful lively elite
+   *  appears, sign it into the tree of life with the previous champion as parent.
+   *  Throttled + capped so swarm-speed evolution can't blow the genealogy out. */
+  private async maybeRecordChampion(): Promise<void> {
+    if (this.champRecording) return;
+    const best = this.garden.archive.bestLively(0.3, 0.2) ?? this.garden.archive.best();
+    if (!best) return;
+    const fid = best.cell.evaluation.fidelity;
+    const now = performance.now();
+    if (fid <= this.lastChampFid + 0.004) return; // must be a real improvement
+    if (now - this.lastChampAt < 3500) return; // throttle (swarm-speed safe)
+    this.champRecording = true;
+    try {
+      if (!this.identity) this.identity = await generateIdentity();
+      const parents = this.lineage.length > 0 ? [this.lineage[this.lineage.length - 1]!.id] : [];
+      const entry = await createEntry({ genome: best.cell.genome, parents, seed: null, fidelity: fid, identity: this.identity });
+      this.lineage.push(entry);
+      await saveEntry(entry);
+      this.lastChampFid = fid;
+      this.lastChampAt = now;
+      if (this.lineage.length > 140) this.lineage.splice(1, this.lineage.length - 140); // keep Genesis + recent
+      renderGenealogy(need(this.root, '#ag-tree'), this.lineage);
+      this.setText('#ag-tree-count', String(this.lineage.length));
+    } finally {
+      this.champRecording = false;
+    }
   }
 
   // --- Lineage --------------------------------------------------------------
