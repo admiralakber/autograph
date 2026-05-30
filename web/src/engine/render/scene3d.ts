@@ -6,6 +6,9 @@ import type { PointCloud } from './volume.ts';
 // networks; this view is the volumetric "what the brain draws".) ok=false if
 // WebGL is unavailable, in which case the dashboard uses the 2-D slice instead.
 
+// Denser points, sized by density, with a soft gaussian falloff and ADDITIVE
+// blending: overlapping samples accumulate into a cohesive, glowing volume (a
+// luminous form), not order-dependent confetti. No depth sorting needed.
 const POINT_VERT = /* glsl */ `
   attribute float alpha;
   varying vec3 vColor;
@@ -15,19 +18,20 @@ const POINT_VERT = /* glsl */ `
     vColor = color;
     vAlpha = alpha;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = uSize * (1.0 / -mv.z);
+    gl_PointSize = uSize * (0.55 + vAlpha) * (1.0 / -mv.z);
     gl_Position = projectionMatrix * mv;
   }
 `;
 const POINT_FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vAlpha;
+  uniform float uIntensity;
   void main() {
     vec2 d = gl_PointCoord - 0.5;
-    float r = length(d);
-    if (r > 0.5) discard;
-    float soft = smoothstep(0.5, 0.06, r);
-    gl_FragColor = vec4(vColor, vAlpha * soft);
+    float r2 = dot(d, d) * 4.0;
+    if (r2 > 1.0) discard;
+    float fall = exp(-r2 * 3.2);          // soft gaussian core
+    gl_FragColor = vec4(vColor, vAlpha * fall * uIntensity);
   }
 `;
 
@@ -90,13 +94,13 @@ export class CreatureScene {
     geo.setAttribute('color', new THREE.BufferAttribute(c.colors, 3));
     geo.setAttribute('alpha', new THREE.BufferAttribute(c.alphas, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uSize: { value: 26.0 } },
+      uniforms: { uSize: { value: 34.0 }, uIntensity: { value: 0.5 } },
       vertexShader: POINT_VERT,
       fragmentShader: POINT_FRAG,
       transparent: true,
       depthWrite: false,
       depthTest: false,
-      blending: THREE.NormalBlending,
+      blending: THREE.AdditiveBlending,
       vertexColors: true,
     });
     this.cloud = new THREE.Points(geo, mat);

@@ -1,6 +1,6 @@
 import type { Phenotype } from '../substrate.ts';
 import { substrateForward, ablateHidden } from '../substrate.ts';
-import { lifeRgb, lifeRgbF, LIFE_ALPHA } from '../palette.ts';
+import { lifeRgb, lifeRgbF } from '../palette.ts';
 
 // Sampling the phenotype's volumetric self-portrait. The substrate's density
 // field becomes alpha; its hue field is mapped through the sunrise (HSLuv)
@@ -15,26 +15,38 @@ export interface PointCloud {
 
 const o2: [number, number] = [0, 0];
 
-/** Sample the unit cube on a grid; keep voxels whose density clears `threshold`. */
-export function volumeCloud(p: Phenotype, gridN = 26, threshold = 0.55): PointCloud {
+/** Sample the unit ball densely; keep voxels above a soft `threshold` with a
+ *  smoothstep-contrasted alpha so the additive point cloud reads as a cohesive,
+ *  glowing *volume* (a form), not scattered confetti. Higher density → brighter
+ *  and slightly larger points (size carried in `alphas`, the shader reads it). */
+export function volumeCloud(p: Phenotype, gridN = 42, threshold = 0.34): PointCloud {
   const pos: number[] = [];
   const col: number[] = [];
   const alp: number[] = [];
   const inv = 2 / (gridN - 1);
+  const span = 1 - threshold;
   for (let zi = 0; zi < gridN; zi++) {
     const z = zi * inv - 1;
     for (let yi = 0; yi < gridN; yi++) {
       const y = yi * inv - 1;
       for (let xi = 0; xi < gridN; xi++) {
         const x = xi * inv - 1;
-        if (x * x + y * y + z * z > 1.05) continue; // clip to the unit ball
+        if (x * x + y * y + z * z > 1.02) continue; // clip to the unit ball
         const r = substrateForward(p, x, y, z, o2);
         const d = r[0];
         if (d < threshold) continue;
-        pos.push(x, y, z);
+        const t = (d - threshold) / span;
+        const soft = t * t * (3 - 2 * t); // smoothstep → contrasted form
+        // tiny deterministic jitter breaks the sampling lattice → reads as a
+        // continuous volume, not a regular grid of dots.
+        const h = Math.sin((xi * 12.9898 + yi * 78.233 + zi * 37.719) * 43758.5453);
+        const jx = (((h * 1.7) % 1) - 0.5) * inv * 0.7;
+        const jy = (((h * 2.3) % 1) - 0.5) * inv * 0.7;
+        const jz = (((h * 3.1) % 1) - 0.5) * inv * 0.7;
+        pos.push(x + jx, y + jy, z + jz);
         const [cr, cg, cb] = lifeRgbF(r[1]);
         col.push(cr, cg, cb);
-        alp.push(Math.min(1, (d - threshold) / (1 - threshold)) * LIFE_ALPHA);
+        alp.push(soft);
       }
     }
   }
@@ -78,38 +90,6 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
   ctx.putImageData(img, 0, 0);
 }
 
-const o3: [number, number] = [0, 0];
-
-/** A neuron's receptive field: where silencing hidden neuron `j` changes the
- *  self-portrait most (ablation diff of the z-slice), drawn as a white heat.
- *  The genotype→brain→image link a neuroscientist can read. */
-export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanvasElement, size: number, z = 0): void {
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const abl = ablateHidden(base, j);
-  const img = ctx.createImageData(size, size);
-  const data = img.data;
-  const inv = 2 / (size - 1);
-  for (let yi = 0; yi < size; yi++) {
-    const y = yi * inv - 1;
-    for (let xi = 0; xi < size; xi++) {
-      const x = xi * inv - 1;
-      const d0 = substrateForward(base, x, y, z, o2)[0];
-      const d1 = substrateForward(abl, x, y, z, o3)[0];
-      const diff = Math.min(1, Math.abs(d0 - d1) * 3.2);
-      const v = Math.round(diff * 255);
-      const o = (yi * size + xi) * 4;
-      data[o] = v;
-      data[o + 1] = v;
-      data[o + 2] = v;
-      data[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
 const smooth = (e0: number, e1: number, x: number): number => {
   const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
@@ -136,6 +116,37 @@ export function paintSlice(p: Phenotype, canvas: HTMLCanvasElement, size: number
       data[o] = Math.round(cr * a);
       data[o + 1] = Math.round(cg * a);
       data[o + 2] = Math.round(cb * a);
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const o3: [number, number] = [0, 0];
+
+/** A hidden neuron's receptive field: where silencing it changes the self-portrait
+ *  most (ablation diff over the z-slice), drawn as a white heat — the
+ *  genotype→brain→image link a neuroscientist can read. */
+export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanvasElement, size: number, z = 0): void {
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const abl = ablateHidden(base, j);
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  const inv = 2 / (size - 1);
+  for (let yi = 0; yi < size; yi++) {
+    const y = yi * inv - 1;
+    for (let xi = 0; xi < size; xi++) {
+      const x = xi * inv - 1;
+      const d0 = substrateForward(base, x, y, z, o2)[0];
+      const d1 = substrateForward(abl, x, y, z, o3)[0];
+      const v = Math.round(Math.min(1, Math.abs(d0 - d1) * 3.2) * 255);
+      const o = (yi * size + xi) * 4;
+      data[o] = v;
+      data[o + 1] = v;
+      data[o + 2] = v;
       data[o + 3] = 255;
     }
   }
