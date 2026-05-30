@@ -3,6 +3,7 @@ import { randomGenome } from './cppn.ts';
 import { evaluate } from './fitness.ts';
 import type { Rng } from './prng.ts';
 import { makeRng, cyrb128 } from './prng.ts';
+import type { Archive } from './archive.ts';
 import { MapElites } from './mapelites.ts';
 import { mutate, crossover } from './mutate.ts';
 
@@ -18,13 +19,16 @@ export interface GardenStats {
 /** The crowd-of-one Garden: a real MAP-Elites loop over evolving CPPNs.
  *  (The multi-machine swarm is the roadmap — this runs entirely on your device.) */
 export class Garden {
-  readonly archive: MapElites;
+  // Depends only on the `Archive` seam — never the concrete class — so a
+  // networked SharedArchive (docs/DEPLOY-coordinator.md) can be injected later
+  // with no change to the evolution loop below.
+  readonly archive: Archive;
   private readonly rng: Rng;
   private generation = 0;
   private evaluations = 0;
 
-  constructor(seed: string, cols = 14, rows = 14) {
-    this.archive = new MapElites(cols, rows);
+  constructor(seed: string, cols = 14, rows = 14, archive?: Archive) {
+    this.archive = archive ?? new MapElites(cols, rows);
     const [a, b, c, d] = cyrb128(`${seed}:garden`);
     this.rng = makeRng(a, b, c, d);
   }

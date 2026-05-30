@@ -1,21 +1,18 @@
-import type { Genome } from './cppn.ts';
 import { cloneGenome } from './cppn.ts';
+import type { Genome } from './cppn.ts';
 import type { Evaluation } from './fitness.ts';
-
-export interface Cell {
-  readonly genome: Genome;
-  readonly evaluation: Evaluation;
-  /** Generation at which this elite was installed (for "new!" cues). */
-  bornAt: number;
-}
+import type { Archive, ArchiveBest, Cell } from './archive.ts';
 
 /** Reject near-flat creatures: a self-portrait of nothing is the trivial
  *  fixed point the briefing warns about. We keep self-reference load-bearing. */
 const MIN_VITALITY = 0.05;
 
-/** A 2-D MAP-Elites archive. Each cell keeps the highest-fidelity creature of
- *  its visual "kind"; the filled grid *is* the artwork (a wall of self-portraits). */
-export class MapElites {
+/** The **local, in-memory** implementation of the `Archive` seam (also exported
+ *  as `LocalArchive`). A 2-D MAP-Elites grid: each cell keeps the highest-
+ *  fidelity creature of its visual "kind", and the filled grid *is* the artwork.
+ *  A networked `SharedArchive` (docs/DEPLOY-coordinator.md) can replace it
+ *  wherever an `Archive` is expected — the engine never names this class. */
+export class MapElites implements Archive {
   readonly cols: number;
   readonly rows: number;
   private readonly cells: (Cell | null)[];
@@ -68,7 +65,7 @@ export class MapElites {
   }
 
   /** The single best self-encoder in the whole archive. */
-  best(): { index: number; cell: Cell } | null {
+  best(): ArchiveBest | null {
     let bestIdx = -1;
     let bestQ = -Infinity;
     for (let i = 0; i < this.cells.length; i++) {
@@ -84,7 +81,7 @@ export class MapElites {
   /** The best self-encoder that is genuinely *alive* — structured and
    *  high-contrast, not the trivial near-flat fixed point. This is the creature
    *  worth showcasing: it re-encodes itself *and* has something to say. */
-  bestLively(minComplexity = 0.28, minVitality = 0.18): { index: number; cell: Cell } | null {
+  bestLively(minComplexity = 0.28, minVitality = 0.18): ArchiveBest | null {
     let bestIdx = -1;
     let bestQ = -Infinity;
     for (let i = 0; i < this.cells.length; i++) {
@@ -119,3 +116,7 @@ export class MapElites {
     for (let i = 0; i < this.cells.length; i++) fn(this.cells[i] ?? null, i);
   }
 }
+
+// Descriptive alias: the in-memory archive is the "local" half of the seam.
+// A future SharedArchive (docs/DEPLOY-coordinator.md) is the networked half.
+export { MapElites as LocalArchive };
