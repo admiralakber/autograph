@@ -37,7 +37,10 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # npm install (not ci): Rolldown/Vite resolve platform-specific optional
+        # deps (@emnapi/*) whose lockfile presence varies by npm version, which makes
+        # `npm ci`'s exact-match check brittle on the runner. The build is deterministic.
+        run: npm install --no-audit --no-fund
 
       - name: Type-check and build
         run: npm run build
