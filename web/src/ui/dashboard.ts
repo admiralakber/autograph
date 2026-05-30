@@ -52,7 +52,7 @@ export class AutographDashboard {
   private portraitDim: '3d' | '2d' = '3d';
   private running = true;
   private follow = true;
-  private novelty = false;
+  private novelty = true; // Novelty Search on by default — keep discovering new kinds
   private readonly options = { recurrent: true, selfConn: false, gating: false };
   private budget = HYPER.baseBudget;
   private frame = 0;
@@ -98,6 +98,7 @@ export class AutographDashboard {
     this.wire();
     this.paintEmptyGrid();
 
+    this.garden.setNovelty(this.novelty);
     this.garden.seedWith([seededGenome(GENESIS_SEED)]);
     await this.bootGenealogy();
     this.syncDirty();

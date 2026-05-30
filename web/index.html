@@ -58,7 +58,7 @@
           <button id="ag-reset" class="btn" type="button" title="return to the Genesis world">RESET</button>
           <label class="chk" title="auto-focus the best self-encoder as it evolves; turn off to keep one pinned"><input id="ag-follow" type="checkbox" checked /> FOLLOW&nbsp;BEST</label>
           <label class="chk" title="evolve faster — more offspring per frame"><input id="ag-turbo" type="checkbox" /> TURBO&nbsp;⚡</label>
-          <label class="chk" title="Novelty Search (Lehman & Stanley): reward behavioural novelty over fidelity — push into the frontier of unexplored forms"><input id="ag-novelty" type="checkbox" /> NOVELTY</label>
+          <label class="chk" title="Novelty Search (Lehman & Stanley): reward behavioural novelty over fidelity — push into the frontier of unexplored forms. ON by default: keeps discovering new kinds forever, even after fidelity plateaus."><input id="ag-novelty" type="checkbox" checked /> NOVELTY</label>
           <span class="vr" aria-hidden="true"></span>
           <button id="ag-keep" class="btn" type="button" title="sign this creature into your tree of life (persists across visits)">KEEP</button>
           <button id="ag-export" class="btn" type="button" title="download your signed genealogy as JSON">EXPORT</button>
@@ -105,7 +105,7 @@
 
         <!-- THE POPULATION -->
         <section class="panel p-population" aria-label="The diversity map">
-          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">quality-diversity · complexity → · symmetry ↑ · brightness = fidelity · ⬚ border = watched</span></div>
+          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">best-bet neural quines · one per niche (complexity → · symmetry ↑) · brightness = fidelity · ⬚ = watched</span></div>
           <div class="grid-wrap">
             <div class="grid-box">
               <canvas id="ag-grid"></canvas>
@@ -168,7 +168,7 @@
         <p class="welcome-draft">✎ FIRST DRAFT — placeholder words, for Aqeel to make his own.</p>
 
         <div class="welcome-body">
-          <p>For as long as we have had minds, we have tried to know them. We cut open the body, mapped the brain, asked what a <em>self</em> even is — and learned, slowly, that a person is not a thing but a <em>process</em>: a pattern that holds itself together while everything inside it changes.</p>
+          <p>For as long as we have had minds, we have tried to know them. We cut open the body, mapped the brain, asked what a <em>self</em> even is — and learned, slowly, that a person is not a thing but a <em>process</em>: a pattern that holds itself together while everything inside it changes. Hofstadter named it a <em>strange loop</em> — a process that, modelling itself modelling itself, turns into an "I". Consciousness, on this view, just <em>is</em> a loop closing on itself.</p>
 
           <p>Now we are growing minds that are not ours. If we mean to live well beside them, we owe them — and ourselves — the oldest question: <em>what is in there?</em> Autograph is a small, honest attempt to watch a machine try to know itself — to draw its true self out of the false. Every claim here is measured, never faked.</p>
 
@@ -229,7 +229,7 @@
           <dt>🧠 BRAIN <span class="mono-dim">(phenotype)</span></dt><dd>A second network whose wiring the DNA <em>paints</em> (HyperNEAT). Signal flows input→output; queried over space it produces the picture.</dd>
           <dt>✨ SELF-PORTRAIT</dt><dd>The actual output — the density &amp; colour the brain draws across 3-D space. The glowing volume <em>is</em> the network.</dd>
           <dt>↺ THE LOOP</dt><dd>Read the self-portrait back into a DNA′ and compare. <strong>Loop fidelity</strong> is how well a creature re-encodes itself — measured live, never faked.</dd>
-          <dt>▦ DIVERSITY MAP</dt><dd>A MAP-Elites grid: one champion per <em>kind</em> (complexity → across, symmetry ↑ up). Brightness = fidelity. The bold white border is the creature you're watching.</dd>
+          <dt>▦ DIVERSITY MAP</dt><dd>A MAP-Elites grid of <strong>best-bet neural quines</strong> — the finest self-encoder found for each <em>niche</em> (complexity → across, symmetry ↑ up). Brightness = fidelity. The bold white border is the creature you're watching.</dd>
           <dt>🌳 TREE OF LIFE</dt><dd>Every champion is signed &amp; hash-chained into a genealogy that grows on its own and persists across visits.</dd>
           <dt>⚙ CONTROLS</dt><dd><strong>STACKED</strong> shows all three at once (tap one to open). <strong>FOLLOW BEST</strong> tracks the finest self-encoder. <strong>TURBO</strong> evolves faster. <strong>NOVELTY</strong> rewards being <em>different</em>, not just faithful (Lehman &amp; Stanley). <strong>KEEP</strong> signs a creature into your tree.</dd>
         </dl>

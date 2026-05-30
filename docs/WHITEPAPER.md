@@ -17,6 +17,8 @@ Most contemporary machine learning optimises a fixed objective on a fixed archit
 
 Autograph takes the most self-contained possible target for such a search — **a network that refers to itself** — and makes the search a public, browser-based **instrument** one joins on load. The contribution is not a new algorithm; it is a *synthesis*: Picbreeder-style crowd-evolved CPPNs [6], indirect HyperNEAT/ES-HyperNEAT encoding (the CPPN paints and places a larger substrate) [1,6], the neural-network quine [12], MAP-Elites illumination [5], and — as a documented direction — a one-runtime volunteer-compute substrate [briefing], arranged so that the scientific object (an approximate fixed point of self-encoding) and the aesthetic object (Escher's *Drawing Hands*, alive) are literally the same thing. The shipping instrument is **local-first**: it runs entirely on one device, and the worldwide swarm is the roadmap, not a present claim.
 
+The framing we reach for is **Hofstadter's strange loop of consciousness** [10]: a self is a process that models itself modelling itself until an "I" precipitates — consciousness as a loop that closes on itself. Autograph makes **no claim that its creatures are conscious**; it makes the *structure* of self-reference literal, evolvable and measurable, so the idea can be *seen* rather than asserted — and it is honest that perfect closure is the empty fixed point, so what evolution actually finds are lively, *imperfect* self-loops.
+
 We emphasise honesty throughout. The strange loop is real and computable; several adjacent ideas we find beautiful (notably the quantum angle, §3.7) are **speculative and labelled as such**.
 
 ---
