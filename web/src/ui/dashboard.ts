@@ -21,13 +21,14 @@ const ROWS = 12;
 const CELL = 34;
 const FOLLOW_EVERY = 48;
 
-type Mode = 'render' | 'net' | 'dna';
+type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
 const CAPTIONS: Record<Mode, string> = {
+  stacked: 'STACKED · one creature, three ways at once — self-portrait (the output), the brain that draws it, the DNA that grows the brain. Tap any panel to open it full-screen.',
   render:
     'SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.',
   net: 'PHENOTYPE · the brain the DNA painted, with neurons ES-placed. Signal flows input→output; queried over space, it draws the self-portrait above.',
-  dna: 'DNA · the genotype, a tiny CPPN. Given two points it returns one connection — it paints every weight and places every neuron of the brain.',
+  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. Given two points it returns one connection — it paints every weight and places every neuron of the brain.',
 };
 
 interface Focused {
@@ -46,7 +47,7 @@ export class AutographDashboard {
   private webgl = false;
   private identity: Identity | null = null;
   private focused: Focused | null = null;
-  private mode: Mode = 'render';
+  private mode: Mode = 'stacked';
   private portraitDim: '3d' | '2d' = '3d';
   private running = true;
   private follow = true;
@@ -99,7 +100,7 @@ export class AutographDashboard {
     this.syncDirty();
     this.refreshFocused(seededGenome(GENESIS_SEED));
     this.setText('#ag-focus-note', 'GROWN FROM GENESIS · the canonical world');
-    this.applyMode();
+    this.setMode('stacked');
     requestAnimationFrame(() => this.tick());
   }
 
@@ -138,11 +139,15 @@ export class AutographDashboard {
     const turbo = need<HTMLInputElement>(this.root, '#ag-turbo');
     turbo.addEventListener('change', () => (this.budget = turbo.checked ? 60 : 20));
 
-    for (const m of ['render', 'net', 'dna'] as const) {
+    for (const m of ['stacked', 'render', 'net', 'dna'] as const) {
       need(this.root, `#ag-mode-${m}`).addEventListener('click', () => this.setMode(m));
     }
     need(this.root, '#ag-dim-3d').addEventListener('click', () => this.setDim('3d'));
     need(this.root, '#ag-dim-2d').addEventListener('click', () => this.setDim('2d'));
+    // in STACKED, tapping a panel opens it full-screen
+    need(this.root, '#ag-stage-2d').addEventListener('click', () => this.mode === 'stacked' && this.setMode('render'));
+    need(this.root, '#ag-net-svg').addEventListener('click', () => this.mode === 'stacked' && this.setMode('net'));
+    need(this.root, '#ag-dna-svg').addEventListener('click', () => this.mode === 'stacked' && this.setMode('dna'));
 
     this.grid.addEventListener('click', (e) => this.onGridClick(e));
 
@@ -269,7 +274,7 @@ export class AutographDashboard {
 
   private setMode(mode: Mode): void {
     this.mode = mode;
-    for (const m of ['render', 'net', 'dna'] as const) need(this.root, `#ag-mode-${m}`).classList.toggle('active', m === mode);
+    for (const m of ['stacked', 'render', 'net', 'dna'] as const) need(this.root, `#ag-mode-${m}`).classList.toggle('active', m === mode);
     this.setText('#ag-mode-caption', CAPTIONS[mode]);
     this.applyMode();
   }
@@ -282,37 +287,41 @@ export class AutographDashboard {
   }
 
   private applyMode(): void {
+    const stage = need(this.root, '#ag-stage');
     const dna = need(this.root, '#ag-dna-svg');
     const net = need(this.root, '#ag-net-svg');
     const c2d = need(this.root, '#ag-stage-2d');
-    const wantSlice = this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl);
+    const stacked = this.mode === 'stacked';
+    stage.classList.toggle('stacked', stacked);
     const want3d = this.mode === 'render' && this.portraitDim === '3d' && this.webgl;
 
-    dna.classList.toggle('hidden', this.mode !== 'dna');
-    net.classList.toggle('hidden', this.mode !== 'net');
-    c2d.classList.toggle('hidden', !wantSlice);
+    // in STACKED all three layers show at once (output · brain · DNA)
+    dna.classList.toggle('hidden', !(stacked || this.mode === 'dna'));
+    net.classList.toggle('hidden', !(stacked || this.mode === 'net'));
+    c2d.classList.toggle('hidden', !(stacked || (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl))));
     this.scene?.setCanvasVisible(want3d);
-    // the 2D/3D toggle is only meaningful for the self-portrait
+    // the 2D/3D toggle is only meaningful for the full self-portrait
     need(this.root, '#ag-dim').classList.toggle('hidden', this.mode !== 'render' || !this.webgl);
 
-    if (wantSlice) this.renderPortrait();
+    this.renderPortrait();
     this.setText('#ag-mode-caption', CAPTIONS[this.mode]);
     this.attachPulse();
     this.updateViewStat();
   }
 
-  /** Paint the flat 2-D slice when the self-portrait is in 2-D (or no WebGL). */
+  /** Paint the 2-D output: the colourful projection in STACKED (the actual
+   *  self-portrait, lower-detail), or the flat z=0 slice in the full 2-D mode. */
   private renderPortrait(): void {
     if (!this.focused) return;
-    if (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl)) {
-      paintSlice(this.focused.pheno, need<HTMLCanvasElement>(this.root, '#ag-stage-2d'), 420, 0);
-    }
+    const c2d = need<HTMLCanvasElement>(this.root, '#ag-stage-2d');
+    if (this.mode === 'stacked') paintProjection(this.focused.pheno, c2d, 300);
+    else if (this.mode === 'render' && (this.portraitDim === '2d' || !this.webgl)) paintSlice(this.focused.pheno, c2d, 420, 0);
   }
 
   /** Run the activation pulse on whichever network view is showing. */
   private attachPulse(): void {
     if (!this.focused) return;
-    if (this.mode === 'net' && this.focused.net) {
+    if ((this.mode === 'net' || this.mode === 'stacked') && this.focused.net) {
       this.pulse.attach(need(this.root, '#ag-net-svg') as unknown as SVGSVGElement, this.focused.net);
     } else if (this.mode === 'dna' && this.focused.dna) {
       this.pulse.attach(need(this.root, '#ag-dna-svg') as unknown as SVGSVGElement, this.focused.dna);
@@ -324,7 +333,8 @@ export class AutographDashboard {
   private updateViewStat(): void {
     if (!this.focused) return;
     let s = '';
-    if (this.mode === 'render') s = this.webgl && this.portraitDim === '3d' ? `≈ ${this.focused.cloudCount.toLocaleString('en-GB')} living points` : '2-D slice · z = 0';
+    if (this.mode === 'stacked') s = 'self-portrait · brain · DNA — tap one to open';
+    else if (this.mode === 'render') s = this.webgl && this.portraitDim === '3d' ? `≈ ${this.focused.cloudCount.toLocaleString('en-GB')} living points` : '2-D slice · z = 0';
     else if (this.mode === 'net') s = `${this.focused.net?.nodes.length ?? 0} nodes · ${this.focused.net?.edges.length ?? 0} edges`;
     else s = `${this.focused.dna?.nodes.length ?? 0} nodes · ${this.focused.dna?.edges.length ?? 0} edges`;
     this.setText('#ag-viewstat', s);
