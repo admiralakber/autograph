@@ -1,0 +1,51 @@
+{
+  // Autograph swarm coordinator — SANDBOXED BY CONSTRUCTION.
+  //
+  // This Worker is "blind to meos": it binds ONLY its own dedicated Durable
+  // Object namespace and its own dedicated KV namespace. There are deliberately
+  // NO `services`, `d1_databases`, `r2_buckets`, `queues`, `hyperdrive`, or any
+  // other binding pointing at a meos (or any external) resource. It has no
+  // handle to anything but its own archive. See docs/DEPLOY-coordinator.md.
+  //
+  // Every identifier below is a PLACEHOLDER. No real account IDs, tokens, routes
+  // or zones appear here. The creator replaces the placeholders at deploy time.
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "autograph-coordinator",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": [],
+
+  // Observability on, so Workers analytics + billing/usage alerts can watch
+  // request volume, DO duration and KV ops — a runaway tab is noticed fast.
+  "observability": { "enabled": true },
+
+  // workers.dev preview subdomain (placeholder). The deployed hostname becomes
+  //   autograph-coordinator.<YOUR-SUBDOMAIN>.workers.dev
+  // For a custom hostname use `routes` against a zone you control, e.g.
+  //   "routes": [{ "pattern": "coordinator.autograph.example", "custom_domain": true }]
+  // — NEVER a meos hostname or route.
+  "workers_dev": true,
+
+  // Dedicated Durable Object — the single authoritative archive room.
+  "durable_objects": {
+    "bindings": [
+      { "name": "ARCHIVE_ROOM", "class_name": "ArchiveRoom" }
+    ]
+  },
+
+  // SQLite-backed DO storage (current default; survives hibernation/eviction).
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ArchiveRoom"] }
+  ],
+
+  // Dedicated KV for cheap cold-read archive snapshots. The `id` below is a
+  // PLACEHOLDER (all-zero) so the config is locally runnable; replace it with
+  // the real namespace id at deploy time:
+  //   npx wrangler kv namespace create autograph-snapshots
+  // and paste the returned id here. Local `wrangler dev` / Vitest simulate KV
+  // regardless of this value.
+  "kv_namespaces": [
+    { "binding": "SNAPSHOTS", "id": "f1f5aef2d1c742ecbbafb3f03ecc8f55" }
+  ]
+}

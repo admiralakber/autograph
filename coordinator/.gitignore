@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Wrangler / Miniflare local state + build output
+.wrangler/
+dist/
+
+# Vitest / tooling caches
+.vitest/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets — never commit. Deploy reads CLOUDFLARE_API_TOKEN / _ACCOUNT_ID from env/CI.
+.dev.vars
+.env
+.env.*
+!.env.example

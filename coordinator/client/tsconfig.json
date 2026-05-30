@@ -1,0 +1,7 @@
+{
+  // The browser-targeted connector. It uses a structural `WebSocketLike`, so
+  // ES2022 + workers-types suffice (no DOM lib needed). In the web app it is
+  // built by the app's own toolchain; this config is only a standalone gate.
+  "extends": "../tsconfig.json",
+  "include": ["./**/*.ts"]
+}

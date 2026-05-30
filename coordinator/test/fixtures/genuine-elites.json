@@ -1,0 +1,730 @@
+{
+  "format": "autograph-coordinator-fixture",
+  "note": "GENUINE elites produced by web/src/engine — real genomeBytes + ECDSA P-256 lineage.",
+  "generatedAt": "2026-05-30T11:54:51.370Z",
+  "author": "04ffdee2f4921ca706459875192f570ea3a5426f4431f9f9278885c944b9a15417ad8ba0aa68194f0ddf13ef3082b82ec15e7a683b66bedc652029f67ebb18d263",
+  "seeds": [
+    "And yet.... 🦕 a trace.... ✨ of.. the true self... 🐣 exists.... 🐥 within the false 🍗 = 🦖",
+    "escher",
+    "godel",
+    "bach"
+  ],
+  "elites": [
+    {
+      "genome": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 1,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 2,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 3,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 4,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 5,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 6,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 7,
+            "kind": 2,
+            "act": 5,
+            "bias": -0.14816491992678493
+          },
+          {
+            "id": 8,
+            "kind": 2,
+            "act": 5,
+            "bias": 0.05382227967493236
+          }
+        ],
+        "conns": [
+          {
+            "innov": 0,
+            "from": 0,
+            "to": 7,
+            "weight": 1.6971544553991407,
+            "enabled": true
+          },
+          {
+            "innov": 1,
+            "from": 0,
+            "to": 8,
+            "weight": 0.6009486362338066,
+            "enabled": true
+          },
+          {
+            "innov": 2,
+            "from": 1,
+            "to": 7,
+            "weight": -0.40933228260837495,
+            "enabled": true
+          },
+          {
+            "innov": 3,
+            "from": 1,
+            "to": 8,
+            "weight": 1.9337106828112154,
+            "enabled": true
+          },
+          {
+            "innov": 4,
+            "from": 2,
+            "to": 7,
+            "weight": -0.00467735412530601,
+            "enabled": true
+          },
+          {
+            "innov": 5,
+            "from": 2,
+            "to": 8,
+            "weight": -0.06038552187383175,
+            "enabled": true
+          },
+          {
+            "innov": 6,
+            "from": 3,
+            "to": 7,
+            "weight": 1.1142550079151987,
+            "enabled": true
+          },
+          {
+            "innov": 7,
+            "from": 3,
+            "to": 8,
+            "weight": 2.638114008074626,
+            "enabled": true
+          },
+          {
+            "innov": 8,
+            "from": 4,
+            "to": 7,
+            "weight": -0.9679248828906565,
+            "enabled": true
+          },
+          {
+            "innov": 9,
+            "from": 4,
+            "to": 8,
+            "weight": 0.8683791615068912,
+            "enabled": true
+          },
+          {
+            "innov": 10,
+            "from": 5,
+            "to": 7,
+            "weight": 0.29928111657500267,
+            "enabled": true
+          },
+          {
+            "innov": 11,
+            "from": 5,
+            "to": 8,
+            "weight": -0.5055152960587292,
+            "enabled": true
+          },
+          {
+            "innov": 12,
+            "from": 6,
+            "to": 7,
+            "weight": -0.8689817081671207,
+            "enabled": true
+          },
+          {
+            "innov": 13,
+            "from": 6,
+            "to": 8,
+            "weight": -1.445889114588499,
+            "enabled": true
+          }
+        ]
+      },
+      "evaluation": {
+        "bd": [
+          0,
+          1
+        ],
+        "fidelity": 0.8593410105799629,
+        "vitality": 0,
+        "liveConns": 9
+      },
+      "lineage": {
+        "id": "715eb0ac85ec66ddbc09b25fab41889ffd91b93c2b33dbeafc6f26e56fcc5f60",
+        "parents": [],
+        "genomeHash": "de168e40ba4b348d0c270ac905dc125fc461a53f7e74fa3fb9246defe52f7476",
+        "seed": "And yet.... 🦕 a trace.... ✨ of.. the true self... 🐣 exists.... 🐥 within the false 🍗 = 🦖",
+        "fidelity": 0.8593410105799629,
+        "author": "04ffdee2f4921ca706459875192f570ea3a5426f4431f9f9278885c944b9a15417ad8ba0aa68194f0ddf13ef3082b82ec15e7a683b66bedc652029f67ebb18d263",
+        "createdAt": "2026-05-30T11:54:51.362Z",
+        "signature": "d277220688b1b71bbae18f15bfeb343c8b0acab6dc5014101e7c7742a7cb19766d1be0e224036e044a68f6e0a52b03db6b6a008caca0815860303549a13d2b35"
+      }
+    },
+    {
+      "genome": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 1,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 2,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 3,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 4,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 5,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 6,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 7,
+            "kind": 2,
+            "act": 5,
+            "bias": -0.17975672357715666
+          },
+          {
+            "id": 8,
+            "kind": 2,
+            "act": 5,
+            "bias": -0.05739239358808845
+          }
+        ],
+        "conns": [
+          {
+            "innov": 0,
+            "from": 0,
+            "to": 7,
+            "weight": 1.191438541887328,
+            "enabled": true
+          },
+          {
+            "innov": 1,
+            "from": 0,
+            "to": 8,
+            "weight": 0.6912684496957808,
+            "enabled": true
+          },
+          {
+            "innov": 2,
+            "from": 1,
+            "to": 7,
+            "weight": 0.08790533421561121,
+            "enabled": true
+          },
+          {
+            "innov": 3,
+            "from": 1,
+            "to": 8,
+            "weight": 0.10881383009254932,
+            "enabled": true
+          },
+          {
+            "innov": 4,
+            "from": 2,
+            "to": 7,
+            "weight": 1.1730715409386903,
+            "enabled": true
+          },
+          {
+            "innov": 5,
+            "from": 2,
+            "to": 8,
+            "weight": -0.784358644997701,
+            "enabled": true
+          },
+          {
+            "innov": 6,
+            "from": 3,
+            "to": 7,
+            "weight": -0.1179161560256034,
+            "enabled": true
+          },
+          {
+            "innov": 7,
+            "from": 3,
+            "to": 8,
+            "weight": 0.3070877800695598,
+            "enabled": true
+          },
+          {
+            "innov": 8,
+            "from": 4,
+            "to": 7,
+            "weight": 1.3273298637475817,
+            "enabled": true
+          },
+          {
+            "innov": 9,
+            "from": 4,
+            "to": 8,
+            "weight": -1.3826291208155452,
+            "enabled": true
+          },
+          {
+            "innov": 10,
+            "from": 5,
+            "to": 7,
+            "weight": 0.3770888238679617,
+            "enabled": true
+          },
+          {
+            "innov": 11,
+            "from": 5,
+            "to": 8,
+            "weight": -0.5513320322148502,
+            "enabled": true
+          },
+          {
+            "innov": 12,
+            "from": 6,
+            "to": 7,
+            "weight": -0.8257558865007013,
+            "enabled": true
+          },
+          {
+            "innov": 13,
+            "from": 6,
+            "to": 8,
+            "weight": 0.15665936227887867,
+            "enabled": true
+          }
+        ]
+      },
+      "evaluation": {
+        "bd": [
+          0.22668128075416794,
+          0.7080846138298511
+        ],
+        "fidelity": 0.7928252707019154,
+        "vitality": 0.5611330512430449,
+        "liveConns": 19
+      },
+      "lineage": {
+        "id": "ec4e410377719e12c7da82a4e7943bd9c63c6c85c055c0d084e575a67931fc0e",
+        "parents": [],
+        "genomeHash": "6884f67a7374455118dff07a39ed221e2cb011729b161eaea205d7a130119604",
+        "seed": "escher",
+        "fidelity": 0.7928252707019154,
+        "author": "04ffdee2f4921ca706459875192f570ea3a5426f4431f9f9278885c944b9a15417ad8ba0aa68194f0ddf13ef3082b82ec15e7a683b66bedc652029f67ebb18d263",
+        "createdAt": "2026-05-30T11:54:51.366Z",
+        "signature": "3487031f52a28aa097b5d3c13427170236019804cb789ac64f991daa34175967c920bf1563d5fc6d35c89fd093a1d2bc63868255379ed3b79b35e771ef6ead50"
+      }
+    },
+    {
+      "genome": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 1,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 2,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 3,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 4,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 5,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 6,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 7,
+            "kind": 2,
+            "act": 5,
+            "bias": 0.06308608956169337
+          },
+          {
+            "id": 8,
+            "kind": 2,
+            "act": 5,
+            "bias": 0.44800445227883756
+          }
+        ],
+        "conns": [
+          {
+            "innov": 0,
+            "from": 0,
+            "to": 7,
+            "weight": -0.6025443729478865,
+            "enabled": true
+          },
+          {
+            "innov": 1,
+            "from": 0,
+            "to": 8,
+            "weight": 0.8257310106419027,
+            "enabled": true
+          },
+          {
+            "innov": 2,
+            "from": 1,
+            "to": 7,
+            "weight": 1.8272854100912808,
+            "enabled": true
+          },
+          {
+            "innov": 3,
+            "from": 1,
+            "to": 8,
+            "weight": 1.4851355078164488,
+            "enabled": true
+          },
+          {
+            "innov": 4,
+            "from": 2,
+            "to": 7,
+            "weight": -0.5469632952008396,
+            "enabled": true
+          },
+          {
+            "innov": 5,
+            "from": 2,
+            "to": 8,
+            "weight": 0.4183288482483476,
+            "enabled": true
+          },
+          {
+            "innov": 6,
+            "from": 3,
+            "to": 7,
+            "weight": -0.8498451753053814,
+            "enabled": true
+          },
+          {
+            "innov": 7,
+            "from": 3,
+            "to": 8,
+            "weight": -2.3073973989579826,
+            "enabled": true
+          },
+          {
+            "innov": 8,
+            "from": 4,
+            "to": 7,
+            "weight": -1.6379118464887141,
+            "enabled": true
+          },
+          {
+            "innov": 9,
+            "from": 4,
+            "to": 8,
+            "weight": -1.0574724201578647,
+            "enabled": true
+          },
+          {
+            "innov": 10,
+            "from": 5,
+            "to": 7,
+            "weight": -1.3628558891825377,
+            "enabled": true
+          },
+          {
+            "innov": 11,
+            "from": 5,
+            "to": 8,
+            "weight": -1.079851619247347,
+            "enabled": true
+          },
+          {
+            "innov": 12,
+            "from": 6,
+            "to": 7,
+            "weight": -1.21342331119813,
+            "enabled": true
+          },
+          {
+            "innov": 13,
+            "from": 6,
+            "to": 8,
+            "weight": 1.0418493804521858,
+            "enabled": true
+          }
+        ]
+      },
+      "evaluation": {
+        "bd": [
+          0.08189410974753354,
+          0.9119168971558622
+        ],
+        "fidelity": 0.5271427995709066,
+        "vitality": 0.1245394998378952,
+        "liveConns": 48
+      },
+      "lineage": {
+        "id": "87c3dcc53577a7d38c2ed40f4b1365e711640f935c8fd986c1fa1d81ec046ac5",
+        "parents": [],
+        "genomeHash": "c60bca88891b206804cceedd8cc316709e99d236dcb48e227928da7e77b9acc3",
+        "seed": "godel",
+        "fidelity": 0.5271427995709066,
+        "author": "04ffdee2f4921ca706459875192f570ea3a5426f4431f9f9278885c944b9a15417ad8ba0aa68194f0ddf13ef3082b82ec15e7a683b66bedc652029f67ebb18d263",
+        "createdAt": "2026-05-30T11:54:51.368Z",
+        "signature": "02ae73edccae8fb42c79e2a839c0c3115fbe86ee7fc21fea9fb162d10de48053367498eabfa0ef785db70d9dcc1e954051d1f5f059e541aa5e733049e3f8f84f"
+      }
+    },
+    {
+      "genome": {
+        "nodes": [
+          {
+            "id": 0,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 1,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 2,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 3,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 4,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 5,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 6,
+            "kind": 0,
+            "act": 5,
+            "bias": 0
+          },
+          {
+            "id": 7,
+            "kind": 2,
+            "act": 5,
+            "bias": -0.2596250510541722
+          },
+          {
+            "id": 8,
+            "kind": 2,
+            "act": 5,
+            "bias": -0.21017462271265686
+          }
+        ],
+        "conns": [
+          {
+            "innov": 0,
+            "from": 0,
+            "to": 7,
+            "weight": -1.2066099622752517,
+            "enabled": true
+          },
+          {
+            "innov": 1,
+            "from": 0,
+            "to": 8,
+            "weight": 0.38311264468356965,
+            "enabled": true
+          },
+          {
+            "innov": 2,
+            "from": 1,
+            "to": 7,
+            "weight": 0.9209384744986892,
+            "enabled": true
+          },
+          {
+            "innov": 3,
+            "from": 1,
+            "to": 8,
+            "weight": -0.7424590229522436,
+            "enabled": true
+          },
+          {
+            "innov": 4,
+            "from": 2,
+            "to": 7,
+            "weight": 0.19364747344516217,
+            "enabled": true
+          },
+          {
+            "innov": 5,
+            "from": 2,
+            "to": 8,
+            "weight": -0.6025613292120396,
+            "enabled": true
+          },
+          {
+            "innov": 6,
+            "from": 3,
+            "to": 7,
+            "weight": -0.5622761104721575,
+            "enabled": true
+          },
+          {
+            "innov": 7,
+            "from": 3,
+            "to": 8,
+            "weight": 0.06903884173370897,
+            "enabled": true
+          },
+          {
+            "innov": 8,
+            "from": 4,
+            "to": 7,
+            "weight": -1.7165927497204392,
+            "enabled": true
+          },
+          {
+            "innov": 9,
+            "from": 4,
+            "to": 8,
+            "weight": 0.546920819953084,
+            "enabled": true
+          },
+          {
+            "innov": 10,
+            "from": 5,
+            "to": 7,
+            "weight": 1.428640763228759,
+            "enabled": true
+          },
+          {
+            "innov": 11,
+            "from": 5,
+            "to": 8,
+            "weight": -1.1462328385096043,
+            "enabled": true
+          },
+          {
+            "innov": 12,
+            "from": 6,
+            "to": 7,
+            "weight": -0.4081645980942994,
+            "enabled": true
+          },
+          {
+            "innov": 13,
+            "from": 6,
+            "to": 8,
+            "weight": 1.7000674254726618,
+            "enabled": true
+          }
+        ]
+      },
+      "evaluation": {
+        "bd": [
+          0.3408185975118117,
+          0.4391143550475438
+        ],
+        "fidelity": 0.6013731417091308,
+        "vitality": 0.7591797172006527,
+        "liveConns": 54
+      },
+      "lineage": {
+        "id": "b3cfe59d2fa9f64ab757bc607d036b3a4c69a5a49be9e1be7cdf3e8c7dd9f4ad",
+        "parents": [],
+        "genomeHash": "fd61378a3a9d793f91ffe64c89bfbcde79ddbc877cf96e92ee26035d0475ca15",
+        "seed": "bach",
+        "fidelity": 0.6013731417091308,
+        "author": "04ffdee2f4921ca706459875192f570ea3a5426f4431f9f9278885c944b9a15417ad8ba0aa68194f0ddf13ef3082b82ec15e7a683b66bedc652029f67ebb18d263",
+        "createdAt": "2026-05-30T11:54:51.369Z",
+        "signature": "190293be8f952d55d136a2d7fef61f883c4b08f6021784c239efcff5c113b38d9c44b9e31f1ae2222446faec651ec8b7d570b33fed7826059bc236f74cb363c7"
+      }
+    }
+  ]
+}
