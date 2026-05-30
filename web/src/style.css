@@ -419,6 +419,29 @@ code {
   outline-offset: -1px;
 }
 
+/* "What is this?" quick glossary */
+.help-inner { max-width: 760px; }
+.glossary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 12px 20px;
+  margin-top: 14px;
+}
+.glossary dt {
+  color: var(--ink);
+  white-space: nowrap;
+  font-weight: 600;
+}
+.glossary dd {
+  margin: 0;
+  color: var(--dim);
+  line-height: 1.6;
+}
+@media (max-width: 640px) {
+  .glossary { grid-template-columns: 1fr; gap: 4px 0; }
+  .glossary dd { margin-bottom: 10px; }
+}
+
 /* ---- Population ---- */
 .grid-wrap {
   flex: 1;

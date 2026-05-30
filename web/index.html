@@ -36,6 +36,7 @@
         </dl>
         <div class="bar-end">
           <span class="swarm"><span class="dot" aria-hidden="true"></span> PART OF THE SWARM · LOCAL NODE</span>
+          <button id="ag-help-open" class="btn" type="button" title="what am I looking at? a quick tour of the parts">? WHAT IS THIS</button>
           <button id="ag-info-open" class="btn" type="button">INFO</button>
         </div>
       </header>
@@ -56,6 +57,7 @@
           <button id="ag-reset" class="btn" type="button" title="return to the Genesis world">RESET</button>
           <label class="chk" title="auto-focus the best self-encoder as it evolves; turn off to keep one pinned"><input id="ag-follow" type="checkbox" checked /> FOLLOW&nbsp;BEST</label>
           <label class="chk" title="evolve faster — more offspring per frame"><input id="ag-turbo" type="checkbox" /> TURBO&nbsp;⚡</label>
+          <label class="chk" title="Novelty Search (Lehman & Stanley): reward behavioural novelty over fidelity — push into the frontier of unexplored forms"><input id="ag-novelty" type="checkbox" /> NOVELTY</label>
           <span class="vr" aria-hidden="true"></span>
           <button id="ag-keep" class="btn" type="button" title="sign this creature into your tree of life (persists across visits)">KEEP</button>
           <button id="ag-export" class="btn" type="button" title="download your signed genealogy as JSON">EXPORT</button>
@@ -134,6 +136,25 @@
         <span class="foot-mid">🤖 AI-generated under <a href="https://aqeelakber.com" rel="noopener">Aqeel Akber</a>'s direction · who also builds <a href="https://meos.do" rel="noopener">meos</a></span>
         <span class="foot-end"><a href="https://github.com/admiralakber/autograph" rel="noopener">SOURCE</a> · MIT · NO QUBITS HERE</span>
       </footer>
+    </div>
+
+    <!-- ░░ WHAT IS THIS? — quick in-context tour ░░ -->
+    <div id="ag-help" class="overlay" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="overlay-inner help-inner">
+        <button id="ag-help-close" class="btn overlay-close" type="button">CLOSE ✕</button>
+        <h1 id="help-title">What am I looking at?</h1>
+        <p class="ov-lead">Tiny neural creatures evolving, live, to draw a picture of themselves. Here are the parts:</p>
+        <dl class="glossary">
+          <dt>🧬 DNA</dt><dd>The genotype — a small <em>CPPN</em> network. It grows by real <strong>NEAT</strong>: starts minimal, then evolution adds nodes &amp; connections (watch the <em>DNA</em> readout climb).</dd>
+          <dt>🧠 BRAIN <span class="mono-dim">(phenotype)</span></dt><dd>A second network whose wiring the DNA <em>paints</em> (HyperNEAT). Signal flows input→output; queried over space it produces the picture.</dd>
+          <dt>✨ SELF-PORTRAIT</dt><dd>The actual output — the density &amp; colour the brain draws across 3-D space. The glowing volume <em>is</em> the network.</dd>
+          <dt>↺ THE LOOP</dt><dd>Read the self-portrait back into a DNA′ and compare. <strong>Loop fidelity</strong> is how well a creature re-encodes itself — measured live, never faked.</dd>
+          <dt>▦ DIVERSITY MAP</dt><dd>A MAP-Elites grid: one champion per <em>kind</em> (complexity → across, symmetry ↑ up). Brightness = fidelity. The bold white border is the creature you're watching.</dd>
+          <dt>🌳 TREE OF LIFE</dt><dd>Every champion is signed &amp; hash-chained into a genealogy that grows on its own and persists across visits.</dd>
+          <dt>⚙ CONTROLS</dt><dd><strong>STACKED</strong> shows all three at once (tap one to open). <strong>FOLLOW BEST</strong> tracks the finest self-encoder. <strong>TURBO</strong> evolves faster. <strong>NOVELTY</strong> rewards being <em>different</em>, not just faithful (Lehman &amp; Stanley). <strong>KEEP</strong> signs a creature into your tree.</dd>
+        </dl>
+        <p class="ov-foot">Want the full story, and what's real vs illustrative? Open <strong>INFO</strong>.</p>
+      </div>
     </div>
 
     <!-- ░░ INFO OVERLAY ░░ -->

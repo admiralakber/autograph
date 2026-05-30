@@ -54,14 +54,17 @@ function evolve(): void {
       `best LIVELY creature: fid ${(e.fidelity * 100).toFixed(1)}% | bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | ` +
         `vit ${e.vitality.toFixed(2)} | DNA ${lively.cell.genome.nodes.length} nodes · ${lively.cell.genome.conns.length} conns`,
     );
-    // #10 honesty: the loop's ONLY perfect fixed point is the trivial flat
-    // creature (the zero-quine). A lively creature can only *approach* closure.
+    // #10 honesty: fully ITERATING the encode∘render map drifts toward the ONLY
+    // perfect fixed point — the trivial flat zero-quine (vitality 0). So closure
+    // is genuine but NOT trivially-too-easy: a lively creature cannot reach it.
     const tEvo = iterateLoop(lively.cell.genome, 30, 0.25);
     const fe = evaluate(tEvo.final);
     const tRnd = iterateLoop(seededGenome('random-control-9'), 30, 0.25);
     const fr = evaluate(tRnd.final);
-    console.log(`  LOOP (lively):  residual ${tEvo.residual.toFixed(3)} → stays ALIVE (vit ${fe.vitality.toFixed(2)}); a living self can only approach the fixed point, never collapse onto it`);
-    console.log(`  LOOP (trivial): residual ${tRnd.residual.toFixed(3)} ${tRnd.converged ? '✓ converges' : ''} to the FLAT zero-quine (vit ${fr.vitality.toFixed(2)}, "fid" ${(fr.fidelity * 100).toFixed(0)}%) — the degenerate fixed point the vitality gate + MAP-Elites forbid`);
+    console.log('  loop honesty (#10): iterating decode∘render drifts toward the ONLY perfect fixed point — the trivial flat zero-quine (vitality 0).');
+    console.log(`    lively start → residual ${tEvo.residual.toFixed(3)}, final vitality ${fe.vitality.toFixed(2)}`);
+    console.log(`    random start → residual ${tRnd.residual.toFixed(3)}, final vitality ${fr.vitality.toFixed(2)}`);
+    console.log('    ∴ we score ONE-STEP self-consistency (loop fidelity) and let the vitality gate + MAP-Elites keep creatures lively-but-imperfect — never collapsing to the empty self.');
   }
 }
 

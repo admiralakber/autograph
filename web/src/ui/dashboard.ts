@@ -51,6 +51,7 @@ export class AutographDashboard {
   private portraitDim: '3d' | '2d' = '3d';
   private running = true;
   private follow = true;
+  private novelty = false;
   private budget = 20;
   private frame = 0;
   private lastGenAt = 0;
@@ -138,6 +139,11 @@ export class AutographDashboard {
     follow.addEventListener('change', () => (this.follow = follow.checked));
     const turbo = need<HTMLInputElement>(this.root, '#ag-turbo');
     turbo.addEventListener('change', () => (this.budget = turbo.checked ? 60 : 20));
+    const novelty = need<HTMLInputElement>(this.root, '#ag-novelty');
+    novelty.addEventListener('change', () => {
+      this.novelty = novelty.checked;
+      this.garden.setNovelty(novelty.checked);
+    });
 
     for (const m of ['stacked', 'render', 'net', 'dna'] as const) {
       need(this.root, `#ag-mode-${m}`).addEventListener('click', () => this.setMode(m));
@@ -158,6 +164,8 @@ export class AutographDashboard {
 
     need(this.root, '#ag-info-open').addEventListener('click', () => this.toggleInfo(true));
     need(this.root, '#ag-info-close').addEventListener('click', () => this.toggleInfo(false));
+    need(this.root, '#ag-help-open').addEventListener('click', () => need(this.root, '#ag-help').classList.add('open'));
+    need(this.root, '#ag-help-close').addEventListener('click', () => need(this.root, '#ag-help').classList.remove('open'));
   }
 
   private toggleInfo(open: boolean): void {
@@ -166,6 +174,7 @@ export class AutographDashboard {
 
   private grow(seedStr: string): void {
     this.garden = new Garden(seedStr, COLS, ROWS);
+    this.garden.setNovelty(this.novelty);
     this.garden.seedWith([seededGenome(seedStr)]);
     this.paintEmptyGrid();
     this.syncDirty();

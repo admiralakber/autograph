@@ -33,6 +33,13 @@ export class Garden {
   private evaluations = 0;
   private species: { rep: Genome; members: number[] }[] = [];
   private readonly speciesThreshold = 0.7;
+  private noveltyOn = false;
+
+  /** Toggle behavioural Novelty Search (Lehman & Stanley): bias reproduction
+   *  toward the frontier of behaviour space rather than toward fidelity. */
+  setNovelty(on: boolean): void {
+    this.noveltyOn = on;
+  }
 
   constructor(seed: string, cols = 14, rows = 14) {
     this.archive = new MapElites(cols, rows);
@@ -77,6 +84,10 @@ export class Garden {
    *  members (so a small, novel-structure species gets an equal share to a big
    *  one — protecting innovation), else a random elite (diversity pressure). */
   private selectParent(): Cell | null {
+    if (this.noveltyOn && this.rng.next() < 0.6) {
+      const f = this.frontierElite();
+      if (f) return f;
+    }
     if (this.species.length > 0 && this.rng.next() < 0.5) {
       const sp = this.species[this.rng.int(this.species.length)]!;
       for (let t = 0; t < 4 && sp.members.length > 0; t++) {
@@ -86,6 +97,41 @@ export class Garden {
       }
     }
     return this.archive.randomElite(() => this.rng.next());
+  }
+
+  /** Novelty Search proxy: pick an elite on the frontier of behaviour space —
+   *  one with empty neighbouring cells — weighted by how much empty space abuts
+   *  it. This rewards *being different*, expanding into unexplored behaviours. */
+  private frontierElite(): Cell | null {
+    const cols = this.archive.cols;
+    const rows = this.archive.rows;
+    const cands: { cell: Cell; w: number }[] = [];
+    let total = 0;
+    this.archive.forEach((cell, idx) => {
+      if (!cell) return;
+      const cx = idx % cols;
+      const cy = Math.floor(idx / cols);
+      let empty = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !this.archive.get(ny * cols + nx)) empty++;
+        }
+      }
+      if (empty > 0) {
+        cands.push({ cell, w: empty });
+        total += empty;
+      }
+    });
+    if (cands.length === 0) return null;
+    let r = this.rng.next() * total;
+    for (const c of cands) {
+      r -= c.w;
+      if (r <= 0) return c.cell;
+    }
+    return cands[cands.length - 1]!.cell;
   }
 
   /** Recompute species over the current elites by compatibility distance. */
