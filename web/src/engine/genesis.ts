@@ -27,6 +27,10 @@ export const GENESIS_LABEL = 'GENESIS';
  *
  * History: v1 (analytic read-back) → v2 (bolt-on reader weights) → v3 (intrinsic
  * self-quine; genome dropped reader) → v4 (read-back through the picture/brain;
- * genome format UNCHANGED from v3, but the metric semantics changed → rotate).
+ * genome format UNCHANGED from v3, but the metric semantics changed → rotate) →
+ * v5 (HARDENED loop skill: the read-back sees only a bounded, per-gene view of
+ * the image and skill is complexity-weighted — so v4's pre-hardening elites,
+ * signed at the old looser ~0.9, are no longer comparable and would freeze
+ * keep-best; genome format UNCHANGED from v4, metric semantics changed → rotate).
  */
-export const ARCHIVE_EPOCH = 4;
+export const ARCHIVE_EPOCH = 5;
