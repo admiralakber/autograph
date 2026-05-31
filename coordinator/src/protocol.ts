@@ -27,10 +27,15 @@
  *      now a clean autoregressive self-write (no quine). `verify.ts` mirrors this.
  *  v6: the CLEAN-ARCHITECTURE fix (Stanley-grade genotype↔phenotype boundary) — the brain's
  *      behaviours LEAVE the CPPN to become substrate OUTPUT NEURONS, and density/hue become
- *      genuine CPPN-art channels, so `CPPN_OUTPUTS` drops 11→6 (weight, bias, density, hue,
- *      α, modGate). The header records OUTPUTS=6 and v7 elites no longer verify. Byte layout
- *      unchanged; the world rotates to a fresh genesis-v9 room. `verify.ts` mirrors this. */
-export const PROTOCOL_VERSION = 6 as const;
+ *      genuine CPPN-art channels, so `CPPN_OUTPUTS` drops 11→6. The header records OUTPUTS=6
+ *      and v7 elites no longer verify. The world rotates to a fresh genesis-v9 room.
+ *  v7: the STRUCTURAL self-write (von Neumann self-reproduction of the genome graph) — the
+ *      self-portrait becomes a true depiction of the BUILT NETWORK (rendered from the substrate,
+ *      not a CPPN channel), so the density/hue appearance channels are retired and `CPPN_OUTPUTS`
+ *      drops 6→4 (weight, bias, α, modGate). The header records OUTPUTS=4 and v9 elites no longer
+ *      verify. Byte layout unchanged; the world rotates to a fresh genesis-v10 room. `verify.ts`
+ *      mirrors this. */
+export const PROTOCOL_VERSION = 7 as const;
 
 // ── Domain types (mirror of web/src/engine) ─────────────────────────────────
 

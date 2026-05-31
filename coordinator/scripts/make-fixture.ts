@@ -57,7 +57,7 @@ for (const l of lively.slice(0, 3)) await sign(l.genome, null);
 
 const out = {
   format: 'autograph-coordinator-fixture',
-  note: 'GENUINE elites produced by web/src/engine (genesis-v9 clean architecture — CPPN_OUTPUTS=6: weight, bias, density, hue, α, modGate). Index 0 is a degenerate (vitality 0) creature for the gating test; the rest are evolved, lively, self-consistent elites. Real genomeBytes + ECDSA P-256 lineage.',
+  note: 'GENUINE elites produced by web/src/engine (genesis-v10 structural self-write — CPPN_OUTPUTS=4: weight, bias, α, modGate). Index 0 is a degenerate (vitality 0) creature for the gating test; the rest are evolved, lively, self-consistent elites. Real genomeBytes + ECDSA P-256 lineage.',
   generatedAt: new Date().toISOString(),
   author: identity.publicKeyHex,
   elites,
