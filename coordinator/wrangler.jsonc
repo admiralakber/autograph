@@ -7,8 +7,10 @@
   // other binding pointing at a meos (or any external) resource. It has no
   // handle to anything but its own archive. See docs/DEPLOY-coordinator.md.
   //
-  // Every identifier below is a PLACEHOLDER. No real account IDs, tokens, routes
-  // or zones appear here. The creator replaces the placeholders at deploy time.
+  // No SECRETS appear here: no account IDs, API tokens, global keys, routes or
+  // zones. The only real identifier is the KV namespace id below — a non-secret
+  // resource handle (see its note). The creator supplies their own account
+  // credentials at deploy time (via `wrangler login` / CI secrets, never in-repo).
   "$schema": "node_modules/wrangler/config-schema.json",
 
   "name": "autograph-coordinator",
@@ -39,12 +41,13 @@
     { "tag": "v1", "new_sqlite_classes": ["ArchiveRoom"] }
   ],
 
-  // Dedicated KV for cheap cold-read archive snapshots. The `id` below is a
-  // PLACEHOLDER (all-zero) so the config is locally runnable; replace it with
-  // the real namespace id at deploy time:
+  // Dedicated KV for cheap cold-read archive snapshots. The `id` below is the
+  // REAL namespace id — but it is a benign, non-secret resource identifier (a
+  // handle, like the DO class name): reading/writing it still requires the
+  // owner's account credentials, which are NOT in this repo. To run your own,
+  // create a fresh namespace and paste its id:
   //   npx wrangler kv namespace create autograph-snapshots
-  // and paste the returned id here. Local `wrangler dev` / Vitest simulate KV
-  // regardless of this value.
+  // Local `wrangler dev` / Vitest simulate KV regardless of this value.
   "kv_namespaces": [
     { "binding": "SNAPSHOTS", "id": "f1f5aef2d1c742ecbbafb3f03ecc8f55" }
   ]

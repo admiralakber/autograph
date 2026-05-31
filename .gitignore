@@ -20,6 +20,7 @@ yarn-debug.log*
 pnpm-debug.log*
 
 # Secrets & environment — NEVER commit
+# (also enforced at commit time by scripts/secret-scan.mjs — see scripts/README.md)
 .env
 .env.*
 !.env.example
@@ -27,6 +28,9 @@ pnpm-debug.log*
 .dev.vars.*
 *.pem
 *.key
+*.p12
+*.pfx
+wrangler-account.json
 secrets/
 
 # Editor / OS cruft

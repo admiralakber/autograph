@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "smoke": "node --experimental-strip-types scripts/smoke.ts",
-    "swarm-live": "node --experimental-strip-types scripts/swarm-live.ts"
+    "swarm-live": "node --experimental-strip-types scripts/swarm-live.ts",
+    "prepare": "node ../scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

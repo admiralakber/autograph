@@ -57,9 +57,13 @@ export function fingerprint(hashHex: string): string {
 }
 
 export async function generateIdentity(): Promise<Identity> {
+  // extractable = false: the PRIVATE key can never be exported (defence-in-depth
+  // against private-key exfiltration). We only ever sign with it; the PUBLIC key
+  // stays extractable regardless (WebCrypto generates public keys extractable),
+  // so the raw public-key export below still works.
   const pair = await crypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' },
-    true,
+    false,
     ['sign', 'verify'],
   );
   const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
