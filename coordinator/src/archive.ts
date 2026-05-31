@@ -14,19 +14,36 @@
 import type { RoomInfo, WireElite } from './protocol.ts';
 import { LIMITS, PROTOCOL_VERSION } from './protocol.ts';
 
+// Mirror of web/src/engine: the vitality gate (mapelites.ts) and the
+// vitality-gated quality metric (fitness.ts `eliteQuality`). Kept verbatim so the
+// Worker stays self-contained, and pinned by the smoke/integration tests so the
+// client mirror and this authoritative grid agree on which creature wins a niche.
+// CRITICAL: a near-flat *zero-quine* (high loop-fidelity, ~0 vitality) must never
+// displace a lively self-encoder — keep-best ranks on quality, not raw fidelity,
+// so the shared archive can only ever improve per cell. (Vitality is unsigned
+// today; verifying it for untrusted machines is the zkML roadmap, not v1.)
+const MIN_VITALITY = 0.05;
+const VITALITY_REF = 0.5;
+const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
+const eliteQuality = (fidelity: number, vitality: number): number => fidelity * clamp01(vitality / VITALITY_REF);
+
 export interface StoredElite {
   readonly elite: WireElite;
   /** Grid cell index this elite occupies. */
   readonly cell: number;
-  /** Bound, signed fidelity — the ranking key. */
+  /** Bound, signed fidelity (display + champion readout). */
   readonly fidelity: number;
+  /** Reported vitality — the liveness gate (unsigned; see trust model). */
+  readonly vitality: number;
+  /** Vitality-gated quality — the keep-best ranking key. */
+  readonly quality: number;
   /** Content hash of the genome (dedup + tiebreak key). */
   readonly hash: string;
   /** Monotonic receive sequence (a `pull` cursor). */
   readonly seq: number;
 }
 
-export type MergeReason = 'duplicate' | 'worse' | 'tie';
+export type MergeReason = 'duplicate' | 'worse' | 'tie' | 'degenerate';
 
 export interface MergeResult {
   readonly accepted: boolean;
@@ -55,24 +72,32 @@ export class ServerArchive {
 
   /**
    * Keep-best-per-cell merge of one (already cryptographically verified) elite.
-   * Ranking uses the signed `lineage.fidelity`. Returns whether it was installed.
+   * Ranking uses the **vitality-gated quality** (not raw fidelity): a degenerate
+   * near-flat creature is rejected outright, and a cell's champion is replaced
+   * only by a genuinely better-and-alive creature — so the archive never degrades.
    */
   insert(elite: WireElite): MergeResult {
     const hash = elite.lineage.genomeHash;
     if (this.seen.has(hash)) return { accepted: false, reason: 'duplicate' };
 
     const fidelity = elite.lineage.fidelity;
+    const vitality = elite.evaluation.vitality;
+    // Vitality gate: a trivial/degenerate (near-flat, ~0 vitality) creature can
+    // never enter — even though its loop-fidelity may be high.
+    if (!(vitality >= MIN_VITALITY)) return { accepted: false, reason: 'degenerate' };
+
+    const quality = eliteQuality(fidelity, vitality);
     const cell = this.cellIndex(elite.evaluation.bd);
     const existing = this.cells.get(cell);
 
     if (existing) {
-      if (fidelity < existing.fidelity) return { accepted: false, reason: 'worse' };
+      if (quality < existing.quality) return { accepted: false, reason: 'worse' };
       // Exact tie → deterministic winner (lower hash) so merge stays commutative.
-      if (fidelity === existing.fidelity && hash >= existing.hash) return { accepted: false, reason: 'tie' };
+      if (quality === existing.quality && hash >= existing.hash) return { accepted: false, reason: 'tie' };
     }
 
     this.seen.add(hash);
-    this.cells.set(cell, { elite, cell, fidelity, hash, seq: ++this.seq });
+    this.cells.set(cell, { elite, cell, fidelity, vitality, quality, hash, seq: ++this.seq });
     return { accepted: true };
   }
 
@@ -93,11 +118,11 @@ export class ServerArchive {
     return this.seq;
   }
 
-  /** Highest-fidelity elite overall (the champion), or null if empty. */
+  /** Highest-quality (lively) elite overall — the champion — or null if empty. */
   champion(): StoredElite | null {
     let best: StoredElite | null = null;
     for (const s of this.cells.values()) {
-      if (!best || s.fidelity > best.fidelity || (s.fidelity === best.fidelity && s.hash < best.hash)) best = s;
+      if (!best || s.quality > best.quality || (s.quality === best.quality && s.hash < best.hash)) best = s;
     }
     return best;
   }

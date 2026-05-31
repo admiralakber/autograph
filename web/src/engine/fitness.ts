@@ -135,6 +135,21 @@ export interface Evaluation {
 
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
+/** Liveness reference for the elite-quality metric. At/above this vitality a
+ *  creature ranks purely by its self-encoding fidelity; below it the score is
+ *  discounted toward 0 — so a near-flat *zero-quine* (high fidelity, ~0 vitality)
+ *  can never out-rank a lively self-encoder. Mirrored in the coordinator's
+ *  `ServerArchive` so the local mirror and the shared grid keep-best identically. */
+export const VITALITY_REF = 0.5;
+
+/** Vitality-gated quality used to rank elites within a MAP-Elites cell — the one
+ *  key both the local archive and the shared coordinator merge on. **Not** raw
+ *  fidelity: it folds in vitality, so a cell's champion can only be displaced by a
+ *  genuinely better-*and*-alive creature, and the shared archive only ever improves. */
+export function eliteQuality(fidelity: number, vitality: number): number {
+  return fidelity * clamp01(vitality / VITALITY_REF);
+}
+
 /** A G×G silhouette of the volume (mean density along z), for the QD descriptors. */
 function projection(p: Phenotype, g: number): Float32Array {
   const field = new Float32Array(g * g);

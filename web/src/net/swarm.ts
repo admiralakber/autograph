@@ -97,6 +97,10 @@ export class SharedArchive implements Archive {
   private reconnectAttempts = 0;
   private peerCount = 0;
   private lastGen = 0;
+  /** Set once the shared archive has been pulled into the mirror. Pushing is
+   *  gated on it, so a fresh / RESET world syncs the good shared elites BEFORE it
+   *  can push — its trivial early creatures never travel upward. */
+  private synced = false;
   private readonly pending: { genome: Genome; evaluation: Evaluation }[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -151,7 +155,10 @@ export class SharedArchive implements Archive {
   tryInsert(genome: Genome, evaluation: Evaluation, gen: number, gid = 0, parents: number[] = []): boolean {
     this.lastGen = gen;
     const became = this.mirror.tryInsert(genome, evaluation, gen, gid, parents);
-    if (became) {
+    // Only queue a push once we've synced the shared archive: a creature that
+    // beats our just-pulled mirror is a genuine improvement worth sharing; a
+    // fresh/RESET world's early trivial elites (pre-sync) are never queued.
+    if (became && this.synced) {
       this.pending.push({ genome, evaluation });
       this.scheduleFlush();
     }
@@ -192,9 +199,9 @@ export class SharedArchive implements Archive {
     this.socket = sock;
     sock.addEventListener('open', () => {
       this.reconnectAttempts = 0;
+      this.synced = false; // must re-pull the shared archive before we may push again
       this.sendRaw({ type: 'hello' });
-      this.sendRaw({ type: 'pull' }); // migration: seed the mirror with the shared archive
-      void this.flush();
+      this.sendRaw({ type: 'pull' }); // migration: seed the mirror; pushing waits for the reply
     });
     sock.addEventListener('message', (event: unknown) => {
       const data = (event as { data?: unknown }).data;
@@ -206,6 +213,7 @@ export class SharedArchive implements Archive {
 
   private scheduleReconnect(): void {
     this.socket = null;
+    this.synced = false; // re-pull before pushing once we're back
     this.setPeers(0);
     if (this.closed) return;
     const delay = Math.min(15000, 500 * 2 ** this.reconnectAttempts++);
@@ -231,8 +239,15 @@ export class SharedArchive implements Archive {
         this.onSwarm?.(msg.peers, msg.gps);
         break;
       case 'delta':
-      case 'elites':
+        // Inbound migration: keep-best + vitality-gated merge (MapElites.tryInsert)
+        // — a worse or trivial incoming elite can never overwrite a local cell.
         for (const wire of msg.elites) this.mirror.tryInsert(wire.genome, wire.evaluation, this.lastGen);
+        break;
+      case 'elites':
+        // The pull reply: absorb the shared archive, THEN allow pushing.
+        for (const wire of msg.elites) this.mirror.tryInsert(wire.genome, wire.evaluation, this.lastGen);
+        this.synced = true;
+        void this.flush();
         break;
       case 'error':
         this.onError?.(msg.code, msg.message);
@@ -258,7 +273,7 @@ export class SharedArchive implements Archive {
   }
 
   private async flush(): Promise<void> {
-    if (this.pending.length === 0 || this.socket?.readyState !== WS_OPEN) return;
+    if (!this.synced || this.pending.length === 0 || this.socket?.readyState !== WS_OPEN) return;
     const batch = this.pending.splice(0, this.pending.length);
     const elites: WireElite[] = [];
     for (const item of batch) {

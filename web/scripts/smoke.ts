@@ -9,6 +9,8 @@ import { evaluate, iterateLoop } from '../src/engine/fitness.ts';
 import { buildPhenotype, substrateForward } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
+import { MapElites } from '../src/engine/mapelites.ts';
+import type { Evaluation } from '../src/engine/fitness.ts';
 
 function determinismCheck(): void {
   const a = genomeVector(seededGenome(GENESIS_SEED));
@@ -266,12 +268,34 @@ async function lineageCheck(): Promise<void> {
   console.log(`lineage verify (forged signature): ${!bad2.valid ? 'OK — rejected' : 'FAIL — accepted forgery'}`);
 }
 
+/** #1 anti-degradation: the local archive (which also merges inbound swarm
+ *  `delta`s) must never let a near-flat zero-quine — high fidelity, ~0 vitality —
+ *  displace a lively champion. So a RESET/fresh peer's trivial creatures cannot
+ *  poison a shared cell, locally or across the swarm. */
+function swarmSafety(): void {
+  const a = new MapElites(4, 4);
+  const g = seededGenome('safety');
+  const idx = a.cellIndex([0.5, 0.5]);
+  const lively: Evaluation = { bd: [0.5, 0.5], fidelity: 0.9, vitality: 1.0, liveConns: 20 };
+  const blob: Evaluation = { bd: [0.5, 0.5], fidelity: 0.98, vitality: 0.02, liveConns: 1 };
+  a.tryInsert(g, lively, 0);
+  const installed = a.get(idx)?.evaluation.vitality === 1.0;
+  const rejected = a.tryInsert(g, blob, 1) === false; // higher fidelity, ~0 vitality → must be refused
+  const stillLively = a.get(idx)?.evaluation.vitality === 1.0;
+  const ok = installed && rejected && stillLively;
+  console.log(
+    `SWARM SAFETY (vitality-gated merge): a trivial high-fidelity blob ${ok ? 'CANNOT' : 'CAN'} displace a lively champion ${ok ? 'OK ✓' : 'FAIL ✗'}`,
+  );
+  if (!ok) process.exitCode = 1;
+}
+
 async function main(): Promise<void> {
   determinismCheck();
   baseline();
   evolve();
   openEndedness();
   mirrorBrainExperiment();
+  swarmSafety();
   await lineageCheck();
 }
 

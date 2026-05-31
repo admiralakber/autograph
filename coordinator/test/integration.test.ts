@@ -86,8 +86,9 @@ describe('autograph-coordinator (workerd)', () => {
     expect((await b.waitType('welcome')).peers).toBe(2);
     expect((await a.waitFor((m) => m.type === 'peers' && m.peers === 2)).peers).toBe(2);
 
-    // A pushes a genuine, signed elite.
-    a.send({ type: 'push', elites: [genuine[0]] });
+    // A pushes a genuine, signed, LIVELY elite (genuine[1]; genuine[0] is the
+    // near-flat Genesis creature, gated out below).
+    a.send({ type: 'push', elites: [genuine[1]] });
     const ack = await a.waitType('ack');
     expect(ack.accepted).toBe(1);
     expect(ack.rejected).toBe(0);
@@ -95,13 +96,20 @@ describe('autograph-coordinator (workerd)', () => {
     // B receives it live as a delta (migration), pusher excluded.
     const delta = await b.waitType('delta');
     expect((delta.elites as Msg[]).length).toBe(1);
-    expect(((delta.elites as Msg[])[0]!.lineage as { id: string }).id).toBe((genuine[0]!.lineage as { id: string }).id);
+    expect(((delta.elites as Msg[])[0]!.lineage as { id: string }).id).toBe((genuine[1]!.lineage as { id: string }).id);
 
     // …and an explicit pull returns it from the shared archive.
     b.send({ type: 'pull' });
     const pulled = await b.waitType('elites');
     const ids = (pulled.elites as Msg[]).map((e) => (e.lineage as { id: string }).id);
-    expect(ids).toContain((genuine[0]!.lineage as { id: string }).id);
+    expect(ids).toContain((genuine[1]!.lineage as { id: string }).id);
+
+    // CRITICAL: a reset/fresh peer pushing the trivial Genesis creature (vitality 0)
+    // is gated out — the shared archive can only ever improve, never degrade.
+    a.send({ type: 'push', elites: [genuine[0]] });
+    const gated = await a.waitType('ack');
+    expect(gated.accepted).toBe(0);
+    expect(gated.reasons as string[]).toContain('degenerate');
 
     // A pushes a tampered genome → rejected by server-side verification.
     const tampered = clone(genuine[1]!);

@@ -1,6 +1,7 @@
 import { cloneGenome } from './cppn.ts';
 import type { Genome } from './cppn.ts';
 import type { Evaluation } from './fitness.ts';
+import { eliteQuality } from './fitness.ts';
 import type { Archive, ArchiveBest, Cell } from './archive.ts';
 import { HYPER } from './hyperparams.ts';
 
@@ -36,9 +37,11 @@ export class MapElites implements Archive {
     return this.cells[index] ?? null;
   }
 
-  /** Quality used to rank within a cell: the self-encoding loop fidelity. */
+  /** Quality used to rank within a cell — vitality-gated (see `eliteQuality`),
+   *  never raw fidelity, so a near-flat zero-quine cannot displace a lively
+   *  self-encoder (locally, or when an inbound swarm `delta` is merged here). */
   private static quality(e: Evaluation): number {
-    return e.fidelity;
+    return eliteQuality(e.fidelity, e.vitality);
   }
 
   /** Attempt to install a creature. Returns true if it became (or replaced) an elite. */

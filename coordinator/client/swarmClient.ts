@@ -121,6 +121,9 @@ export class SharedArchive implements Archive {
   private reconnectAttempts = 0;
   private peerCount = 0;
   private lastGen = 0;
+  /** Set once the shared archive has been pulled; pushing is gated on it so a
+   *  fresh/RESET world syncs before it can push (its trivial state never leaves). */
+  private synced = false;
   private room: RoomInfo | null = null;
   private readonly pending: { genome: Genome; evaluation: Evaluation }[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -178,7 +181,7 @@ export class SharedArchive implements Archive {
   tryInsert(genome: Genome, evaluation: Evaluation, gen: number): boolean {
     this.lastGen = gen;
     const became = this.mirror.tryInsert(genome, evaluation, gen);
-    if (became) {
+    if (became && this.synced) {
       this.pending.push({ genome, evaluation });
       this.scheduleFlush();
     }
@@ -223,9 +226,9 @@ export class SharedArchive implements Archive {
     this.socket = sock;
     sock.addEventListener('open', () => {
       this.reconnectAttempts = 0;
+      this.synced = false; // re-pull the shared archive before we may push again
       this.sendRaw({ type: 'hello' });
-      this.sendRaw({ type: 'pull' }); // seed the mirror with the shared archive
-      this.flush();
+      this.sendRaw({ type: 'pull' }); // seed the mirror; pushing waits for the reply
     });
     sock.addEventListener('message', (event: unknown) => {
       const data = (event as { data?: unknown }).data;
@@ -237,6 +240,7 @@ export class SharedArchive implements Archive {
 
   private scheduleReconnect(): void {
     this.socket = null;
+    this.synced = false;
     if (this.closed) return;
     const delay = Math.min(15000, 500 * 2 ** this.reconnectAttempts++);
     setTimeout(() => this.connect(), delay);
@@ -262,9 +266,14 @@ export class SharedArchive implements Archive {
         this.onSwarm?.(msg.peers, msg.gps);
         break;
       case 'delta':
+        this.room = msg.room;
+        for (const wire of msg.elites) this.applyInbound(wire);
+        break;
       case 'elites':
         this.room = msg.room;
         for (const wire of msg.elites) this.applyInbound(wire);
+        this.synced = true; // absorbed the shared archive — now our improvements may push
+        void this.flush();
         break;
       case 'error':
         this.onError?.(msg.code, msg.message);
@@ -298,7 +307,7 @@ export class SharedArchive implements Archive {
 
   /** Sign and send all pending elites as one `push`. */
   private async flush(): Promise<void> {
-    if (this.pending.length === 0 || this.socket?.readyState !== WS_OPEN) return;
+    if (!this.synced || this.pending.length === 0 || this.socket?.readyState !== WS_OPEN) return;
     const batch = this.pending.splice(0, this.pending.length);
     const elites: WireElite[] = [];
     for (const item of batch) {

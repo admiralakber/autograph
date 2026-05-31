@@ -87,9 +87,9 @@ class Harness implements RoomTransport {
 // ServerArchive.insert reads only evaluation.bd + lineage.{genomeHash,fidelity}.
 
 let synthN = 0;
-function synth(bd: [number, number], fidelity: number, hash?: string): WireElite {
+function synth(bd: [number, number], fidelity: number, hash?: string, vitality = 0.5): WireElite {
   const genome: Genome = { nodes: [{ id: 0, kind: 0, act: 0, bias: 0 }], conns: [] };
-  const evaluation: Evaluation = { bd, fidelity, vitality: 0.5, liveConns: 1 };
+  const evaluation: Evaluation = { bd, fidelity, vitality, liveConns: 1 };
   const genomeHash = hash ?? `hash-${synthN++}`;
   const lineage = { genomeHash, fidelity } as unknown as LineageEntry;
   return { genome, evaluation, lineage };
@@ -182,6 +182,24 @@ async function main(): Promise<void> {
     assert.equal(forward.get(tieCell)!.hash, 'd');
   });
 
+  console.log('\nanti-degradation (the critical RESET fix — vitality-gated quality):');
+  await test('a trivial near-flat blob can never displace a lively champion', () => {
+    const a = new ServerArchive();
+    const cell = a.cellIndex([0.5, 0.5]);
+    // A lively champion: fidelity 0.90, vitality 1.0.
+    assert.equal(a.insert(synth([0.5, 0.5], 0.9, 'lively', 1.0)).accepted, true);
+    // A near-flat zero-quine in the SAME cell: HIGHER fidelity, ~0 vitality → gated out.
+    const blob = a.insert(synth([0.5, 0.5], 0.98, 'blob', 0.02));
+    assert.equal(blob.accepted, false);
+    assert.equal(blob.reason, 'degenerate');
+    // Even above the gate, a dim creature's vitality-gated quality stays below the champion.
+    assert.equal(a.insert(synth([0.5, 0.5], 0.98, 'dim', 0.1)).accepted, false);
+    assert.equal(a.get(cell)!.hash, 'lively'); // champion untouched
+    // …but a genuinely better-AND-alive creature still improves the cell (monotone up).
+    assert.equal(a.insert(synth([0.5, 0.5], 0.95, 'better', 1.0)).accepted, true);
+    assert.equal(a.get(cell)!.hash, 'better');
+  });
+
   console.log('\nrate-limiting (token bucket):');
   await test('allows a burst then throttles, and refills over time', () => {
     const b = new TokenBucket(3, 1, 0);
@@ -204,14 +222,15 @@ async function main(): Promise<void> {
     h.disconnect(core, 'B');
     assert.equal(h.last('A', 'peers')!.peers, 1);
   });
-  await test('client A pushes an elite; client B receives it via delta + pull', async () => {
+  await test('client A pushes a lively elite; client B receives it via delta + pull', async () => {
     const h = new Harness();
     const archive = new ServerArchive();
     const core = new RoomCore({ archive, transport: h, verify: verifyElite });
     h.connect(core, 'A');
     h.connect(core, 'B');
 
-    await core.onMessage('A', JSON.stringify({ type: 'push', elites: [genuine[0]] }));
+    // genuine[1] is lively; genuine[0] is the near-flat Genesis creature (gated out, below).
+    await core.onMessage('A', JSON.stringify({ type: 'push', elites: [genuine[1]] }));
     const ack = h.last('A', 'ack')!;
     assert.equal(ack.accepted, 1);
     assert.equal(ack.rejected, 0);
@@ -219,13 +238,13 @@ async function main(): Promise<void> {
     // B got the elite broadcast (delta excludes the pusher A)
     const delta = h.last('B', 'delta')!;
     assert.equal(delta.elites.length, 1);
-    assert.equal(delta.elites[0]!.lineage.id, genuine[0]!.lineage.id);
+    assert.equal(delta.elites[0]!.lineage.id, genuine[1]!.lineage.id);
     assert.equal(h.last('A', 'delta'), null); // sender excluded
 
     // and an explicit pull returns it too
     await core.onMessage('B', JSON.stringify({ type: 'pull' }));
     const pulled = h.last('B', 'elites')!;
-    assert.equal(pulled.elites.some((e) => e.lineage.id === genuine[0]!.lineage.id), true);
+    assert.equal(pulled.elites.some((e) => e.lineage.id === genuine[1]!.lineage.id), true);
   });
   await test('a forged elite is rejected with honest feedback; no broadcast', async () => {
     const h = new Harness();
@@ -240,6 +259,26 @@ async function main(): Promise<void> {
     assert.equal(ack.rejected, 1);
     assert.ok(ack.reasons.includes('genome-hash-mismatch'));
     assert.equal(h.last('B', 'delta'), null); // nothing fanned out
+  });
+  await test('a reset/fresh peer cannot degrade the swarm: the trivial Genesis creature is gated out', async () => {
+    const h = new Harness();
+    const archive = new ServerArchive();
+    const core = new RoomCore({ archive, transport: h, verify: verifyElite });
+    h.connect(core, 'A');
+    h.connect(core, 'B');
+    // A shares a genuine, signed, LIVELY elite (escher).
+    await core.onMessage('A', JSON.stringify({ type: 'push', elites: [genuine[1]] }));
+    assert.equal(h.last('A', 'ack')!.accepted, 1);
+    const champ = archive.champion()!.elite.lineage.id;
+    // B (just reset) pushes the genuine GENESIS creature — fully signed, but near-flat
+    // (vitality 0). It VERIFIES, yet the vitality gate rejects it, so the good shared
+    // champion survives untouched and nothing fans out to the other peers.
+    await core.onMessage('B', JSON.stringify({ type: 'push', elites: [genuine[0]] }));
+    const ack = h.last('B', 'ack')!;
+    assert.equal(ack.accepted, 0);
+    assert.ok(ack.reasons.includes('degenerate'));
+    assert.equal(h.last('A', 'delta'), null);
+    assert.equal(archive.champion()!.elite.lineage.id, champ);
   });
   await test('over-rate messages get a rate-limited error', async () => {
     const h = new Harness();

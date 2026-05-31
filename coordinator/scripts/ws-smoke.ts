@@ -92,7 +92,7 @@ async function main(): Promise<void> {
   assert((await a.waitFor((m) => m.type === 'peers' && m.peers === 2)).peers === 2, 'A should learn peers = 2');
   console.log('  ✓ client B connected (peers = 2 for both)');
 
-  a.send({ type: 'push', elites: [genuine[0]] });
+  a.send({ type: 'push', elites: [genuine[1]] }); // genuine[1] is lively (genuine[0] = trivial Genesis)
   const ack = await a.waitType('ack');
   assert(ack.accepted === 1 && ack.rejected === 0, 'push should be accepted');
   console.log('  ✓ A pushed a genuine elite (accepted = 1)');
@@ -104,10 +104,10 @@ async function main(): Promise<void> {
   b.send({ type: 'pull' });
   const pulled = await b.waitType('elites');
   const ids = (pulled.elites as { lineage: { id: string } }[]).map((e) => e.lineage.id);
-  assert(ids.includes(genuine[0]!.lineage.id), 'pull should return the pushed elite');
+  assert(ids.includes(genuine[1]!.lineage.id), 'pull should return the pushed elite');
   console.log('  ✓ B pulled the shared archive (elite present)');
 
-  const forged = clone(genuine[1]!);
+  const forged = clone(genuine[2]!);
   forged.genome.conns[0]!.weight += 0.5;
   a.send({ type: 'push', elites: [forged] });
   const ack2 = await a.waitType('ack');
