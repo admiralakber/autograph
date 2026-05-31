@@ -16,33 +16,50 @@ import { fileURLToPath } from 'node:url';
 
 import { seededGenome } from '../../web/src/engine/cppn.ts';
 import { evaluate } from '../../web/src/engine/fitness.ts';
+import { Garden } from '../../web/src/engine/evolution.ts';
 import { generateIdentity, createEntry } from '../../web/src/engine/lineage.ts';
 import { GENESIS_SEED } from '../../web/src/engine/genesis.ts';
-
-const seeds = [GENESIS_SEED, 'escher', 'godel', 'bach'];
+import type { Genome } from '../../web/src/engine/cppn.ts';
 
 const identity = await generateIdentity();
 
-const elites = [];
-for (const seed of seeds) {
-  const genome = seededGenome(seed);
+// The fixture pins TWO things the coordinator's verifier and merge depend on:
+//   • index 0 — a genuinely DEGENERATE creature (a zeroed Genesis genome → empty
+//     ES-HyperNEAT substrate → vitality 0). It still VERIFIES (real signature),
+//     but the vitality gate must refuse it. This is what makes the "a fresh peer
+//     cannot degrade the shared archive" test meaningful under the v3 genome.
+//   • indices 1+ — genuinely LIVELY, self-consistent elites discovered by real
+//     evolution (so the fixture reflects the actual engine, not raw seeds).
+const degenerate: Genome = seededGenome(GENESIS_SEED);
+for (const c of degenerate.conns) c.weight = 0;
+for (const n of degenerate.nodes) n.bias = 0;
+
+const elites: { genome: Genome; evaluation: ReturnType<typeof evaluate>; lineage: Awaited<ReturnType<typeof createEntry>> }[] = [];
+const sign = async (genome: Genome, seed: string | null): Promise<void> => {
   const evaluation = evaluate(genome);
-  const lineage = await createEntry({
-    genome,
-    parents: [],
-    seed,
-    fidelity: evaluation.fidelity,
-    identity,
-  });
+  const lineage = await createEntry({ genome, parents: [], seed, fidelity: evaluation.fidelity, identity });
   elites.push({ genome, evaluation, lineage });
-}
+};
+
+await sign(degenerate, GENESIS_SEED);
+
+// Evolve the canonical world and harvest the liveliest, most self-consistent elites.
+const garden = new Garden(GENESIS_SEED, 14, 14);
+garden.seedWith([seededGenome(GENESIS_SEED)]);
+for (let gen = 0; gen < 500; gen++) garden.step(40);
+const lively: { genome: Genome; vit: number; skill: number }[] = [];
+garden.archive.forEach((cell) => {
+  if (!cell) return;
+  if (cell.evaluation.vitality >= 0.2) lively.push({ genome: cell.genome, vit: cell.evaluation.vitality, skill: cell.evaluation.fidelity });
+});
+lively.sort((a, b) => b.skill - a.skill);
+for (const l of lively.slice(0, 3)) await sign(l.genome, null);
 
 const out = {
   format: 'autograph-coordinator-fixture',
-  note: 'GENUINE elites produced by web/src/engine — real genomeBytes + ECDSA P-256 lineage.',
+  note: 'GENUINE elites produced by web/src/engine (v3 genome — no reader). Index 0 is a degenerate (vitality 0) creature for the gating test; the rest are evolved, lively, self-consistent elites. Real genomeBytes + ECDSA P-256 lineage.',
   generatedAt: new Date().toISOString(),
   author: identity.publicKeyHex,
-  seeds,
   elites,
 };
 

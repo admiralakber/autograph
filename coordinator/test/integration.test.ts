@@ -86,8 +86,8 @@ describe('autograph-coordinator (workerd)', () => {
     expect((await b.waitType('welcome')).peers).toBe(2);
     expect((await a.waitFor((m) => m.type === 'peers' && m.peers === 2)).peers).toBe(2);
 
-    // A pushes a genuine, signed, LIVELY elite (genuine[1]; genuine[0] is the
-    // near-flat Genesis creature, gated out below).
+    // A pushes a genuine, signed, LIVELY elite (genuine[1]; genuine[0] is a
+    // degenerate, vitality-0 creature, gated out below).
     a.send({ type: 'push', elites: [genuine[1]] });
     const ack = await a.waitType('ack');
     expect(ack.accepted).toBe(1);
@@ -104,8 +104,8 @@ describe('autograph-coordinator (workerd)', () => {
     const ids = (pulled.elites as Msg[]).map((e) => (e.lineage as { id: string }).id);
     expect(ids).toContain((genuine[1]!.lineage as { id: string }).id);
 
-    // CRITICAL: a reset/fresh peer pushing the trivial Genesis creature (vitality 0)
-    // is gated out — the shared archive can only ever improve, never degrade.
+    // CRITICAL: a fresh peer pushing a degenerate creature (vitality 0) is gated
+    // out — the shared archive can only ever improve, never degrade.
     a.send({ type: 'push', elites: [genuine[0]] });
     const gated = await a.waitType('ack');
     expect(gated.accepted).toBe(0);

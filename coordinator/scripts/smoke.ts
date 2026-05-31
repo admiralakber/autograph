@@ -88,7 +88,7 @@ class Harness implements RoomTransport {
 
 let synthN = 0;
 function synth(bd: [number, number], fidelity: number, hash?: string, vitality = 0.5): WireElite {
-  const genome: Genome = { nodes: [{ id: 0, kind: 0, act: 0, bias: 0 }], conns: [], reader: [] };
+  const genome: Genome = { nodes: [{ id: 0, kind: 0, act: 0, bias: 0 }], conns: [] };
   const evaluation: Evaluation = { bd, fidelity, vitality, liveConns: 1 };
   const genomeHash = hash ?? `hash-${synthN++}`;
   const lineage = { genomeHash, fidelity } as unknown as LineageEntry;
@@ -229,7 +229,8 @@ async function main(): Promise<void> {
     h.connect(core, 'A');
     h.connect(core, 'B');
 
-    // genuine[1] is lively; genuine[0] is the near-flat Genesis creature (gated out, below).
+    // genuine[1] is a lively, self-consistent elite; genuine[0] is a degenerate
+    // (zeroed → vitality 0) creature — it verifies but is gated out (below).
     await core.onMessage('A', JSON.stringify({ type: 'push', elites: [genuine[1]] }));
     const ack = h.last('A', 'ack')!;
     assert.equal(ack.accepted, 1);
@@ -260,18 +261,18 @@ async function main(): Promise<void> {
     assert.ok(ack.reasons.includes('genome-hash-mismatch'));
     assert.equal(h.last('B', 'delta'), null); // nothing fanned out
   });
-  await test('a reset/fresh peer cannot degrade the swarm: the trivial Genesis creature is gated out', async () => {
+  await test('a fresh peer cannot degrade the swarm: a degenerate creature is gated out', async () => {
     const h = new Harness();
     const archive = new ServerArchive();
     const core = new RoomCore({ archive, transport: h, verify: verifyElite });
     h.connect(core, 'A');
     h.connect(core, 'B');
-    // A shares a genuine, signed, LIVELY elite (escher).
+    // A shares a genuine, signed, LIVELY elite.
     await core.onMessage('A', JSON.stringify({ type: 'push', elites: [genuine[1]] }));
     assert.equal(h.last('A', 'ack')!.accepted, 1);
     const champ = archive.champion()!.elite.lineage.id;
-    // B (just reset) pushes the genuine GENESIS creature — fully signed, but near-flat
-    // (vitality 0). It VERIFIES, yet the vitality gate rejects it, so the good shared
+    // B (a fresh world) pushes a genuine but DEGENERATE creature — fully signed, yet
+    // vitality 0. It VERIFIES, but the vitality gate rejects it, so the good shared
     // champion survives untouched and nothing fans out to the other peers.
     await core.onMessage('B', JSON.stringify({ type: 'push', elites: [genuine[0]] }));
     const ack = h.last('B', 'ack')!;

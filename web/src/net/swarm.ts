@@ -111,7 +111,11 @@ export class SharedArchive implements Archive {
     this.onSwarm = opts.onSwarm;
     this.onError = opts.onError;
     this.flushMs = opts.flushMs ?? 200;
-    const room = opts.room ?? 'archipelago';
+    // The shared world. Bumped with the genome wire format (v3 = intrinsic
+    // self-quine, no reader weights): a fresh room name guarantees a clean slate
+    // so stale v2 elites — which no longer verify — can never linger. Everyone
+    // auto-joins this one Genesis archipelago.
+    const room = opts.room ?? 'genesis-v3';
     this.wsUrl = `${opts.url.replace(/\/$/, '')}/parties/archive-room/${encodeURIComponent(room)}`;
     this.connect();
   }
