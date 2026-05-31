@@ -129,7 +129,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   const fixY = new Float32Array(N);
   const fixScale = new Float32Array(N);
   const halt = new Float32Array(N); // v6 Phase 5: per-node halt (ACT) readout (inputs stay 0)
-  const idOf = new Map<string, number>();
+  const idOf = new Map<number, number>(); // coordKey (packed int) → node index
 
   const place = (c: Vec3, idx: number): void => {
     pos[idx * 3] = c[0];
@@ -368,6 +368,9 @@ const GLIMPSE_RING: ReadonlyArray<readonly [number, number]> = [
   [0, 0], [1, 0], [0.71, 0.71], [0, 1], [-0.71, 0.71], [-1, 0], [-0.71, -0.71], [0, -1], [0.71, -0.71],
 ];
 let gridBuf = new Float32Array(0); // reused static-image grid scratch
+// PERF #3: reused glimpse-path scratch (grown to the ponder cap) — no per-step or
+// per-eval cap-sized allocation; readPonderEmit returns small ponder-sized slices.
+let gxBuf = new Float32Array(0), gyBuf = new Float32Array(0), gvalBuf = new Float32Array(0);
 
 /** Render the creature's STATIC density image to a res×res grid on the z=0 sheet —
  *  the field the attention glimpses read (plastic=false ⇒ the initial-state image). */
@@ -471,7 +474,8 @@ export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
   val.fill(0, 0, N); // a fresh recurrent state for the read
   const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
   const invD = 1 / Math.max(1, N - SUB_INPUTS);
-  const gx = new Float32Array(cap), gy = new Float32Array(cap), gval = new Float32Array(cap);
+  if (gxBuf.length < cap) { gxBuf = new Float32Array(cap); gyBuf = new Float32Array(cap); gvalBuf = new Float32Array(cap); }
+  const gx = gxBuf, gy = gyBuf, gval = gvalBuf;
   const gv: [number, number] = [0, 0];
   const sc: [number, number] = [0, 0];
   let devX = 0, devY = 0, devScale = 0; // chosen deviation from the scan (0 ⇒ attention off)

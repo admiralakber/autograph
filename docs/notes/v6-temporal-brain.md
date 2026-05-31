@@ -293,30 +293,40 @@ genes **cannot** rejoin the reconstruction target.
   trace they leave) rather than the static image — a non-spatial readout. Uncertain,
   research-grade; deliberately *not* attempted unilaterally.
 
-## Perf-hardening phase (scheduled; owner-approved)
+## Perf-hardening phase (IRON RULE: speed only, never the numbers)
 
-The T-step rollout makes eval ~T× heavier, and Phase 4's glimpse adds a per-creature
-image render; Phase 5 will put both in the eval loop. So a dedicated perf phase runs
-**after the faculties, before v6 ships** (full analysis: `_local/perf-analysis.md`).
-Cheap algorithmic wins MAY be folded in opportunistically if they ease a phase; the
-structural ones are scheduled here for when the full compute load is known. **No item
-may change the numbers** — perf only.
+The T-step rollout + Phase 5's in-loop glimpse read make eval heavier (live ~116
+evals/s). Perf must change SPEED, never behaviour: `npm run smoke` must reproduce the
+**identical** honest figures (skill 43.9%, floor 0.000, novelty 7667→37409, QD 1→21).
 
-1. **Eval off the main thread → Web Worker(s) / pool — MANDATORY.** Once the rollout is
-   T× heavier, eval must never run on the rAF thread. A worker pool keeps the UI at
-   60 fps and is the structural prerequisite for everything below.
-2. **Kill `coordKey` string formatting (~20% CPU) + integer-ify `cleanNet` (~12.5%).**
-   The substrate maps coordinates via `toFixed(5)` string keys and `cleanNet` does
-   string-set reachability — together ~⅓ of build CPU. Replace with packed-integer
-   coordinate ids. Do this **before** scaling. (Cheap + portable — a candidate to fold
-   in early.)
-3. **Reuse scratch buffers (×T allocations under v6).** The rollout/glimpse allocate
-   per-step/per-call; pre-size and reuse (the engine already does this for `val`/`prev`/
-   `hebb`/`gridBuf` — extend the discipline to the read→ponder→emit buffers).
-4. **WASM/SIMD for the dense rollout + attention maths — the PORTABLE accelerator.**
-   Preferred over GPU because it runs headless/Node too, so it does **not** strand the
-   swarm's CPU contributors (GPU stays parked). Targets the inner propagation +
-   glimpse-sampling loops.
+2. **DONE — integer `coordKey` + number-set `cleanNet` (+ scratch reuse, #3).** The
+   substrate's coordinate keys were `toFixed(5)` strings (slow decimal formatting) and
+   `cleanNet` did string-set reachability. Replaced with a single packed EXACT integer
+   key (`round(coord×1e5)` packed in base 200003, < 2^53) — same equivalence classes
+   (substrate coords are ≫1e-5 apart), so behaviour is byte-identical. `cleanNet`'s
+   reachability sets are now number-sets, recovering the `Vec3` via a map (no string
+   parsing). The read→ponder→emit glimpse buffers are reused module scratch (no per-eval
+   cap-allocation; the rollout already reused `val`/`prev`/`hebb`/`gridBuf`/`gout`/`gv`
+   across the T steps). **Verified: smoke numbers byte-identical; 116 → 146 evals/s
+   (+26%).**
+1. **Eval off the main thread → Web Worker — RECOMMENDED next (finding below).** The
+   page is main-thread-bound; moving eval off the rAF thread is the big UX win.
+   **Finding (IRON RULE constraint):** a multi-core eval **POOL is precluded** — the
+   evolution loop is strictly sequential (each offspring's `selectParent` reads the
+   archive *after* the prior offspring's `tryInsert`, and `considerNovelty` advances the
+   RNG), so batching evals across cores changes the selection order → different numbers.
+   The number-preserving option is a **single dedicated evolution worker** that runs the
+   (unchanged, sequential) Garden off-thread and posts snapshots to the main thread for
+   rendering — identical numbers, freed render thread. It is a substantial browser +
+   coordinator-sync + render-pipeline refactor that cannot be verified headless, so it is
+   scoped as a focused, owner-verified follow-up rather than shipped blind.
+3. **DONE (folded into #2).** See above — scratch reuse; no per-step/per-eval cap-allocs.
+4. **WASM/SIMD for the dense rollout — DEFERRED (owner: optional).** The real v6
+   bottleneck is now the in-loop image renders (`substrateForward` × glimpseRes² +
+   projection), not `coordKey`. WASM would speed that portably (headless/Node-safe, GPU
+   stays parked), but hand-matching JS float results bit-for-bit is risky for the IRON
+   RULE — deferred unless it proves clean + low-risk. (glimpseRes can't be lowered: it
+   changes the interpolated read → the numbers.)
 
 ## References (verified)
 
