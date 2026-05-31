@@ -625,7 +625,7 @@ export class AutographDashboard {
       return;
     }
     const cx = index % COLS;
-    const cy = Math.floor(index / COLS);
+    const cy = ROWS - 1 - Math.floor(index / COLS); // symmetry ↑ — mirror the row to match the paint
     this.highlight.style.opacity = '1';
     this.highlight.style.left = `${(cx / COLS) * 100}%`;
     this.highlight.style.top = `${(cy / ROWS) * 100}%`;
@@ -775,7 +775,10 @@ export class AutographDashboard {
       const cell = arch.get(idx);
       if (!cell) continue;
       const cx = (idx % COLS) * CELL;
-      const cy = Math.floor(idx / COLS) * CELL;
+      // symmetry ↑: paint rows bottom-up so HIGH-symmetry niches sit at the TOP.
+      // (Canvas y is top-down and the archive's row 0 is LOW symmetry, so mirror it
+      //  to match the "symmetry ↑" axis label — the row mapping was otherwise flipped.)
+      const cy = (ROWS - 1 - Math.floor(idx / COLS)) * CELL;
       paintProjection(buildPhenotype(cell.genome), this.thumb, CELL);
       this.gridCtx.drawImage(this.thumb, cx, cy);
       const fg = Math.round((0.35 + cell.evaluation.fidelity * 0.6) * 255);
@@ -789,7 +792,8 @@ export class AutographDashboard {
     const rect = this.grid.getBoundingClientRect();
     const cx = Math.floor(((e.clientX - rect.left) / rect.width) * COLS);
     const cy = Math.floor(((e.clientY - rect.top) / rect.height) * ROWS);
-    const idx = cy * COLS + cx;
+    // symmetry ↑: the TOP visual row is the HIGHEST-symmetry bin (paint is mirrored).
+    const idx = (ROWS - 1 - cy) * COLS + cx;
     const cell = this.mapArchive().get(idx);
     if (!cell) return;
     this.follow = false;
@@ -801,7 +805,7 @@ export class AutographDashboard {
   // --- Diversity-map view (LOCAL ↔ WORLD) -----------------------------------
 
   /** The archive the DIVERSITY MAP renders: LOCAL = this node's OWN evolving map
-   *  (dynamic, churning), WORLD = the shared/merged mirror (saturated near ~98%).
+   *  (dynamic, churning), WORLD = the shared/merged mirror (everyone's best per niche).
    *  Solo, only the local archive exists, so both resolve to it. No new compute —
    *  it just swaps which already-maintained archive feeds the existing grid render. */
   private mapArchive(): Archive {
@@ -826,7 +830,7 @@ export class AutographDashboard {
       '#ag-map-caption',
       this.mapView === 'local'
         ? `LOCAL · the creatures THIS machine has evolved this session — your own map, dynamic & churning · ${legend}`
-        : `WORLD · the shared archive (everyone's best per niche), saturated near the ~98% champion · ${legend}`,
+        : `WORLD · the shared archive (everyone's best per niche) · ${legend}`,
     );
   }
 
@@ -837,7 +841,7 @@ export class AutographDashboard {
     if (world) {
       world.disabled = !available;
       world.title = available
-        ? "the SHARED archive — everyone's best per niche (saturated near the ~98% champion)"
+        ? "the SHARED archive — everyone's best per niche, shared across every island; the live champion skill is WORLD BEST"
         : '— (solo): no shared world to compare; join the swarm to see WORLD';
     }
     if (!available && this.mapView === 'world') this.setMapView('local');
