@@ -44,9 +44,11 @@ export class RoomCore {
   private readonly hooks: RoomHooks;
   private readonly now: () => number;
   private readonly buckets = new Map<string, TokenBucket>();
-  /** Per-connection last-reported generations/sec + when it arrived; summed for
-   *  the swarm total, with stale reports expired so a peer that stops reporting
-   *  (but lingers connected) cannot inflate the collective rate forever. */
+  /** Per-connection last-reported rate (creatures evaluated/sec — the wire field is
+   *  historically named `gps`) + when it arrived; summed for the swarm total, with
+   *  stale reports expired so a peer that stops reporting (but lingers connected)
+   *  cannot inflate the collective rate forever. The room is unit-agnostic — it sums
+   *  whatever rate clients send; clients now report throughput, so the sum is too. */
   private readonly gpsByConn = new Map<string, { gps: number; at: number }>();
 
   constructor(o: RoomOptions) {
@@ -134,7 +136,7 @@ export class RoomCore {
   /** A peer's rate is "fresh" for this long; older reports are not summed. */
   private static readonly GPS_TTL_MS = 12_000;
 
-  /** Record a peer's local gen/s (clamped) and broadcast the new swarm total. */
+  /** Record a peer's reported rate (creatures/sec; clamped) and broadcast the new swarm total. */
   private handleRate(id: string, msg: { gps?: unknown }): void {
     const gps =
       typeof msg.gps === 'number' && Number.isFinite(msg.gps) && msg.gps >= 0 ? Math.min(msg.gps, LIMITS.maxGpsPerPeer) : 0;
@@ -142,7 +144,7 @@ export class RoomCore {
     this.transport.broadcast({ type: 'swarm', peers: this.transport.peerCount(), gps: this.totalGps() });
   }
 
-  /** Collective generations/second across all peers whose report is still fresh
+  /** Collective rate (creatures/sec) across all peers whose report is still fresh
    *  (rounded). Stale entries are dropped so the total decays honestly. */
   private totalGps(): number {
     const now = this.now();

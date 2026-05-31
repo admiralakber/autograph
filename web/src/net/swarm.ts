@@ -67,7 +67,7 @@ export interface SharedArchiveOptions {
   signer: EliteSigner;
   room?: string;
   onPeers?: (peers: number) => void;
-  /** The live collective: peer count + summed generations/second across the swarm. */
+  /** The live collective: peer count + summed THROUGHPUT (creatures/sec) across the swarm. */
   onSwarm?: (peers: number, gps: number) => void;
   onError?: (code: string, message: string) => void;
   flushMs?: number;
@@ -207,10 +207,12 @@ export class SharedArchive implements Archive {
   peers(): number {
     return this.peerCount;
   }
-  /** Report this node's local generations/sec so the coordinator can sum the
-   *  swarm total. No-op when not connected (the UI falls back to the local rate). */
-  reportRate(gps: number): void {
-    if (this.socket?.readyState === WS_OPEN) this.sendRaw({ type: 'rate', gps: Math.max(0, Math.round(gps)) });
+  /** Report this node's THROUGHPUT (creatures evaluated/sec) so the coordinator can
+   *  sum the swarm total. The wire field stays named `gps` for protocol stability,
+   *  but it now carries creatures/sec — the SAME unit the UI shows as EVAL/S, so the
+   *  local readout and the summed collective stay consistent. No-op when offline. */
+  reportRate(eps: number): void {
+    if (this.socket?.readyState === WS_OPEN) this.sendRaw({ type: 'rate', gps: Math.max(0, Math.round(eps)) });
   }
   connected(): boolean {
     return this.socket?.readyState === WS_OPEN;

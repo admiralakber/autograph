@@ -66,9 +66,9 @@ export class AutographDashboard {
   private readonly options = { recurrent: true, selfConn: true, gating: true };
   private budget = HYPER.baseBudget;
   private frame = 0;
-  private lastGenAt = 0;
-  private lastGenValue = 0;
-  private lastRateAt = 0; // throttle for reporting local gen/s upstream
+  private lastSampleAt = 0; // when we last sampled this node's throughput
+  private lastEvalCount = 0; // cumulative evaluations at the last sample
+  private lastRateAt = 0; // throttle for reporting our rate upstream
   // The always-alive reframe: foreground YOUR climbing journey vs the (now-saturated)
   // shared frontier, and celebrate the rare moment a local creature beats the world.
   private yourBestShown = 0; // last YOUR-BEST skill rendered (drives the ✧ pulse)
@@ -255,14 +255,14 @@ export class AutographDashboard {
     }
   }
 
-  /** The collective gen/s from the coordinator — summed across every connected
-   *  island. Shown ONLY on the SWARM line; GEN/S remains this node's own rate. */
-  private setSwarmRate(gps: number): void {
-    this.setText('#ag-swarm-gps', this.formatGps(gps));
+  /** The collective throughput from the coordinator — creatures/sec summed across
+   *  every connected island. Shown ONLY on the SWARM line; EVAL/S is this node's own. */
+  private setSwarmRate(eps: number): void {
+    this.setText('#ag-swarm-gps', this.formatRate(eps));
   }
 
-  private formatGps(gps: number): string {
-    return gps >= 10 ? Math.round(gps).toLocaleString('en-GB') : gps.toFixed(1);
+  private formatRate(rate: number): string {
+    return rate >= 10 ? Math.round(rate).toLocaleString('en-GB') : rate.toFixed(1);
   }
 
   private formatSkill(x: number): string {
@@ -529,20 +529,25 @@ export class AutographDashboard {
     this.setText('#ag-swarm-explored', discovered === null ? '—' : this.formatCount(discovered));
 
     const now = performance.now();
-    if (this.lastGenAt === 0) {
-      this.lastGenAt = now;
-      this.lastGenValue = s.generation;
-    } else if (now - this.lastGenAt > 600) {
-      const gps = ((s.generation - this.lastGenValue) * 1000) / (now - this.lastGenAt);
-      // GEN/S is ALWAYS this node's own pulse; the collective lives on the SWARM line.
-      this.setText('#ag-gens', this.formatGps(gps));
-      // Report this node's pulse upstream so the coordinator can sum the swarm total.
+    if (this.lastSampleAt === 0) {
+      this.lastSampleAt = now;
+      this.lastEvalCount = s.evaluations;
+    } else if (now - this.lastSampleAt > 600) {
+      // THROUGHPUT, not frames. Counting whole generations (one step per rAF frame)
+      // made TURBO — a bigger per-FRAME offspring budget — look ~3x slower while real
+      // throughput was flat (the ruler, not the engine). `evaluations` advances by the
+      // budget every frame, so creatures/sec is TURBO-invariant: flat-or-higher, never a drop.
+      const eps = ((s.evaluations - this.lastEvalCount) * 1000) / (now - this.lastSampleAt);
+      // EVAL/S is ALWAYS this node's own pulse; the collective lives on the SWARM line.
+      this.setText('#ag-gens', this.formatRate(eps));
+      // Report this node's throughput upstream so the coordinator sums the swarm total —
+      // SAME unit as the local readout, so local and collective stay consistent.
       if (this.shared && now - this.lastRateAt > 2400) {
         this.lastRateAt = now;
-        this.shared.reportRate(gps);
+        this.shared.reportRate(eps);
       }
-      this.lastGenAt = now;
-      this.lastGenValue = s.generation;
+      this.lastSampleAt = now;
+      this.lastEvalCount = s.evaluations;
     }
     if (this.focused) {
       this.setText('#ag-fid', `${(this.focused.evaluation.fidelity * 100).toFixed(1)}%`);
