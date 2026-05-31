@@ -101,13 +101,13 @@ function evolve(): void {
     const e = evaluate(g, p);
     const w = writeSkill(g, p);
     console.log(
-      `best LIVELY creature: self-writer skill ${(e.fidelity * 100).toFixed(1)}% (honest r2self ${w.r2self.toFixed(3)}) | ` +
+      `best LIVELY creature: structural skill ${(e.fidelity * 100).toFixed(1)}% | weightR2 ${w.weightR2.toFixed(3)} actAcc ${w.actAcc.toFixed(2)} topo ${w.topo.toFixed(2)} | ` +
         `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | ` +
         `DNA ${g.nodes.length}n·${g.conns.length}c (${paramCount(g)} genes) | brain ${p.hiddenCount} hidden·${p.liveConns} conns`,
     );
     console.log(
-      `  v7 self-write: wrote ${w.selfLen} genes vs ${w.geneCount} in its DNA (length-match Λ ${w.lenSim.toFixed(2)}) | ` +
-        `r2teacher ${w.r2teacher.toFixed(3)} · anneal ${w.anneal.toFixed(2)} — the brain DECIDES its own length, no quine, no length given`,
+      `  structural self-write: wrote ${w.nodeLen}n·${w.connLen}c vs ${w.tgtNodes}n·${w.tgtConns}c in its DNA (Λn ${w.lenN.toFixed(2)} Λc ${w.lenC.toFixed(2)}) | ` +
+        `actAcc ${w.actAcc.toFixed(2)} (chance 0.083) · topo ${w.topo.toFixed(2)} · enabled ${w.enAcc.toFixed(2)} — the brain reconstructs its DNA GRAPH (von Neumann)`,
     );
     // Honesty (#10): fully ITERATING the loop g←g+α(E(R(B(g)))−g) settles the
     // creature; we report whether the genuine self-consistency it reaches is
@@ -157,11 +157,11 @@ function openEndedness(): void {
   if (champ) {
     const g = champ.cell.genome;
     const w = writeSkill(g, buildPhenotype(g));
-    const discovered = w.selfLen > 1 && w.lenSim > 0.3;
+    const discovered = w.weightR2 > 0.1 && (w.actAcc > 0.12 || w.topo > 0.55) && w.lenC > 0.3;
     console.log(
-      `LENGTH-DISCOVERY (v7 self-writer): champion writes ${w.selfLen} genes vs ${w.geneCount} in its DNA ` +
-        `(length-match Λ ${w.lenSim.toFixed(2)}; honest r2self ${w.r2self.toFixed(3)}) — ` +
-        `${discovered ? 'the brain genuinely LEARNED to decide its own length ✓' : 'FAIL — length stuck (evolvability wall)'}`,
+      `STRUCTURAL SELF-WRITE (von Neumann): champion reconstructs ${w.nodeLen}n·${w.connLen}c vs ${w.tgtNodes}n·${w.tgtConns}c in its DNA ` +
+        `(weightR2 ${w.weightR2.toFixed(3)} · actAcc ${w.actAcc.toFixed(2)} [chance 0.083] · topo ${w.topo.toFixed(2)} · Λc ${w.lenC.toFixed(2)}) — ` +
+        `${discovered ? 'the brain genuinely reconstructs its DNA GRAPH ✓' : 'FAIL — structural reconstruction stuck near chance'}`,
     );
     if (!discovered) process.exitCode = 1;
   }
