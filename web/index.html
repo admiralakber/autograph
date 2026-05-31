@@ -111,24 +111,29 @@
 
         <!-- THE LOOP -->
         <section class="panel p-loop" aria-label="The strange loop">
-          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the picture, read back through the creature's own brain, into DNA′</span></div>
-          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 106" xmlns="http://www.w3.org/2000/svg" aria-label="One CPPN: read over space it grows the brain and paints the portrait; read at its own genome coordinates it returns its DNA-prime, which should match the DNA">
-            <path id="ag-loop-path" class="lc-path" d="M28,32 H272 C295,32 295,76 272,76 H28 C5,76 5,32 28,32 Z" />
-            <g class="lc-fwd">
-              <text class="lc-arr" x="69" y="35">›</text>
-              <text class="lc-arr" x="151" y="35">›</text>
-              <text class="lc-arr" x="233" y="35">›</text>
-            </g>
-            <circle class="lc-node" cx="28" cy="32" r="2.6" /><text class="lc-st" x="28" y="20">DNA</text>
-            <circle class="lc-node" cx="110" cy="32" r="2.6" /><text class="lc-st" x="110" y="20">BRAIN</text>
-            <circle class="lc-node lc-out" cx="192" cy="32" r="3" /><text class="lc-st" x="192" y="20">PORTRAIT</text>
-            <circle class="lc-node" cx="272" cy="32" r="2.6" /><text class="lc-st" x="272" y="20">DNA′</text>
-            <text class="lc-back" x="150" y="95" text-anchor="middle">↺ read-back · the picture is fed back through the creature's own brain → DNA′</text>
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the brain draws its portrait, then reads it back in to name its own DNA</span></div>
+          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 116" xmlns="http://www.w3.org/2000/svg" aria-label="DNA grows the brain; the brain draws its self-portrait, then reads its own portrait back in and outputs DNA-prime, which is compared to the DNA">
+            <!-- token circulates the brain↔portrait exchange: draw out (top), read back (bottom) -->
+            <path id="ag-loop-path" class="lc-path" d="M138,30 C176,16 214,16 240,30 C214,46 176,46 138,30 Z" />
+            <!-- DNA → BRAIN -->
+            <line class="lc-wire" x1="34" y1="34" x2="118" y2="34" /><text class="lc-arr" x="78" y="37">›</text>
+            <!-- BRAIN → DNA′ (names) -->
+            <line class="lc-wire" x1="130" y1="46" x2="130" y2="84" /><text class="lc-arr" x="133" y="68" transform="rotate(90 133 68)">›</text>
+            <!-- DNA′ ⇠ compare ⇠ DNA -->
+            <path class="lc-compare" d="M122,90 C70,84 34,64 30,44" />
+            <circle class="lc-node" cx="22" cy="34" r="2.6" /><text class="lc-st" x="22" y="22">DNA</text>
+            <circle class="lc-node lc-brain" cx="130" cy="34" r="3.4" /><text class="lc-st" x="130" y="22">BRAIN</text>
+            <circle class="lc-node lc-out" cx="244" cy="34" r="3" /><text class="lc-st" x="244" y="22">PORTRAIT</text>
+            <circle class="lc-node" cx="130" cy="92" r="2.6" /><text class="lc-st" x="130" y="104">DNA′</text>
+            <text class="lc-edge" x="189" y="14" text-anchor="middle">draws ›</text>
+            <text class="lc-edge" x="189" y="58" text-anchor="middle">‹ reads back in</text>
+            <text class="lc-edge" x="150" y="68" text-anchor="start">names</text>
+            <text class="lc-edge" x="70" y="92" text-anchor="middle">compare DNA′ ↔ DNA</text>
             <circle class="lc-token" r="3">
-              <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
+              <animateMotion dur="4.4s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
             </circle>
           </svg>
-          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · its picture, read back through its brain</span></div>
+          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · the brain's read-back of its own picture</span></div>
           <canvas id="ag-loop" class="loopcanvas"></canvas>
           <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>SKILL <strong id="ag-fid-label">—</strong></span></div>
           <p class="loop-thesis mono-dim">↺ never quite 1 — a living thing only reaches for its true self, never seizes it. perfect closure is the empty creature; the reaching is the life.</p>

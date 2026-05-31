@@ -8,7 +8,7 @@ import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substr
 import { Garden } from '../engine/evolution.ts';
 import { MapElites } from '../engine/mapelites.ts';
 import { SharedArchive } from '../net/swarm.ts';
-import { volumeCloud, paintProjection, paintSlice } from '../engine/render/volume.ts';
+import { volumeCloud, paintProjection, paintSlice, drawSubstrateOverlay, substrateNodeMarkers } from '../engine/render/volume.ts';
 import { CreatureScene } from '../engine/render/scene3d.ts';
 import type { Identity, LineageEntry, LineageFile } from '../engine/lineage.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile, hashGenome, fingerprint } from '../engine/lineage.ts';
@@ -35,7 +35,7 @@ const CAPTIONS: Record<Mode, string> = {
   stacked: 'STACKED · one creature, three ways at once — self-portrait (the output), the brain that draws it, the DNA that grows the brain. Tap any panel to open it full-screen.',
   render:
     'SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.',
-  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — its hidden neurons PLACED, made dense, and wired by a quadtree of the DNA’s weight pattern (not a fixed grid). Queried over space, it draws the self-portrait above.',
+  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at, NOT a tidy column. They sit where the picture has structure: the network and the portrait are the same thing.',
   dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. It paints the brain; the picture that brain draws is then read back through the brain to reconstruct this DNA (THE LOOP).',
 };
 
@@ -424,6 +424,8 @@ export class AutographDashboard {
       const cloud = volumeCloud(pheno, this.lite ? 28 : 42); // lighter volume on mobile/low-power
       cloudCount = cloud.count;
       this.scene.setCloud(cloud);
+      const m = substrateNodeMarkers(pheno); // overlay the neurons at their real 3-D positions
+      this.scene.setNodes(m.pos, m.sizes);
     }
     const hover = (t: string): void => this.setText('#ag-hover', t);
     const subNodes = phenotypeNodes(pheno);
@@ -514,9 +516,16 @@ export class AutographDashboard {
     if (!this.focused) return;
     const c2d = need<HTMLCanvasElement>(this.root, '#ag-stage-2d');
     const portrait3d = this.portraitDim === '3d' && this.webgl;
-    // only paint the 2-D canvas when it's the one showing (3-D uses the WebGL cell)
-    if (this.mode === 'stacked' && !portrait3d) paintProjection(this.focused.pheno, c2d, 300);
-    else if (this.mode === 'render' && !portrait3d) paintSlice(this.focused.pheno, c2d, 420, 0);
+    // only paint the 2-D canvas when it's the one showing (3-D uses the WebGL cell).
+    // Then overlay the substrate network at its real (x,y) so the picture reads as
+    // a neural network whose neurons sit where the picture has structure.
+    if (this.mode === 'stacked' && !portrait3d) {
+      paintProjection(this.focused.pheno, c2d, 300);
+      drawSubstrateOverlay(this.focused.pheno, c2d, 22);
+    } else if (this.mode === 'render' && !portrait3d) {
+      paintSlice(this.focused.pheno, c2d, 420, 0);
+      drawSubstrateOverlay(this.focused.pheno, c2d, 40);
+    }
   }
 
   /** Run the activation pulse on whichever network view is showing. */

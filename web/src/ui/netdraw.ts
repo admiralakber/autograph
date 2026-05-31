@@ -79,12 +79,25 @@ function rowY(i: number, n: number): number {
   return PAD_Y + ((i + 0.5) / n) * (H - 2 * PAD_Y);
 }
 
-/** Paint a layout into an SVG: column headers, weighted edges, role-shaped nodes. */
-function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) => void): void {
+/** Paint a layout into an SVG: column headers, weighted edges, role-shaped nodes.
+ *  `spatial` = the substrate's true top-down (x,y) placement (no input→output
+ *  column flow), so the picture-aligned layout reads honestly. */
+function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) => void, spatial = false): void {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.replaceChildren();
 
-  // column flow labels
+  if (spatial) {
+    const note = el('text');
+    note.setAttribute('x', String(W / 2));
+    note.setAttribute('y', '14');
+    note.setAttribute('class', 'ag-axis ag-axis-dim');
+    note.setAttribute('text-anchor', 'middle');
+    note.textContent = 'substrate · top-down (x,y) — neurons sit where the picture has structure';
+    svg.append(note);
+  }
+
+  // column flow labels (layered views only)
+  if (!spatial) {
   const headIn = el('text');
   headIn.setAttribute('x', String(PAD_X));
   headIn.setAttribute('y', '14');
@@ -104,6 +117,7 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
   flow.setAttribute('text-anchor', 'middle');
   flow.textContent = 'signal →';
   svg.append(headIn, flow, headOut);
+  }
 
   // edges
   const eg = el('g');
@@ -269,38 +283,37 @@ export function drawCppnGraph(svg: SVGSVGElement, g: Genome, onHover?: (text: st
   return layout;
 }
 
-/** The phenotype substrate as a legible left→right layered graph (3 layers). */
+/** The phenotype substrate drawn at its TRUE top-down (x,y) placement — the
+ *  coordinates ES-HyperNEAT's quadtree chose, NOT an arbitrary column. Because the
+ *  quadtree places neurons where the CPPN pattern carries information, this view
+ *  spatially mirrors the self-portrait: the neurons sit where the picture has
+ *  structure. Inputs are the fixed sensor ring; outputs the density/hue pair. */
 export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conns: SubConn[], onHover?: (text: string) => void): NetLayout {
-  const ins = subNodes.filter((n) => n.role === 'in');
-  const hid = subNodes.filter((n) => n.role === 'hidden').slice().sort((a, b) => b.y - a.y || b.z - a.z);
-  const outs = subNodes.filter((n) => n.role === 'out');
+  // Undistorted square mapping of substrate (x,y) ∈ [-1,1]² centred in the panel,
+  // so relative positions match the (square) portrait frame.
+  const S = Math.min(W - 2 * PAD_X, H - 2 * PAD_Y);
+  const mapX = (sx: number): number => W / 2 + sx * (S / 2);
+  const mapY = (sy: number): number => H / 2 + sy * (S / 2);
   const place = new Map<SubNode, LayoutNode>();
   const nodes: LayoutNode[] = [];
-  const add = (arr: SubNode[], layer: number, layers: number): void => {
-    arr.forEach((n, i) => {
-      const x = colX(layer, layers);
-      const y = rowY(i, arr.length);
-      const ln: LayoutNode =
-        n.role === 'in'
-          ? { x, y, layer, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[i], title: SUB_IN_DESC[SUB_IN[i] ?? ''] ?? `INPUT ${SUB_IN[i] ?? i}` }
-          : n.role === 'out'
-            ? { x, y, layer, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[i], title: SUB_OUT_DESC[SUB_OUT[i] ?? ''] ?? `OUTPUT ${SUB_OUT[i] ?? i}` }
-            : {
-                x,
-                y,
-                layer,
-                role: 'hidden',
-                grey: 0.45 + ((n.act ?? 0) / (ACTIVATIONS.length - 1)) * 0.5,
-                r: 6,
-                title: `HIDDEN · ${ACTIVATIONS[n.act ?? 0] ?? '?'} · ES-placed`,
-              };
-      place.set(n, ln);
-      nodes.push(ln);
-    });
-  };
-  add(ins, 0, 3);
-  add(hid, 1, 3);
-  add(outs, 2, 3);
+  let inI = 0;
+  let outI = 0;
+  for (const n of subNodes) {
+    const x = mapX(n.x);
+    const y = mapY(n.y);
+    let ln: LayoutNode;
+    if (n.role === 'in') {
+      ln = { x, y, layer: 0, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[inI], title: SUB_IN_DESC[SUB_IN[inI] ?? ''] ?? `INPUT ${SUB_IN[inI] ?? inI}` };
+      inI++;
+    } else if (n.role === 'out') {
+      ln = { x, y, layer: 2, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[outI], title: SUB_OUT_DESC[SUB_OUT[outI] ?? ''] ?? `OUTPUT ${SUB_OUT[outI] ?? outI}` };
+      outI++;
+    } else {
+      ln = { x, y, layer: 1, role: 'hidden', grey: 0.45 + ((n.act ?? 0) / (ACTIVATIONS.length - 1)) * 0.5, r: 5, title: `HIDDEN · ${ACTIVATIONS[n.act ?? 0] ?? '?'} · ES-placed at (${n.x.toFixed(2)}, ${n.y.toFixed(2)})` };
+    }
+    place.set(n, ln);
+    nodes.push(ln);
+  }
 
   let maxAbs = 1e-4;
   for (const c of conns) maxAbs = Math.max(maxAbs, Math.abs(c.weight));
@@ -309,12 +322,10 @@ export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conn
     const a = place.get(c.a);
     const b = place.get(c.b);
     if (!a || !b) continue;
-    // hidden→hidden (same layer) or back edges are recurrent → drawn as arcs.
-    const recurrent = a.layer >= b.layer;
-    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0, recurrent });
+    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0 });
   }
   const layout: NetLayout = { nodes, edges, layers: 3 };
-  paint(svg, layout, onHover);
+  paint(svg, layout, onHover, true);
   return layout;
 }
 

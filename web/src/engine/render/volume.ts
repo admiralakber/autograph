@@ -1,5 +1,6 @@
 import type { Phenotype } from '../substrate.ts';
 import { substrateForward, ablateHidden } from '../substrate.ts';
+import { SUB_INPUTS, SUB_OUTPUTS } from '../arch.ts';
 import { lifeRgb, lifeRgbF } from '../palette.ts';
 
 // Sampling the phenotype's volumetric self-portrait. The substrate's density
@@ -88,6 +89,81 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
     }
   }
   ctx.putImageData(img, 0, 0);
+}
+
+/** Overlay the substrate NETWORK onto an already-painted 2-D portrait so the
+ *  picture is visibly a neural network ("render = network = code", made literal):
+ *  the neurons at their real substrate (x,y) — the same frame the field is painted
+ *  in — plus the strongest connections. Greyscale chrome (with a dark halo for
+ *  legibility) over the sunrise life; tasteful, only the strongest edges. */
+export function drawSubstrateOverlay(p: Phenotype, canvas: HTMLCanvasElement, maxEdges = 36): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const size = canvas.width;
+  const N = p.inFrom.length;
+  const hidEnd = N - SUB_OUTPUTS;
+  const px = (i: number): number => ((p.pos[i * 3]! + 1) / 2) * size;
+  const py = (i: number): number => ((p.pos[i * 3 + 1]! + 1) / 2) * size;
+  let maxAbs = 1e-4;
+  for (const e of p.edges) maxAbs = Math.max(maxAbs, Math.abs(e.weight));
+  const edges = p.edges.slice().sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)).slice(0, maxEdges);
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (const e of edges) {
+    const m = Math.abs(e.weight) / maxAbs;
+    ctx.strokeStyle = `rgba(8,8,8,${(0.22 + 0.4 * m).toFixed(2)})`; // dark base so it reads over bright life
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(px(e.from), py(e.from));
+    ctx.lineTo(px(e.to), py(e.to));
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(246,246,246,${(0.16 + 0.5 * m).toFixed(2)})`; // light filament on top
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  }
+  for (let i = 0; i < N; i++) {
+    const role: 'in' | 'hidden' | 'out' = i < SUB_INPUTS ? 'in' : i < hidEnd ? 'hidden' : 'out';
+    const x = px(i);
+    const y = py(i);
+    const r = role === 'out' ? 4 : role === 'in' ? 3 : 2.2;
+    ctx.fillStyle = 'rgba(8,8,8,0.72)'; // halo
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = role === 'hidden' ? 'rgba(232,232,232,0.85)' : 'rgba(255,255,255,0.96)';
+    if (role === 'in') {
+      ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (role === 'out') {
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 2.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/** Substrate neuron positions + per-role marker sizes, for the 3-D overlay
+ *  (CreatureScene.setNodes). Inputs (sensor ring) and outputs emphasised; hidden
+ *  small so the placement reads without burying the cloud. */
+export function substrateNodeMarkers(p: Phenotype): { pos: Float32Array; sizes: Float32Array } {
+  const N = p.inFrom.length;
+  const hidEnd = N - SUB_OUTPUTS;
+  const pos = new Float32Array(N * 3);
+  const sizes = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = p.pos[i * 3]!;
+    pos[i * 3 + 1] = p.pos[i * 3 + 1]!;
+    pos[i * 3 + 2] = p.pos[i * 3 + 2]!;
+    sizes[i] = i < SUB_INPUTS ? 72 : i < hidEnd ? 44 : 92; // in · hidden · out
+  }
+  return { pos, sizes };
 }
 
 const smooth = (e0: number, e1: number, x: number): number => {

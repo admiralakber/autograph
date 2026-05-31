@@ -37,12 +37,35 @@ const POINT_FRAG = /* glsl */ `
   }
 `;
 
+// Substrate NEURON markers overlaid on the volume: crisp white dots with a dark
+// rim so they read over the bright sunrise cloud (greyscale chrome over life).
+const NODE_VERT = /* glsl */ `
+  attribute float nsize;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = nsize * (1.0 / -mv.z);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const NODE_FRAG = /* glsl */ `
+  void main() {
+    vec2 d = gl_PointCoord - 0.5;
+    float r = length(d) * 2.0;
+    if (r > 1.0) discard;
+    float core = smoothstep(0.62, 0.5, r);   // white fill
+    float rim = smoothstep(1.0, 0.72, r);    // dark legibility ring outside the fill
+    vec3 col = mix(vec3(0.04), vec3(0.97), core);
+    gl_FragColor = vec4(col, max(core, rim * 0.85));
+  }
+`;
+
 export class CreatureScene {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
   private group: THREE.Group | null = null;
   private cloud: THREE.Points | null = null;
+  private nodes: THREE.Points | null = null;
   private raf = 0;
   readonly ok: boolean;
 
@@ -180,6 +203,33 @@ export class CreatureScene {
     });
     this.cloud = new THREE.Points(geo, mat);
     this.group.add(this.cloud);
+  }
+
+  /** Overlay the substrate's NEURONS at their real 3-D positions (inputs on the
+   *  z=−1 sensor ring, hidden on the z=0 placement sheet, outputs at z=+1), so the
+   *  glowing volume visibly IS a network. They rotate with the cloud, staying
+   *  registered to the picture. Edges are left to the 2-D view to avoid depth
+   *  clutter. `pos` = n*3 coords, `sizes` = per-node screen size. */
+  setNodes(pos: Float32Array, sizes: Float32Array): void {
+    if (!this.group) return;
+    if (this.nodes) {
+      this.group.remove(this.nodes);
+      this.nodes.geometry.dispose();
+      this.nodes = null;
+    }
+    if (pos.length === 0) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('nsize', new THREE.BufferAttribute(sizes, 1));
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: NODE_VERT,
+      fragmentShader: NODE_FRAG,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    });
+    this.nodes = new THREE.Points(geo, mat);
+    this.group.add(this.nodes);
   }
 
   private loop = (): void => {
