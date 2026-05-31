@@ -44,6 +44,14 @@ export const GENESIS_LABEL = 'GENESIS';
  * the v7 `genomeBytes` header (OUTPUTS=11), so the world rotates to a fresh v7 room —
  * reason (a). The decode is no longer v6's quine re-projection: the brain now reads its
  * image then AUTOREGRESSIVELY WRITES its own DNA, one gene at a time, DECIDING its own
- * length — a clean self-loop. `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step).
+ * length — a clean self-loop. `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step) →
+ * epoch 8 (THE COLD SELF-WRITE: reason (b), the SCORING-METRIC SEMANTICS changed. The
+ * curriculum that bootstraps the length-discovery now hands the length decision over FAST
+ * and makes length genuinely load-bearing, so a creature's `fidelity` means something
+ * different — the genuine self-length reconstruction (it writes its own gene count), not the
+ * old early-halting teacher-gamed value. Old v7 elites would mis-rank against the honest cold
+ * metric, so the world rotates to a fresh room. The GENOME WIRE FORMAT is UNCHANGED
+ * (`CPPN_OUTPUTS` stays 11), so the coordinator's `verify.ts` + `PROTOCOL_VERSION` are
+ * untouched — this is a metric rotation, and the v7 self-writer ARCHITECTURE stands.)
  */
-export const ARCHIVE_EPOCH = 7;
+export const ARCHIVE_EPOCH = 8;

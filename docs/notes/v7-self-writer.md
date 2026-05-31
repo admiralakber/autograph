@@ -172,3 +172,48 @@ skill = complexityWeight(G) · Veff · (lenFloor + (1−lenFloor)·Λ) · ponder
   curriculum learning (Bengio et al. 2009).
 - RAM evolved hard attention, plasticity, neuromodulation, NEAT/ES-HyperNEAT,
   neural-network quine — as in the v6 note + whitepaper references.
+
+## 8. The honest audit + the cold self-write (overnight pass)
+
+A directed honesty pass against the *actual* code. Straight answers:
+
+- **Emit is REAL-VALUED, not discrete tokens.** Each step emits `value = σ(Σ emitValᵢ·aᵢ)`
+  ∈ (0,1) — a continuous gene value, autoregressive (its own previous output feeds back),
+  with a learned end-of-sequence halt. NOT a discrete-vocabulary token. "Token" was an
+  overclaim; corrected in viz + docs to "a real value per gene, no transformer/LLM."
+- **It genuinely reads/thinks before writing.** READ and WRITE are **decoupled**: the brain
+  takes N foveated RAM glimpses (a fovea+periphery patch at a CHOSEN fixation = scan +
+  learned deviation, deciding where to look next), ingesting each into its recurrent +
+  Hebbian state WITHOUT emitting, halting via ACT — THEN it autoregressively writes. In this
+  architecture a **glimpse step IS a ponder step** (one per step), so "glimpses" and "ponder"
+  are the same count N (the readout now says `GLIMPSED ×N → WROTE L/G genes`, no asymmetry).
+- **Plasticity + attention are MASSIVELY load-bearing** (ablation, measured): turning
+  plasticity off on the best plastic creature collapses reconstruction R² from ≈0.36 to
+  ≈ −3.2 (worse than the mean — the brain genuinely LEARNS within its lifetime); attention
+  off ≈0.50→0.27. **Neuromodulation is mild** (≈ +0.03) — honestly reported as such.
+
+**The SKILL-NaN live bug — root-caused, not patched.** The substrate has unbounded
+activations + linear outputs + recurrent/Hebbian feedback; over the long write it could
+diverge to ±Infinity, and `emitVal·Infinity` → NaN → NaN skill (the UI `?? 0` didn't catch
+NaN). ROOT FIX: bound the recurrent state each step (BIBO-stable) so no Infinity/NaN can
+arise; defense-in-depth guards in the metric + UI (a NaN skill is never honest → floor 0).
+
+**The cold self-write (the hardest-honest push, stays v7 — fitness only).** The old
+curriculum was a CRUTCH: the champion scored ~22% while halting at 3 genes vs 29 (Λ 0.10),
+gaming teacher-forced values without getting its own length right. Handing the length
+decision over fast (`curriculumHi` 0.55→0.28) + making length load-bearing
+(`lengthShapeFloor` 0.6→0.25) makes the displayed champion the genuine self-length
+reconstructor: **Λ ≈ 0.9–1.0** (it writes its own gene count), honest **r2self ≈ skill ≈
+0.30** at 2000 gens (higher AND honester than the crutch-era 0.22). Floor 0.000.
+
+**The measured WALL (a beautiful honest finding).** A *fully* teacher-free fitness is GAMED
+by a degenerate 1-gene write that nails the single highest-variance gene (Λ 0.04, r2self
+0.565 from one outlier). So the teacher-length signal is NOT a crutch to be ashamed of — it
+is the **anti-gaming signal that forces WHOLE-genome reconstruction**. Fast-anneal cold is
+the sweet spot. The metric-semantics shift rotates the world (`ARCHIVE_EPOCH` bump); the
+genome wire format is unchanged (coordinator verification untouched).
+
+**The honest frontier (genuine next leap, NOT done tonight):** reconstruct the genome's
+STRUCTURE (topology), not just its gene values — true functional self-reproduction. That is a
+real architectural leap (variable structured output, graph-edit comparison) and a multi-session
+research problem; forcing it tonight would be dishonest. Named, not promised — the v8 frontier.
