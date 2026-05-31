@@ -7,3 +7,26 @@ export const GENESIS_SEED =
 
 /** A short, fixed label used wherever the Genesis is surfaced in the instrument. */
 export const GENESIS_LABEL = 'GENESIS';
+
+/**
+ * THE ARCHIVE EPOCH — the single source of truth for the shared world's identity.
+ *
+ * The swarm's room name is derived from this (`genesis-v${ARCHIVE_EPOCH}`), so a
+ * bump AUTO-ROTATES every client onto a fresh shared archive — no manual reset,
+ * no stale elites lingering. Bump it whenever the shared MAP-Elites archive
+ * becomes INCOMPATIBLE with what's already stored, which happens for EITHER of
+ * two reasons:
+ *
+ *   (a) the GENOME WIRE FORMAT changes  — old elites no longer verify
+ *       (mirror: cppn.ts `genomeBytes` / coordinator `verify.ts`); or
+ *   (b) the SCORING-METRIC SEMANTICS change — old elites' signed `fidelity`
+ *       means something different, so keep-best would mis-rank them against new
+ *       ones (e.g. the v3→v4 bump: the loop's skill went from the bypassing
+ *       "self-quine" echo to the genuine picture→brain read-back, so the old
+ *       ~0.9 quine scores are not comparable to the new ~0.3–0.5 ones).
+ *
+ * History: v1 (analytic read-back) → v2 (bolt-on reader weights) → v3 (intrinsic
+ * self-quine; genome dropped reader) → v4 (read-back through the picture/brain;
+ * genome format UNCHANGED from v3, but the metric semantics changed → rotate).
+ */
+export const ARCHIVE_EPOCH = 4;

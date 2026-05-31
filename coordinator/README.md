@@ -69,7 +69,11 @@ coordinator/
 
 ## 📡 Protocol
 
-One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `genesis-v3`). All frames are JSON. `PROTOCOL_VERSION = 3` (bumped with the genome wire format; v3 dropped the old read-back-network weights — the loop's decode half is now the rendered picture fed back through the creature's own brain, so the genome carries no separate reader. Old v2 elites no longer verify, so the fresh `genesis-v3` room started clean; protocol-3 changes since are additive — `discovered` count, gen/s decay — so the archive PERSISTS). `/health` reports the protocol.
+One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `genesis-v${ARCHIVE_EPOCH}`, currently **`genesis-v4`**). All frames are JSON.
+
+**Archive epoch (the single reset knob).** The default room is derived from one client-side constant, `ARCHIVE_EPOCH` in [`../web/src/engine/genesis.ts`](../web/src/engine/genesis.ts). **Bump it whenever the shared archive becomes incompatible with what's stored — for EITHER reason: (a) the genome wire format changes (old elites stop verifying), or (b) the scoring-metric semantics change (old signed `fidelity` is no longer comparable, so keep-best would mis-rank).** A bump auto-rotates every client onto a fresh room — no manual reset, no stale elites lingering; the old room's Durable-Object storage is simply orphaned (harmless). The coordinator itself is room-agnostic (it serves any name), so an epoch bump needs **no coordinator redeploy**. History: v1 (analytic) → v2 (reader weights) → v3 (self-quine; genome dropped reader) → **v4** (read-back through the picture/brain; genome UNCHANGED from v3, but the metric semantics changed → rotate).
+
+`PROTOCOL_VERSION = 3` is a *separate* counter — the coordinator's wire/`/health` version, bumped only for genome-wire-format changes (so it stays 3 across the v3→v4 metric-only rotation). Protocol-3 coordinator changes are additive (`discovered` count, gen/s decay), so the Durable-Object archive PERSISTS across coordinator deploys. `/health` reports the protocol.
 
 ### Client → server
 

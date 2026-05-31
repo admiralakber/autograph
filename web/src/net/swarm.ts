@@ -14,6 +14,7 @@ import type { Genome } from '../engine/cppn.ts';
 import type { Evaluation } from '../engine/fitness.ts';
 import type { LineageEntry } from '../engine/lineage.ts';
 import type { Archive, ArchiveBest, Cell } from '../engine/archive.ts';
+import { ARCHIVE_EPOCH } from '../engine/genesis.ts';
 
 // ── Wire protocol (mirror of coordinator/src/protocol.ts, v1) ────────────────
 
@@ -128,7 +129,11 @@ export class SharedArchive implements Archive {
     // self-quine, no reader weights): a fresh room name guarantees a clean slate
     // so stale v2 elites — which no longer verify — can never linger. Everyone
     // auto-joins this one Genesis archipelago.
-    const room = opts.room ?? 'genesis-v3';
+    // The shared world is versioned by ARCHIVE_EPOCH (engine/genesis.ts): bumping
+    // that one constant auto-rotates everyone onto a fresh archive whenever the
+    // genome wire format OR the scoring-metric semantics change — so old,
+    // discredited-metric elites are left behind and no manual reset is ever needed.
+    const room = opts.room ?? `genesis-v${ARCHIVE_EPOCH}`;
     this.wsUrl = `${opts.url.replace(/\/$/, '')}/parties/archive-room/${encodeURIComponent(room)}`;
     this.connect();
     this.syncTimer = setInterval(() => this.periodicSync(), SYNC_INTERVAL_MS);
