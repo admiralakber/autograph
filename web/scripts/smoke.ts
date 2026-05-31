@@ -1,15 +1,16 @@
-// Headless sanity check for the (ES-)HyperNEAT + self-quine engine (run with Node
-// type stripping). Verifies: Genesis determinism; that genuine ES-HyperNEAT
-// discovers VARIABLE hidden placement/density (not a fixed grid); that NEAT
-// augmenting topologies complexify + speciate; that the self-reading quine's
-// fidelity is HONEST (a constant/trivial creature scores ~0, NOT ~97%, and a
-// genuine creature reaches real self-consistency); that fully iterating the
-// self-map drifts toward the trivial fixed point the vitality gate refuses; and
-// that lineage verification rejects tampering. NOT part of the build.
+// Headless sanity check for the (ES-)HyperNEAT + picture→brain read-back engine
+// (run with Node type stripping). Verifies: Genesis determinism; that genuine
+// ES-HyperNEAT discovers VARIABLE hidden placement/density (not a fixed grid);
+// that NEAT augmenting topologies complexify + speciate; that the read-back loop
+// (the PICTURE fed through the creature's own brain → DNA′) is HONEST (a
+// constant/trivial creature scores ~0, NOT ~97%, and a genuine creature reaches
+// real self-consistency); that fully iterating the loop drifts toward the trivial
+// fixed point the vitality gate refuses; and that lineage verification rejects
+// tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
 import { seededGenome, paramCount } from '../src/engine/cppn.ts';
 import { evaluate, iterateLoop, loopFidelity } from '../src/engine/fitness.ts';
-import { selfConsistencySkill, selfConsistencyR2 } from '../src/engine/quine.ts';
+import { selfConsistencySkill, selfConsistencyR2 } from '../src/engine/readback.ts';
 import { buildPhenotype } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
@@ -27,23 +28,26 @@ function determinismCheck(): void {
   console.log(`genesis DNA: ${g.nodes.length} nodes, ${g.conns.length} connections (minimal) | ES-HyperNEAT substrate: ${p.hiddenCount} hidden neurons placed · ${p.liveConns} connections expressed`);
 }
 
-/** The honesty contract: a free regressor that "predicts the mean" used to score
- *  ~0.97. The intrinsic quine must score ~0 for a creature with nothing genuine
- *  to re-encode. We assert it, so a regression to the old hack fails the gate. */
-function quineHonesty(): void {
-  // (a) a constant / trivial creature (all weights+biases zero → constant CPPN)
+/** The honesty contract: the read-back flows THROUGH THE PICTURE (the rendered
+ *  field → the creature's own brain → DNA′). A creature with nothing genuine to
+ *  re-encode (a blank picture) must score ~0, never the old ~0.97. We assert it. */
+function readbackHonesty(): void {
+  // (a) a constant / trivial creature (all weights+biases zero → blank picture)
   const flat = seededGenome('honesty');
   for (const c of flat.conns) c.weight = 0;
   for (const n of flat.nodes) n.bias = 0;
-  const flatSkill = selfConsistencySkill(flat);
+  const flatSkill = selfConsistencySkill(flat, buildPhenotype(flat));
 
   // (b) a random creature: not evolved → no genuine self-consistency
   let randSkill = 0;
   const N = 120;
-  for (let i = 0; i < N; i++) randSkill += selfConsistencySkill(seededGenome(`rand-${i}`));
+  for (let i = 0; i < N; i++) {
+    const g = seededGenome(`rand-${i}`);
+    randSkill += selfConsistencySkill(g, buildPhenotype(g));
+  }
   randSkill /= N;
 
-  console.log(`SELF-QUINE HONESTY (no free regressor; baseline-corrected R²-skill):`);
+  console.log(`READ-BACK HONESTY (picture → own brain → DNA′; baseline-corrected R²-skill):`);
   console.log(`  constant/trivial creature skill: ${flatSkill.toFixed(3)}  (was ~0.97 with the old regression hack)`);
   console.log(`  random-creature mean skill     : ${randSkill.toFixed(3)}  (predict-the-mean ⇒ 0)`);
   const ok = flatSkill < 0.05 && randSkill < 0.1;
@@ -95,18 +99,19 @@ function evolve(): void {
     const p = buildPhenotype(g);
     const e = evaluate(g, p);
     console.log(
-      `best LIVELY creature: self-consistency skill ${(e.fidelity * 100).toFixed(1)}% (raw R² ${selfConsistencyR2(g).toFixed(3)}) | ` +
+      `best LIVELY creature: self-consistency skill ${(e.fidelity * 100).toFixed(1)}% (raw R² ${selfConsistencyR2(g, p).toFixed(3)}) | ` +
         `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | ` +
         `DNA ${g.nodes.length}n·${g.conns.length}c (${paramCount(g)} genes) | brain ${p.hiddenCount} hidden·${p.liveConns} conns`,
     );
-    // Honesty (#10): fully ITERATING the self-map g←g+α(quine(g)−g) settles the
+    // Honesty (#10): fully ITERATING the loop g←g+α(E(R(B(g)))−g) settles the
     // creature; we report whether the genuine self-consistency it reaches is
     // partial (a living creature is imperfect self-knowledge) and whether it
     // drifts toward triviality (the only effortless fixed point, vitality-gated).
     const tEvo = iterateLoop(g, 30, 0.25);
-    const fe = evaluate(tEvo.final);
-    console.log(`  loop honesty (#10): one-step skill ${(loopFidelity(g) * 100).toFixed(1)}%; iterating the self-map → residual ${tEvo.residual.toFixed(3)}, final vitality ${fe.vitality.toFixed(2)}, final skill ${(loopFidelity(tEvo.final) * 100).toFixed(1)}%`);
-    console.log('    ∴ skill is measured one-step self-consistency; the vitality gate + MAP-Elites keep creatures lively-but-imperfect, never the empty self.');
+    const pf = buildPhenotype(tEvo.final);
+    const fe = evaluate(tEvo.final, pf);
+    console.log(`  loop honesty (#10): one-step skill ${(loopFidelity(g, p) * 100).toFixed(1)}%; iterating the loop → residual ${tEvo.residual.toFixed(3)}, final vitality ${fe.vitality.toFixed(2)}, final skill ${(loopFidelity(tEvo.final, pf) * 100).toFixed(1)}%`);
+    console.log('    ∴ skill is measured one-step self-consistency (picture→brain→DNA′); the vitality gate + MAP-Elites keep creatures lively-but-imperfect, never the empty self.');
   }
 }
 
@@ -178,7 +183,7 @@ function swarmSafety(): void {
 
 async function main(): Promise<void> {
   determinismCheck();
-  quineHonesty();
+  readbackHonesty();
   evolve();
   openEndedness();
   swarmSafety();

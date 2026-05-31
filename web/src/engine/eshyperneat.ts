@@ -200,13 +200,16 @@ export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], par
   const conns: RawConn[] = [];
   const hidden = new Map<string, Vec3>();
 
-  // (a) Outward from each input neuron.
+  // (a) Outward from each input neuron. Respect the hidden-neuron cap so the
+  //     discovered count (and the read-back cost, which scales with it) is bounded.
   for (const inp of inputs) {
     const root = divisionInitialization((cx, cy) => wAt(inp, cx, cy, HIDDEN_Z), params);
     pruningExtraction((cx, cy) => wAt(inp, cx, cy, HIDDEN_Z), root, params, (x, y, w) => {
+      const k = key(x, y, HIDDEN_Z);
+      if (!hidden.has(k) && hidden.size >= params.maxHidden) return;
       const t: Vec3 = [x, y, HIDDEN_Z];
       conns.push({ from: inp, to: t, weight: w });
-      hidden.set(key(x, y, HIDDEN_Z), t);
+      hidden.set(k, t);
     });
   }
 
@@ -232,10 +235,13 @@ export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], par
     frontier = next;
   }
 
-  // (c) Inward to each output neuron (the candidate point is the SOURCE).
+  // (c) Inward to each output neuron (the candidate point is the SOURCE). Connect
+  //     outputs only to ALREADY-discovered hidden neurons, so the output search
+  //     ties the network together without minting fresh (uncapped) hidden nodes.
   for (const out of outputs) {
     const root = divisionInitialization((cx, cy) => evalCompiled(cc, cx, cy, HIDDEN_Z, out[0], out[1], out[2], o2)[0] * params.weightScale, params);
     pruningExtraction((cx, cy) => evalCompiled(cc, cx, cy, HIDDEN_Z, out[0], out[1], out[2], o2)[0] * params.weightScale, root, params, (x, y, w) => {
+      if (!hidden.has(key(x, y, HIDDEN_Z))) return;
       conns.push({ from: [x, y, HIDDEN_Z], to: out, weight: w });
     });
   }

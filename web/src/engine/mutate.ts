@@ -16,7 +16,7 @@ export interface MutateOptions {
   /** allow a neuron to gate a connection (ADD_GATE). */
   gating: boolean;
 }
-export const DEFAULT_OPTIONS: MutateOptions = { recurrent: true, selfConn: false, gating: true };
+export const DEFAULT_OPTIONS: MutateOptions = { recurrent: true, selfConn: true, gating: true };
 
 // NEAT historical markings. Identical structural mutations (a given from→to
 // link, or a given connection split) get the SAME innovation number across the

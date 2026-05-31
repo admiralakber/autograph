@@ -3,50 +3,49 @@ import { genomeVector, unitToParam, applyParams, cloneGenome, W_SCALE } from './
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
-import { quineReadback, dnaTargetUnits, selfConsistencySkill } from './quine.ts';
+import { selfReadback, dnaTargetUnits, selfConsistencySkill } from './readback.ts';
 
-// THE STRANGE LOOP — a genuine self-reading QUINE, not a bolt-on regressor.
+// THE STRANGE LOOP — read back THROUGH THE PICTURE, not around it.
 //
-//   write:  DNA (CPPN) → brain (ES-HyperNEAT substrate) → self-portrait field.
-//   read :  the SAME CPPN, read at each gene's canonical genome coordinate,
-//           outputs that gene's value → DNA′ (quine.ts). No separate network.
-//   close:  fidelity = how well DNA′ matches DNA — measured as baseline-corrected
-//           SKILL (R²-style), so "predict the mean" scores 0, never ~97%.
+//   write:  DNA (CPPN) → brain (ES-HyperNEAT substrate) → self-portrait (density
+//           field) — the picture the creature actually draws.
+//   read :  that PICTURE is fed back through the creature's OWN brain (its hidden
+//           neurons, weights painted by the same CPPN) → DNA′ (readback.ts).
+//   close:  fidelity = how well DNA′ matches DNA — baseline-corrected SKILL (R²),
+//           so a blank picture / "predict the mean" scores ~0, never ~97%.
 //
-//   Both halves are the same function: queried over space it paints the brain;
-//   queried at genome coordinates it reports its own recipe. The only perfect
-//   fixed point is the trivial/empty creature (constant function → ~0 skill AND
-//   ~0 vitality), which the vitality gate refuses — so honesty holds by
-//   construction. There is nothing external to over-fit or cheat with.
+//   The phenotype is genuinely IN the read path: DNA′ is produced by processing
+//   the rendered picture, not by re-querying the CPPN at abstract coordinates.
+//   The reader is the creature's own painted network; nothing external. The only
+//   effortless fixed point is the empty creature (blank picture → ~mean DNA → ~0
+//   skill AND ~0 vitality), which the vitality gate refuses.
 
 const o2: [number, number] = [0, 0];
 
-/** The DNA's own values in unit space — the targets the read-back must match.
- *  (Re-exported from quine.ts under the loop's familiar name for the UI.) */
+/** The DNA's own values in unit space — the targets the read-back must match. */
 export function targetAtProbes(g: Genome): Float32Array {
   return dnaTargetUnits(g);
 }
 
-/** The intrinsic read-back: the creature's OWN CPPN, sampled at its genome
- *  coordinates, reporting DNA′ in [0,1]. The phenotype argument is accepted for
- *  call-site compatibility but unused — the readout is purely the DNA reading
- *  itself, not a function of the rendered portrait. */
-export function readBackUnits(g: Genome, _p?: Phenotype): Float32Array {
-  return quineReadback(g);
+/** The read-back: the rendered PICTURE fed through the creature's own brain →
+ *  DNA′ in [0,1]. The phenotype (the picture) is the genuine input. */
+export function readBackUnits(g: Genome, p: Phenotype): Float32Array {
+  return selfReadback(g, p);
 }
 
-/** Self-encoding SKILL in [0,1] — baseline-corrected (1 − MSE/Var, clamped).
- *  This IS the ranked + signed fidelity: a constant/trivial creature scores ~0. */
-export function loopFidelity(g: Genome, _p?: Phenotype): number {
-  return selfConsistencySkill(g);
+/** Self-encoding SKILL in [0,1] — baseline-corrected (1 − MSE/Var, clamped), where
+ *  DNA′ is read back THROUGH THE PICTURE. The ranked + signed fidelity: a blank /
+ *  trivial creature scores ~0. */
+export function loopFidelity(g: Genome, p: Phenotype): number {
+  return selfConsistencySkill(g, p);
 }
 
 // --- The fixed-point iteration (the loop literally closing) -----------------
 
-/** Decode via the quine: each reconstructed gene becomes the matching
- *  weight/bias; topology + activations carry over as the body plan. */
-export function readBackGenome(g: Genome): Genome {
-  const dna = quineReadback(g);
+/** Decode by reading the picture back through the brain: each reconstructed gene
+ *  becomes the matching weight/bias; topology + activations carry over. */
+export function readBackGenome(g: Genome, p: Phenotype): Genome {
+  const dna = selfReadback(g, p);
   const vec = new Float32Array(dna.length);
   for (let k = 0; k < dna.length; k++) vec[k] = unitToParam(dna[k]!);
   return applyParams(g, vec);
@@ -63,19 +62,20 @@ export interface LoopTrajectory {
 const DRIFT_NORM = 1 / (2 * W_SCALE);
 
 /** Iterate T under under-relaxation so the creature settles to a fixed point:
- *  g_{n+1} = g_n + α·(T(g_n) − g_n), where T replaces each gene with the CPPN's
- *  self-readout of it. Records drift→0 (closing) and per-step skill. Topology is
- *  fixed during the iteration, so the gene vector keeps a stable length. */
+ *  g_{n+1} = g_n + α·(T(g_n) − g_n), where T re-grows the brain, renders the
+ *  picture, and reads it back to gene values. Records drift→0 (closing) and
+ *  per-step skill. Topology is fixed during the iteration. */
 export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha, tol = HYPER.loopTol): LoopTrajectory {
   let g = cloneGenome(g0);
   const drift: number[] = [];
   const fidelity: number[] = [];
   let converged = false;
   for (let s = 0; s < steps; s++) {
-    fidelity.push(selfConsistencySkill(g));
+    const p = buildPhenotype(g);
+    fidelity.push(selfConsistencySkill(g, p));
     const cur = genomeVector(g);
     const n = cur.length;
-    const dna = quineReadback(g);
+    const dna = selfReadback(g, p);
     const next = new Float32Array(n);
     let se = 0;
     for (let i = 0; i < n; i++) {

@@ -29,14 +29,14 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'biasMutRate', label: 'bias-mutate rate', value: 0.3, group: 'Mutation (NEAT)', note: 'fraction of node biases perturbed per mutation' },
   { key: 'biasMutSigma', label: 'bias σ', value: 0.3, group: 'Mutation (NEAT)', note: 'std-dev of the Gaussian bias perturbation' },
   { key: 'activationMutRate', label: 'activation-swap rate', value: 0.08, group: 'Mutation (NEAT)', note: 'chance a node changes its activation function' },
-  { key: 'addConnRate', label: 'add-connection rate', value: 0.14, group: 'Mutation (NEAT)', note: 'NEAT structural: add a new connection' },
-  { key: 'addNodeRate', label: 'add-node rate', value: 0.08, group: 'Mutation (NEAT)', note: 'NEAT structural: split a connection with a new node' },
+  { key: 'addConnRate', label: 'add-connection rate', value: 0.2, group: 'Mutation (NEAT)', note: 'NEAT structural: add a new connection' },
+  { key: 'addNodeRate', label: 'add-node rate', value: 0.12, group: 'Mutation (NEAT)', note: 'NEAT structural: split a connection with a new node (drives genuine complexification)' },
   { key: 'toggleRate', label: 'enable-toggle rate', value: 0.02, group: 'Mutation (NEAT)', note: 'flip a connection on/off' },
-  { key: 'addGateRate', label: 'add-gate rate', value: 0.05, group: 'Mutation (NEAT)', note: 'neataptic-style: let a neuron gate a connection (option)' },
-  { key: 'recurrentRate', label: 'recurrent chance', value: 0.3, group: 'Mutation (NEAT)', note: 'chance an added connection may be a back/lateral edge (recurrent — ON by default)' },
-  { key: 'selfConnRate', label: 'self-connection chance', value: 0.2, group: 'Mutation (NEAT)', note: 'chance an added connection is a self-loop (option)' },
+  { key: 'addGateRate', label: 'add-gate rate', value: 0.07, group: 'Mutation (NEAT)', note: 'neataptic-style: let a neuron gate a connection (ON by default)' },
+  { key: 'recurrentRate', label: 'recurrent chance', value: 0.5, group: 'Mutation (NEAT)', note: 'chance an added connection may be a back/lateral edge (recurrent — ON by default)' },
+  { key: 'selfConnRate', label: 'self-connection chance', value: 0.3, group: 'Mutation (NEAT)', note: 'chance an added connection is a self-loop (self-connections ON by default)' },
 
-  { key: 'speciesThreshold', label: 'compatibility threshold', value: 0.7, group: 'Speciation', note: 'NEAT compatibility distance above which creatures split species', selfTunes: false },
+  { key: 'speciesThreshold', label: 'compatibility threshold', value: 0.4, group: 'Speciation', note: 'NEAT compatibility distance above which creatures split species — tuned so multiple species coexist', selfTunes: false },
   { key: 'crossoverRate', label: 'crossover rate', value: 0.3, group: 'Speciation', note: 'fraction of offspring from innovation-aligned crossover (else mutation only) — balanced against novelty' },
   { key: 'respeciateEvery', label: 'respeciate interval', value: 20, unit: 'gen', group: 'Speciation', note: 'recompute species membership every N generations' },
 
@@ -47,12 +47,12 @@ export const PARAMS: readonly ParamSpec[] = [
   // quadtree resolution (the paper itself sets a max resolution rm for the same
   // reason). Thresholds match the paper's defaults (0.03).
   { key: 'esInitialDepth', label: 'initial quad depth', value: 1, group: 'Substrate (ES-HyperNEAT)', note: 'minimum quadtree resolution sampled before variance decides (2^d × 2^d grid)' },
-  { key: 'esMaxDepth', label: 'max quad depth', value: 2, group: 'Substrate (ES-HyperNEAT)', note: 'upper bound on quadtree resolution — the browser-real-time resolution cap (rm in the paper); higher = more neurons, slower' },
+  { key: 'esMaxDepth', label: 'max quad depth', value: 3, group: 'Substrate (ES-HyperNEAT)', note: 'upper bound on quadtree resolution — the browser-real-time resolution cap (rm in the paper); higher = more neurons (richer brain), slower' },
   { key: 'esDivisionThreshold', label: 'division threshold', value: 0.03, group: 'Substrate (ES-HyperNEAT)', note: 'subdivide a quad while its weight variance exceeds this (more neurons where there is more information)' },
   { key: 'esVarianceThreshold', label: 'variance threshold', value: 0.03, group: 'Substrate (ES-HyperNEAT)', note: 'recurse pruning while a quad’s variance exceeds this' },
   { key: 'esBandThreshold', label: 'band threshold', value: 0.05, group: 'Substrate (ES-HyperNEAT)', note: 'express a connection only if it sits in a band (min neighbour-difference exceeds this) — the band-pruning step' },
   { key: 'esIterationLevel', label: 'iteration level', value: 1, group: 'Substrate (ES-HyperNEAT)', note: 'how many times placement is re-applied from newly-discovered hidden neurons (hidden→hidden discovery)' },
-  { key: 'esMaxHidden', label: 'max hidden neurons', value: 32, group: 'Substrate (ES-HyperNEAT)', note: 'defensive upper bound on discovered hidden neurons (browser memory/throughput guard)' },
+  { key: 'esMaxHidden', label: 'max hidden neurons', value: 48, group: 'Substrate (ES-HyperNEAT)', note: 'defensive upper bound on discovered hidden neurons (browser memory/throughput guard)' },
   { key: 'substrateWeight', label: 'substrate weight scale', value: 3.0, group: 'Substrate (ES-HyperNEAT)', note: 'max magnitude a painted CPPN weight maps to in the substrate (max_weight)' },
 
   { key: 'loopRelaxAlpha', label: 'loop relaxation α', value: 0.55, group: 'The loop', note: 'under-relaxation for the fixed-point iteration g←g+α(T(g)−g)' },
