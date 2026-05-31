@@ -37,9 +37,12 @@
 
 import type { Evaluation, Genome, LineageEntry, WireElite } from './protocol.ts';
 
-// Mirrors web/src/engine/arch.ts
+// Mirrors web/src/engine/arch.ts. v6 grew CPPN_OUTPUTS 2→9 (the temporal channels:
+// weight, bias | α, emit, modGate, fixX, fixY, fixScale, halt). genomeBytes writes
+// this into the header, so the coordinator MUST match the engine or v6 genomes fail
+// the integrity re-hash. The byte LAYOUT is unchanged from v3 — only this value grew.
 const CPPN_INPUTS = 7;
-const CPPN_OUTPUTS = 2;
+const CPPN_OUTPUTS = 9;
 // Mirrors web/src/engine/lineage.ts
 const LINEAGE_VERSION = 1;
 
@@ -84,9 +87,12 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 // v2 added a per-connection `gater` int32 (conn stride 16 → 20). v3 REMOVED the
 // per-creature read-back network (it was a bolt-on regressor; the loop's decode
 // half is now the intrinsic CPPN self-quine), so the header is back to 8 bytes
-// and no reader weights are appended. If the engine's genome encoding changes
-// again, `npm run make-fixture && npm run smoke` trips — that is the drift gate.
-const GENOME_FORMAT_VERSION = 3;
+// and no reader weights are appended. v4 = v6 temporal brain: the byte layout is
+// UNCHANGED, but CPPN_OUTPUTS grew 2→9 (the temporal channels), so the header's
+// OUTPUTS field differs and v5/v6 genomes are mutually non-verifying — the epoch
+// rotates (genesis-v6). If the engine's genome encoding changes again,
+// `npm run make-fixture && npm run smoke` trips — that is the drift gate.
+const GENOME_FORMAT_VERSION = 4;
 
 /** Stable little-endian serialisation — EXACT mirror of cppn.ts:genomeBytes (v3). */
 export function genomeBytes(g: Genome): Uint8Array {

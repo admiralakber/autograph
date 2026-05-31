@@ -32,6 +32,12 @@ export const GENESIS_LABEL = 'GENESIS';
  * v5 (HARDENED loop skill: the read-back sees only a bounded, per-gene view of
  * the image and skill is complexity-weighted — so v4's pre-hardening elites,
  * signed at the old looser ~0.9, are no longer comparable and would freeze
- * keep-best; genome format UNCHANGED from v4, metric semantics changed → rotate).
+ * keep-best; genome format UNCHANGED from v4, metric semantics changed → rotate) →
+ * v6 (THE TEMPORAL BRAIN: the GENOME WIRE FORMAT changed — `CPPN_OUTPUTS` 2→9,
+ * adding the temporal channels [α plasticity, neuromod emit/modGate, attention
+ * fixX/fixY/fixScale, halt]. v5 elites no longer verify against the v6 `genomeBytes`
+ * header (which now records OUTPUTS=9), so the world rotates to a fresh v6 room —
+ * reason (a), the genome wire format. The read-back is now a temporal read→ponder→
+ * emit; the coordinator's `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step).
  */
-export const ARCHIVE_EPOCH = 5;
+export const ARCHIVE_EPOCH = 6;

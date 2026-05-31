@@ -16,8 +16,12 @@
  *  v3: that bolt-on regressor is GONE — the loop's decode half is now intrinsic
  *      (the CPPN self-quine), so the genome is just the graph again and
  *      `genomeBytes` drops the reader weights. v2 elites no longer verify; the
- *      shared world rebuilds clean (clients also join a fresh v3 room). */
-export const PROTOCOL_VERSION = 3 as const;
+ *      shared world rebuilds clean (clients also join a fresh v3 room).
+ *  v4: the v6 TEMPORAL BRAIN — `CPPN_OUTPUTS` 2→9 (the temporal channels), so the
+ *      `genomeBytes` header records OUTPUTS=9 and v3-format (v5-epoch) elites no
+ *      longer verify. Byte layout unchanged; the world rotates to a fresh genesis-v6
+ *      room (see web/src/engine/genesis.ts ARCHIVE_EPOCH). `verify.ts` mirrors this. */
+export const PROTOCOL_VERSION = 4 as const;
 
 // ── Domain types (mirror of web/src/engine) ─────────────────────────────────
 
