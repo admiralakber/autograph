@@ -63,9 +63,11 @@ export class ArchiveRoom extends Server<Env> {
       }
     }
     // Restore the cumulative "discovered" total (monotonic across DO restarts;
-    // load() above deliberately does NOT re-count, so this is the true running sum).
+    // load() above deliberately does NOT re-count). Floor it at the rehydrated
+    // archive size so a room that predates this counter doesn't report 0
+    // "explored" (which would look like a reset) — it starts at what it holds.
     const d = await this.ctx.storage.get<number>(DISCOVERED_KEY);
-    if (typeof d === 'number' && d >= this.archive.discovered) this.archive.discovered = d;
+    this.archive.discovered = Math.max(typeof d === 'number' ? d : 0, this.archive.count());
 
     const transport: RoomTransport = {
       send: (id, msg) => this.getConnection(id)?.send(serialise(msg)),
