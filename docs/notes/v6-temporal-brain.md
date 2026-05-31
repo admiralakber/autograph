@@ -148,15 +148,62 @@ still see every channel; only the *loop's target* shrinks.
   smoke best-skill **11% → 27% by 2000 gens**, blank/random still **0.000** — the
   α-drag was the impossible-subtask penalty, exactly as predicted.
 - **Residual gap to Phase 1's 47% is honest evolutionary dilution, not a measurement
-  artefact.** The α channel is **33%** of the genome (minimal: full 24 genes →
-  target 16); ~⅓ of mutations now land on a channel that doesn't help the Phase 2–4
-  target, so the visible-channel search runs ~⅓ slower per generation. That third is
-  *earned back* at Phase 5 when α becomes load-bearing.
+  artefact.** Measured at this commit (Phase 2's α pre-wired at weight 0), the α
+  channel was **33%** of the genome (minimal: full 24 genes → target 16); ~⅓ of
+  mutations landed on a channel that doesn't help the Phase 2–4 target, so the
+  visible-channel search ran ~⅓ slower per generation. **Phase 3 then removed this
+  dilution** by switching every temporal channel to a *fully unconnected* on-ramp
+  (nothing pre-wired) — best-skill recovered the rest of the way to **~48% by 2000
+  gens**, at/above Phase 1. See Phase 3 below.
 - **Resolution (Phase 5).** When read→ponder→emit makes the decode temporal, the
   creature reads its image over a plastic *lifetime*; α (and neuromod) then shape the
   decode's dynamics, become reconstructable, and rejoin the target (shrink
   `DEFERRED_OUTPUT_IDS` → the helpers collapse to the full genome again, for free).
   Phase 2 builds the faculty + on-ramp; Phase 5 makes it load-bearing.
+
+## Phase 3 — what landed (neuromodulation faculty)
+
+Backpropamine [BP], but EVOLVED, not back-propagated, and INTRINSIC (no separate
+network): the brain emits its own neuromodulatory signal m(t) from its own activity,
+and m(t) gates the Hebbian learning rate of Phase 2 — per connection.
+
+- **Two CPPN channels, both CPPN-painted, `CPPN_OUTPUTS` 3→5** (a branch-only genome
+  wire-format delta; `genomeBytes` records OUTPUTS=5):
+  - **`emit` (output 10, per-neuron, read at (p,p) like bias) — "who emits".** The
+    brain's signal is `m(t) = tanh(meanᵢ emit_i · activityᵢ(t−1))`, a one-step-lagged
+    (retroactive) readout of the creature's OWN activity; `emit` paints which neurons
+    speak into it.
+  - **`modGate` g (output 11, per-connection, painted at the weight coordinate pair
+    like α) — "what it gates".** The gated update is
+    `trace ← (1−η)·trace + η·(1 + g·m(t))·(pre·post)`: m(t) modulates each synapse's
+    learning rate. g=0 **or** m=0 ⇒ the factor is 1 ⇒ the Phase 2 update **exactly**.
+- **Unified, fully-OFF on-ramp (a Phase-2 refinement too).** Every temporal channel
+  (α, emit, modGate) now starts with **no incoming connections** and zero bias, so it
+  reads exactly 0. A fresh creature is therefore a v5-static feed-forward brain (the
+  fast path — `hasRecurrent`/`hasPlastic`/`hasNeuromod` all false, no T-step cost),
+  and each faculty arises ONLY when a structural mutation wires its output. This
+  replaced Phase 2's pre-wired-at-zero α, which is why removing that pre-wiring lifted
+  the loop the rest of the way to Phase-1 health (see below). Measured: fresh **0/40**
+  neuromodulated, mean |emit|=|g| **0.0000**; after 1200 gens **88/189** archive
+  creatures evolved neuromodulation (peak mean |emit|, |g| ≈ **0.76**).
+- **Functional — m(t) genuinely GATES plasticity (ablation, 2×2 isolation).** On a
+  rich creature in the transient regime, the plastic field moves **only** when the
+  brain BOTH emits a signal AND a synapse is gated:
+  - emit on / gate **off**: Δ **0.00000** (no gate path)
+  - emit **off** / gate on (m clamped→0): Δ **0.00000** (reproduces Phase 2)
+  - emit on / gate on (m live): Δ **0.0067 mean, 0.152 max** — and a clean **monotonic
+    dose-response** in g (0 → .0021 → .0040 → .0057 → .0073). So the brain's own m(t)
+    causally modulates the learning rate. (At large α the 6-step constant-input EMA
+    converges and the *rate* gating washes out at the fixed point — expected; Phase 5's
+    varying glimpse inputs keep it load-bearing throughout. Like α, neuromod is built +
+    on-ramped here, load-bearing at Phase 5.)
+- **Honest + recovered.** `npm run build` ✓, `npm run smoke` ✓; constant/random
+  creatures still score **0.000**; best-skill **48.1% by 2000 gens** (Phase 1: 47%,
+  Phase 2(B): 27%). Perf **~195 evals/s** — *faster* than Phase 2 because fresh
+  creatures are non-plastic feed-forward (the fast path), only evolved-temporal ones
+  pay the T-step rollout. Genome: minimal **12 nodes · 14 conns** (the 3 temporal
+  output nodes dormant at birth); `DEFERRED_OUTPUT_IDS` = {9,10,11} (α, emit, modGate),
+  all deferred from the loop target by fork (B) until Phase 5.
 
 ## References (verified)
 

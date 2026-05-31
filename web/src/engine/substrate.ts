@@ -42,6 +42,7 @@ const esParams = () => ({
   maxHidden: HYPER.esMaxHidden,
   weightScale: HYPER.substrateWeight,
   plasticityScale: HYPER.plasticityScale,
+  neuromodScale: HYPER.neuromodScale,
 });
 
 export interface Phenotype {
@@ -58,6 +59,14 @@ export interface Phenotype {
   /** v6: per-node incoming Hebbian plasticity coefficients α (parallel to inW).
    *  The effective weight during a plastic rollout is w + α·trace. */
   readonly inAlpha: Float32Array[];
+  /** v6 Phase 3: per-node neuromod emission weight (inputs 0; hidden + outputs
+   *  painted by the CPPN's `emit` channel). The brain's own modulatory signal is
+   *  m(t) = tanh(mean over neurons of emit·activity) — "who emits". */
+  readonly emit: Float32Array;
+  /** v6 Phase 3: per-node incoming neuromodulation gates g (parallel to inAlpha) —
+   *  how much m(t) modulates each synapse's Hebbian learning rate ("what it gates").
+   *  Gated update: trace ← (1−η)·trace + η·(1 + g·m(t))·(pre·post). */
+  readonly inModGate: Float32Array[];
   /** v6: per-node cumulative incoming-edge offset into the flat plastic trace,
    *  and the total edge count (the trace scratch size). */
   readonly edgeBase: Int32Array;
@@ -65,6 +74,10 @@ export interface Phenotype {
   /** v6: true if any |α| is meaningfully nonzero — gates the plastic rollout so a
    *  non-plastic creature pays nothing for machinery it doesn't use (the v5 path). */
   readonly hasPlastic: boolean;
+  /** v6 Phase 3: true if plasticity is present AND some neuron emits AND some
+   *  synapse is gated — only then does m(t) do real work, so a non-neuromodulated
+   *  creature skips the m(t) computation entirely (a perf-aware fast path). */
+  readonly hasNeuromod: boolean;
   /** Flat expressed-edge list (for the network visualisation). */
   readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
   /** Count of expressed connections — the phenotype's edge count for readouts. */
@@ -75,7 +88,7 @@ export interface Phenotype {
   readonly hasRecurrent: boolean;
 }
 
-const o2: [number, number] = [0, 0];
+const o2: number[] = [0, 0, 0, 0, 0]; // scratch for all CPPN output channels
 const HUE_ACT = ACTIVATION_COUNT - 1; // outputs run linear (clamped identity)
 
 /** Build the phenotype from the DNA via genuine ES-HyperNEAT: grow the substrate,
@@ -93,6 +106,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   const pos = new Float32Array(N * 3);
   const act = new Uint8Array(N);
   const bias = new Float32Array(N);
+  const emit = new Float32Array(N); // v6 Phase 3: per-node neuromod emission (inputs stay 0)
   const idOf = new Map<string, number>();
 
   const place = (c: Vec3, idx: number): void => {
@@ -110,17 +124,21 @@ export function buildPhenotype(g: Genome): Phenotype {
   }
   for (const c of hidden) {
     place(c, idx);
-    // The CPPN chooses each hidden neuron's activation + bias at its own coordinate.
+    // The CPPN chooses each hidden neuron's activation + bias + neuromod emission at
+    // its own coordinate (one (p,p) query fills every channel).
     const r = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2);
-    const t = r[0] * 0.5 + 0.5;
+    const t = r[0]! * 0.5 + 0.5;
     act[idx] = Math.max(0, Math.min(ACTIVATION_COUNT - 1, Math.floor((((t % 1) + 1) % 1) * ACTIVATION_COUNT)));
-    bias[idx] = r[1];
+    bias[idx] = r[1]!;
+    emit[idx] = Math.tanh(r[3]!); // v6 Phase 3: "who emits" m(t) — bounded to [-1,1]
     idx++;
   }
   for (const c of outputs) {
     place(c, idx);
     act[idx] = HUE_ACT;
-    bias[idx] = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2)[1];
+    const r = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2);
+    bias[idx] = r[1]!;
+    emit[idx] = Math.tanh(r[3]!);
     idx++;
   }
 
@@ -128,6 +146,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   const inSrc: number[][] = Array.from({ length: N }, () => []);
   const inWt: number[][] = Array.from({ length: N }, () => []);
   const inAl: number[][] = Array.from({ length: N }, () => []);
+  const inMg: number[][] = Array.from({ length: N }, () => []); // v6 Phase 3 modGate
   const edges: { from: number; to: number; weight: number }[] = [];
   for (const c of grown.conns) {
     const a = idOf.get(coordKey(c.from[0], c.from[1], c.from[2]));
@@ -136,12 +155,14 @@ export function buildPhenotype(g: Genome): Phenotype {
     inSrc[b]!.push(a);
     inWt[b]!.push(c.weight);
     inAl[b]!.push(c.alpha);
+    inMg[b]!.push(c.modGate);
     edges.push({ from: a, to: b, weight: c.weight });
   }
 
   const inFrom = inSrc.map((s) => Int32Array.from(s));
   const inW = inWt.map((w) => Float32Array.from(w));
   const inAlpha = inAl.map((a) => Float32Array.from(a));
+  const inModGate = inMg.map((m) => Float32Array.from(m));
   // Recurrent/lateral = a wired source whose index is ≥ the target's: it reads the
   // previous step, so it only does real work once the rollout runs > 1 step.
   // Per-node edge offsets (for the flat plastic trace) + the plastic gate.
@@ -149,17 +170,26 @@ export function buildPhenotype(g: Genome): Phenotype {
   let edgeTotal = 0;
   let hasRecurrent = false;
   let hasPlastic = false;
+  let anyModGate = false;
   for (let i = 0; i < N; i++) {
     edgeBase[i] = edgeTotal;
     const f = inFrom[i]!;
     const al = inAlpha[i]!;
+    const mg = inModGate[i]!;
     edgeTotal += f.length;
     for (let k = 0; k < f.length; k++) {
       if (f[k]! >= i) hasRecurrent = true;
       if (al[k]! > 1e-3 || al[k]! < -1e-3) hasPlastic = true;
+      if (mg[k]! > 1e-3 || mg[k]! < -1e-3) anyModGate = true;
     }
   }
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic };
+  // Neuromodulation does real work only if plasticity exists AND a neuron emits the
+  // signal AND a synapse is gated — otherwise m(t)≡0 or the gate is closed and the
+  // update reduces to Phase 2 exactly, so we can skip the m(t) computation.
+  let anyEmit = false;
+  for (let i = SUB_INPUTS; i < N; i++) if (emit[i]! > 1e-3 || emit[i]! < -1e-3) { anyEmit = true; break; }
+  const hasNeuromod = hasPlastic && anyEmit && anyModGate;
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
@@ -184,16 +214,33 @@ const rolloutSteps = (): number => Math.max(1, Math.round(HYPER.substrateSteps))
  *  When `plastic`, the effective weight is `w + α·trace` and each edge's Hebbian
  *  trace self-modifies — a bounded decaying EMA of pre·post — so the brain LEARNS
  *  toward self-knowledge across the rollout (differentiable-plasticity form, but
- *  the α coefficients are EVOLVED, painted by the CPPN, not back-propagated). */
-function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boolean): void {
+ *  the α coefficients are EVOLVED, painted by the CPPN, not back-propagated).
+ *
+ *  When `neuromod`, the brain ALSO emits its own signal m(t) = tanh(mean of
+ *  emit·activity over the previous step) and gates each synapse's learning rate by
+ *  (1 + g·m(t)) — the Backpropamine form (EVOLVED, intrinsic: no separate network,
+ *  m is computed from the creature's own activity). g and m are 0 at birth, so this
+ *  reduces to the Phase 2 update exactly until neuromodulation arises by mutation. */
+function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boolean, neuromod: boolean): void {
   prev.set(val.subarray(0, N));
   const eta = HYPER.hebbianRate;
+  // The network-emitted neuromodulatory signal m(t), from the creature's OWN
+  // activity last step (one-step lag ⇒ a stable, retroactive modulator). 0 unless
+  // neuromodulation is active, so the gated update below collapses to Phase 2.
+  let m = 0;
+  if (neuromod) {
+    const emit = p.emit;
+    let acc = 0;
+    for (let i = SUB_INPUTS; i < N; i++) acc += emit[i]! * prev[i]!;
+    m = Math.tanh(acc / Math.max(1, N - SUB_INPUTS));
+  }
   for (let i = SUB_INPUTS; i < N; i++) {
     const from = p.inFrom[i]!;
     const w = p.inW[i]!;
     let s = p.bias[i]!;
     if (plastic) {
       const al = p.inAlpha[i]!;
+      const mg = p.inModGate[i]!;
       const base = p.edgeBase[i]!;
       for (let k = 0; k < from.length; k++) {
         const src = from[k]!;
@@ -206,7 +253,8 @@ function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boole
         const src = from[k]!;
         const pre = src >= i ? prev[src]! : val[src]!;
         const t = base + k;
-        hebb[t] = (1 - eta) * hebb[t]! + eta * pre * post;
+        // Neuromodulated learning rate: (1 + g·m). g=0 or m=0 ⇒ the Phase 2 update.
+        hebb[t] = (1 - eta) * hebb[t]! + eta * (1 + mg[k]! * m) * pre * post;
       }
     } else {
       for (let k = 0; k < from.length; k++) {
@@ -226,7 +274,10 @@ function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boole
  *  sensor features [x, y, z, r=|p|, bias], held constant across the rollout in this
  *  phase. `plastic` enables Hebbian self-modification (the creature's lifetime read,
  *  e.g. the loop) — it is OFF for the displayed render, which stays the static
- *  initial-state field; gated by `hasPlastic` so a non-plastic creature pays nothing. */
+ *  initial-state field; gated by `hasPlastic` so a non-plastic creature pays nothing.
+ *  When the creature also evolves neuromodulation (`hasNeuromod`), the brain's own
+ *  emitted signal m(t) gates that self-modification (Phase 3); otherwise the m(t)
+ *  computation is skipped entirely. */
 export function substrateForward(p: Phenotype, px: number, py: number, pz: number, out: [number, number] = [0, 0], plastic = false): [number, number] {
   const N = p.inFrom.length;
   if (val.length < N) {
@@ -241,12 +292,13 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
   const outStart = N - SUB_OUTPUTS;
   for (let i = SUB_INPUTS; i < N; i++) val[i] = 0; // clear stale carryover from prior calls
   const runPlastic = plastic && p.hasPlastic;
+  const runNeuromod = runPlastic && p.hasNeuromod; // m(t) only matters with plasticity to gate
   if (runPlastic) {
     if (hebb.length < p.edgeTotal) hebb = new Float32Array(p.edgeTotal);
     hebb.fill(0, 0, p.edgeTotal); // each query is its own lifetime — start unlearned
   }
   const steps = p.hasRecurrent || runPlastic ? rolloutSteps() : FF_STEPS;
-  for (let step = 0; step < steps; step++) stepSubstrate(p, N, outStart, runPlastic);
+  for (let step = 0; step < steps; step++) stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
   let d = 0;
   let h = 0;
   if (outStart < N) d = val[outStart]!;

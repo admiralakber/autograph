@@ -1,4 +1,4 @@
-import { CPPN_INPUTS, CPPN_OUTPUTS, INPUT_IDS, OUTPUT_IDS, DEFERRED_OUTPUT_IDS } from './arch.ts';
+import { CPPN_INPUTS, CPPN_OUTPUTS, IMAGE_OUTPUTS, INPUT_IDS, OUTPUT_IDS, DEFERRED_OUTPUT_IDS } from './arch.ts';
 import { activate, ACTIVATION_COUNT, IDENTITY_ACT } from './activations.ts';
 import type { Rng } from './prng.ts';
 import { rngFromSeed } from './prng.ts';
@@ -7,9 +7,10 @@ import { rngFromSeed } from './prng.ts';
 // genome is a graph — node genes + connection genes with innovation numbers —
 // so structure GROWS over evolution (add-node / add-connection). Connections may
 // be recurrent; the compiled evaluator runs a few propagation passes. Given two
-// 3-D coordinates it emits [weight, bias]; ES-HyperNEAT uses the weight pattern
-// to grow the brain (substrate.ts), and the SAME CPPN read at canonical genome
-// coordinates reconstructs its own genes — the self-quine (quine.ts).
+// 3-D coordinates it emits [weight, bias, α, emit, modGate] (the last three are
+// v6 TEMPORAL channels, off at birth — see arch.ts); ES-HyperNEAT uses the weight
+// pattern to grow the brain (substrate.ts), and the SAME CPPN read at canonical
+// genome coordinates reconstructs its own genes — the self-quine (quine.ts).
 //
 // The genome shape is faithful to neataptic's clean encoding (wagenaartje):
 //   node       → { id, kind:type, act:squash, bias }
@@ -52,16 +53,18 @@ const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W
 export function minimalGenome(rng: Rng): Genome {
   const nodes: NodeGene[] = [];
   for (const id of INPUT_IDS) nodes.push({ id, kind: 0, act: IDENTITY_ACT, bias: 0 });
-  // Outputs: [weight(7), bias(8), plasticity α(9)]. The α output starts at ~0 — a
-  // zero bias + tiny incoming weights — so a fresh creature is effectively
-  // NON-plastic (a v5-like static brain) and evolution grows plasticity up via
-  // ordinary weight/structure mutation: a gentle on-ramp, not the full space at once.
-  OUTPUT_IDS.forEach((id, o) => nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: o === 2 ? 0 : rng.normal() * 0.5 }));
+  // Outputs [weight(7), bias(8) | α(9), emit(10), modGate(11)]. ONLY the two IMAGE
+  // channels (weight, bias) are wired + biased at birth; every TEMPORAL channel
+  // (α plasticity, emit, modGate — the deferred ones, fork (B)) starts with NO
+  // incoming connections and a zero bias, so it reads exactly 0. A fresh creature
+  // is therefore a v5-static, feed-forward brain (the fast path), and each temporal
+  // faculty arises ONLY when a structural mutation wires its output — one uniform,
+  // gentle on-ramp for plasticity AND neuromodulation, never the whole space at once.
+  OUTPUT_IDS.forEach((id, o) => nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: o < IMAGE_OUTPUTS ? rng.normal() * 0.5 : 0 }));
   const conns: ConnGene[] = [];
   for (let i = 0; i < CPPN_INPUTS; i++) {
-    for (let o = 0; o < CPPN_OUTPUTS; o++) {
-      const weight = o === 2 ? 0 : rng.normal() * 1.4; // α channel starts OFF (α≈0); plasticity arises by mutation
-      conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight, enabled: true });
+    for (let o = 0; o < IMAGE_OUTPUTS; o++) {
+      conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight: rng.normal() * 1.4, enabled: true });
     }
   }
   return { nodes, conns };
@@ -182,10 +185,11 @@ export function compileCPPN(g: Genome): Compiled {
 
 const IN_BUF = new Float64Array(CPPN_INPUTS);
 
-/** Evaluate a compiled CPPN at a pair of 3-D points -> [weight, bias, plasticity].
- *  `out` may be any length ≥ 1; channels beyond its length are simply not written
- *  (so legacy length-2 scratch keeps working — they ignore the plasticity channel). */
-export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0]): number[] {
+/** Evaluate a compiled CPPN at a pair of 3-D points -> all CPPN_OUTPUTS channels
+ *  [weight, bias, α, emit, modGate]. Writes `outIdx.length` channels into `out`,
+ *  growing it if shorter (so a caller that only reads out[0]/out[1] may still pass a
+ *  short scratch — the extra channels are written but simply ignored). */
+export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0]): number[] {
   IN_BUF[0] = x1;
   IN_BUF[1] = y1;
   IN_BUF[2] = z1;
@@ -214,12 +218,12 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
     }
   }
   const oi = c.outIdx;
-  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, plasticity α]
+  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, α, emit, modGate]
   return out;
 }
 
 /** Convenience: compile + evaluate once (not for hot loops). */
-export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0]): number[] {
+export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0]): number[] {
   return evalCompiled(compileCPPN(g), x1, y1, z1, x2, y2, z2, out);
 }
 
