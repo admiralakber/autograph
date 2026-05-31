@@ -57,6 +57,11 @@ export class ServerArchive {
   /** Every genome hash ever admitted — content-addressed idempotency. */
   private readonly seen = new Set<string>();
   private seq = 0;
+  /** Cumulative count of elites EVER accepted into the shared archive (a genuine,
+   *  monotonic "explored" total). Persisted by the host across Durable-Object
+   *  restarts, so it reflects the whole world's discoveries and never resets on a
+   *  client refresh — unlike a per-tab counter. */
+  discovered = 0;
 
   constructor(cols: number = LIMITS.cols, rows: number = LIMITS.rows) {
     this.cols = cols;
@@ -76,7 +81,7 @@ export class ServerArchive {
    * near-flat creature is rejected outright, and a cell's champion is replaced
    * only by a genuinely better-and-alive creature — so the archive never degrades.
    */
-  insert(elite: WireElite): MergeResult {
+  insert(elite: WireElite, countDiscovered = true): MergeResult {
     const hash = elite.lineage.genomeHash;
     if (this.seen.has(hash)) return { accepted: false, reason: 'duplicate' };
 
@@ -98,6 +103,7 @@ export class ServerArchive {
 
     this.seen.add(hash);
     this.cells.set(cell, { elite, cell, fidelity, vitality, quality, hash, seq: ++this.seq });
+    if (countDiscovered) this.discovered++; // rehydration passes false (no double-count)
     return { accepted: true };
   }
 
@@ -138,9 +144,11 @@ export class ServerArchive {
     return out.slice(0, Math.max(0, Math.min(limit, LIMITS.maxPullLimit))).map((s) => s.elite);
   }
 
-  /** Rehydrate from persisted/verified elites (used on Durable Object wake). */
+  /** Rehydrate from persisted/verified elites (used on Durable Object wake).
+   *  Does NOT bump `discovered` — the persisted cumulative total is restored
+   *  separately by the host, so a wake doesn't re-count the archive. */
   load(elites: WireElite[]): void {
-    for (const e of elites) this.insert(e);
+    for (const e of elites) this.insert(e, false);
   }
 
   info(): RoomInfo {
@@ -150,6 +158,7 @@ export class ServerArchive {
       filled: this.count(),
       coverage: this.coverage(),
       cursor: this.seq,
+      discovered: this.discovered,
       protocol: PROTOCOL_VERSION,
     };
   }

@@ -36,7 +36,7 @@ const CAPTIONS: Record<Mode, string> = {
   render:
     'SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.',
   net: 'PHENOTYPE · the brain ES-HyperNEAT grew — its hidden neurons PLACED, made dense, and wired by a quadtree of the DNA’s weight pattern (not a fixed grid). Queried over space, it draws the self-portrait above.',
-  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. Read over space it paints the brain; read at its OWN genome coordinates it returns its genes (the self-quine in THE LOOP).',
+  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. It paints the brain; the picture that brain draws is then read back through the brain to reconstruct this DNA (THE LOOP).',
 };
 
 interface Focused {
@@ -63,7 +63,7 @@ export class AutographDashboard {
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
   private coordinatorUrl = ''; // resolved in start() — defaults to the live swarm; '' = offline
   private shared: SharedArchive | null = null; // the live SharedArchive while joined to the swarm
-  private readonly options = { recurrent: true, selfConn: false, gating: true };
+  private readonly options = { recurrent: true, selfConn: true, gating: true };
   private budget = HYPER.baseBudget;
   private frame = 0;
   private lastGenAt = 0;
@@ -225,6 +225,7 @@ export class AutographDashboard {
   private setSwarmRate(gps: number): void {
     this.swarmActive = true;
     this.setText('#ag-gens', this.formatGps(gps));
+    this.setText('#ag-swarm-gps', this.formatGps(gps));
   }
 
   private formatGps(gps: number): string {
@@ -380,7 +381,10 @@ export class AutographDashboard {
     this.setText('#ag-pop', `${s.filled}/${s.cells}`);
     this.setText('#ag-cov', `${Math.round(s.coverage * 100)}%`);
     this.setText('#ag-species', String(s.species));
-    this.setText('#ag-swarm-explored', this.formatCount(s.evaluations));
+    // "explored" = the shared, PERSISTED discovery total when on the swarm (so it
+    // doesn't reset on refresh); the local evaluation count when offline.
+    const shared = this.shared?.discovered() ?? null;
+    this.setText('#ag-swarm-explored', this.formatCount(shared ?? s.evaluations));
     const now = performance.now();
     if (this.lastGenAt === 0) {
       this.lastGenAt = now;
@@ -388,8 +392,11 @@ export class AutographDashboard {
     } else if (now - this.lastGenAt > 600) {
       const gps = ((s.generation - this.lastGenValue) * 1000) / (now - this.lastGenAt);
       this.localGps = gps;
-      // GEN/S shows the collective swarm pulse when connected; the local rate otherwise.
-      if (!this.swarmActive) this.setText('#ag-gens', this.formatGps(gps));
+      // GEN/S + the SWARM line show the collective pulse when connected; the local rate otherwise.
+      if (!this.swarmActive) {
+        this.setText('#ag-gens', this.formatGps(gps));
+        this.setText('#ag-swarm-gps', this.formatGps(gps));
+      }
       // Report this node's pulse upstream so the coordinator can sum the swarm total.
       if (this.shared && now - this.lastRateAt > 2400) {
         this.lastRateAt = now;

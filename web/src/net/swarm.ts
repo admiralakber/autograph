@@ -28,6 +28,9 @@ export interface RoomInfo {
   readonly filled: number;
   readonly coverage: number;
   readonly cursor: number;
+  /** Cumulative elites ever accepted into the shared archive (persisted,
+   *  monotonic). Optional: absent from an older coordinator. */
+  readonly discovered?: number;
   readonly protocol: number;
 }
 type ClientMessage =
@@ -79,6 +82,11 @@ const WS_OPEN = 1;
 const MAX_PUSH_ELITES = 48;
 const MAX_PUSH_BYTES = 120 * 1024;
 
+// Periodic convergence: re-pull the shared archive every so often so a peer that
+// missed a `delta` (or joined a busy room) still converges, without re-signing
+// anything (pulls are incremental via the room cursor; pushes stay event-driven).
+const SYNC_INTERVAL_MS = 12_000;
+
 /** A networked `Archive` backed by the PartyServer coordinator. Reads delegate to
  *  a local mirror (synchronous, UI-unchanged); local inserts update the mirror
  *  AND are signed + pushed; inbound migrations merge via the same keep-best path.
@@ -103,6 +111,11 @@ export class SharedArchive implements Archive {
   private synced = false;
   private readonly pending: { genome: Genome; evaluation: Evaluation }[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The latest shared-room info (for the persisted "discovered" count). */
+  private lastRoom: RoomInfo | null = null;
+  /** Highest room cursor seen, so periodic pulls fetch only newer elites. */
+  private lastCursor = 0;
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(opts: SharedArchiveOptions) {
     this.mirror = opts.mirror;
@@ -118,6 +131,23 @@ export class SharedArchive implements Archive {
     const room = opts.room ?? 'genesis-v3';
     this.wsUrl = `${opts.url.replace(/\/$/, '')}/parties/archive-room/${encodeURIComponent(room)}`;
     this.connect();
+    this.syncTimer = setInterval(() => this.periodicSync(), SYNC_INTERVAL_MS);
+  }
+
+  /** Periodically re-pull the shared archive (incremental, by cursor) so peers
+   *  converge on one map even if a `delta` was missed. Cheap: the coordinator
+   *  returns only elites newer than `lastCursor`, and nothing is re-signed. */
+  private periodicSync(): void {
+    if (this.socket?.readyState === WS_OPEN) this.sendRaw({ type: 'pull', since: this.lastCursor });
+  }
+
+  /** The shared archive's persisted cumulative "explored" count (or null). */
+  discovered(): number | null {
+    return this.lastRoom?.discovered ?? null;
+  }
+  /** Filled niches in the shared archive (or null when not yet known). */
+  sharedFilled(): number | null {
+    return this.lastRoom?.filled ?? null;
   }
 
   // reads → local mirror (UI unchanged)
@@ -183,6 +213,7 @@ export class SharedArchive implements Archive {
   close(): void {
     this.closed = true;
     if (this.flushTimer) clearTimeout(this.flushTimer);
+    if (this.syncTimer) clearInterval(this.syncTimer);
     this.socket?.close();
   }
 
@@ -204,8 +235,9 @@ export class SharedArchive implements Archive {
     sock.addEventListener('open', () => {
       this.reconnectAttempts = 0;
       this.synced = false; // must re-pull the shared archive before we may push again
+      this.lastCursor = 0; // a fresh (full) hydrate; periodic pulls go incremental after
       this.sendRaw({ type: 'hello' });
-      this.sendRaw({ type: 'pull' }); // migration: seed the mirror; pushing waits for the reply
+      this.sendRaw({ type: 'pull' }); // FULL migration: hydrate the whole shared map; pushing waits for the reply
     });
     sock.addEventListener('message', (event: unknown) => {
       const data = (event as { data?: unknown }).data;
@@ -234,6 +266,7 @@ export class SharedArchive implements Archive {
     switch (msg.type) {
       case 'welcome':
         this.setPeers(msg.peers);
+        this.absorbRoom(msg.room);
         break;
       case 'peers':
         this.setPeers(msg.peers);
@@ -246,10 +279,12 @@ export class SharedArchive implements Archive {
         // Inbound migration: keep-best + vitality-gated merge (MapElites.tryInsert)
         // — a worse or trivial incoming elite can never overwrite a local cell.
         for (const wire of msg.elites) this.mirror.tryInsert(wire.genome, wire.evaluation, this.lastGen);
+        this.absorbRoom(msg.room);
         break;
       case 'elites':
         // The pull reply: absorb the shared archive, THEN allow pushing.
         for (const wire of msg.elites) this.mirror.tryInsert(wire.genome, wire.evaluation, this.lastGen);
+        this.absorbRoom(msg.room);
         this.synced = true;
         void this.flush();
         break;
@@ -266,6 +301,13 @@ export class SharedArchive implements Archive {
       this.peerCount = n;
       this.onPeers?.(n);
     }
+  }
+
+  /** Track the shared-room info + advance the pull cursor so periodic pulls stay
+   *  incremental. */
+  private absorbRoom(room: RoomInfo): void {
+    this.lastRoom = room;
+    if (typeof room.cursor === 'number' && room.cursor > this.lastCursor) this.lastCursor = room.cursor;
   }
 
   private scheduleFlush(): void {

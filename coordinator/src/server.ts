@@ -27,6 +27,7 @@ export interface Env {
 }
 
 const CELL_PREFIX = 'cell:';
+const DISCOVERED_KEY = 'meta:discovered';
 const KV_SNAPSHOT_THROTTLE_MS = 15_000;
 
 const serialise = (msg: ServerMessage): string => JSON.stringify(msg);
@@ -61,6 +62,10 @@ export class ArchiveRoom extends Server<Env> {
         }
       }
     }
+    // Restore the cumulative "discovered" total (monotonic across DO restarts;
+    // load() above deliberately does NOT re-count, so this is the true running sum).
+    const d = await this.ctx.storage.get<number>(DISCOVERED_KEY);
+    if (typeof d === 'number' && d >= this.archive.discovered) this.archive.discovered = d;
 
     const transport: RoomTransport = {
       send: (id, msg) => this.getConnection(id)?.send(serialise(msg)),
@@ -110,6 +115,8 @@ export class ArchiveRoom extends Server<Env> {
       // The DO output gate guarantees this commits before responses are sent.
       void this.ctx.storage.put(`${CELL_PREFIX}${cell}`, elite);
     }
+    // Persist the cumulative discovered total alongside the cells it counts.
+    void this.ctx.storage.put(DISCOVERED_KEY, this.archive.discovered);
     void this.flushKv(false);
   }
 

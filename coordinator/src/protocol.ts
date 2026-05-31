@@ -150,6 +150,9 @@ export interface RoomInfo {
   readonly filled: number;
   readonly coverage: number;
   readonly cursor: number;
+  /** Cumulative elites ever accepted into the shared archive (monotonic,
+   *  persisted) — the honest, non-resetting "explored" total. */
+  readonly discovered: number;
   readonly protocol: number;
 }
 
