@@ -37,12 +37,13 @@
 
 import type { Evaluation, Genome, LineageEntry, WireElite } from './protocol.ts';
 
-// Mirrors web/src/engine/arch.ts. v6 grew CPPN_OUTPUTS 2→9 (the temporal channels:
-// weight, bias | α, emit, modGate, fixX, fixY, fixScale, halt). genomeBytes writes
-// this into the header, so the coordinator MUST match the engine or v6 genomes fail
-// the integrity re-hash. The byte LAYOUT is unchanged from v3 — only this value grew.
+// Mirrors web/src/engine/arch.ts. v6 grew CPPN_OUTPUTS 2→9 (the temporal channels);
+// v7 grew it 9→11, adding the autoregressive writer channels (emitVal, emitEnd) — so the
+// full set is weight, bias | α, emit, modGate, fixX, fixY, fixScale, halt | emitVal, emitEnd.
+// genomeBytes writes this into the header, so the coordinator MUST match the engine or v7
+// genomes fail the integrity re-hash. The byte LAYOUT is unchanged from v3 — only this grew.
 const CPPN_INPUTS = 7;
-const CPPN_OUTPUTS = 9;
+const CPPN_OUTPUTS = 11;
 // Mirrors web/src/engine/lineage.ts
 const LINEAGE_VERSION = 1;
 
@@ -88,11 +89,12 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 // per-creature read-back network (it was a bolt-on regressor; the loop's decode
 // half is now the intrinsic CPPN self-quine), so the header is back to 8 bytes
 // and no reader weights are appended. v4 = v6 temporal brain: the byte layout is
-// UNCHANGED, but CPPN_OUTPUTS grew 2→9 (the temporal channels), so the header's
-// OUTPUTS field differs and v5/v6 genomes are mutually non-verifying — the epoch
-// rotates (genesis-v6). If the engine's genome encoding changes again,
+// UNCHANGED, but CPPN_OUTPUTS grew 2→9 (the temporal channels). v5 = v7 self-writer:
+// byte layout still UNCHANGED, CPPN_OUTPUTS grew 9→11 (the writer channels emitVal/emitEnd),
+// so the header's OUTPUTS field differs and v6/v7 genomes are mutually non-verifying — the
+// epoch rotates (genesis-v7). If the engine's genome encoding changes again,
 // `npm run make-fixture && npm run smoke` trips — that is the drift gate.
-const GENOME_FORMAT_VERSION = 4;
+const GENOME_FORMAT_VERSION = 5;
 
 /** Stable little-endian serialisation — EXACT mirror of cppn.ts:genomeBytes (v3). */
 export function genomeBytes(g: Genome): Uint8Array {

@@ -54,13 +54,14 @@ export function minimalGenome(rng: Rng): Genome {
   const nodes: NodeGene[] = [];
   for (const id of INPUT_IDS) nodes.push({ id, kind: 0, act: IDENTITY_ACT, bias: 0 });
   // Outputs [weight(7), bias(8) | α(9), emit(10), modGate(11), fixX(12), fixY(13),
-  // fixScale(14), halt(15)]. ONLY the two IMAGE channels (weight, bias) are wired +
-  // biased at birth; every TEMPORAL channel (α plasticity, emit, modGate, the Phase 4
-  // attention readouts, and the Phase 5 halt signal) starts with NO incoming
-  // connections and a zero bias, so it reads exactly 0. A fresh creature is therefore
-  // a v5-static, feed-forward brain (the fast path), and each temporal faculty arises
-  // ONLY when a structural mutation wires its output — one uniform, gentle on-ramp for
-  // plasticity, neuromodulation, attention AND halting, never the whole space at once.
+  // fixScale(14), halt(15), emitVal(16), emitEnd(17)]. ONLY the two IMAGE channels
+  // (weight, bias) are wired + biased at birth; every TEMPORAL channel (α plasticity,
+  // emit, modGate, the Phase 4 attention readouts, the Phase 5 halt signal, and the v7
+  // autoregressive WRITER readouts emitVal/emitEnd) starts with NO incoming connections
+  // and a zero bias, so it reads exactly 0. A fresh creature is therefore a v5-static,
+  // feed-forward brain (the fast path) that writes a constant and never halts, and each
+  // faculty arises ONLY when a structural mutation wires its output — one uniform, gentle
+  // on-ramp for plasticity, neuromodulation, attention, halting AND the writer.
   OUTPUT_IDS.forEach((id, o) => nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: o < IMAGE_OUTPUTS ? rng.normal() * 0.5 : 0 }));
   const conns: ConnGene[] = [];
   for (let i = 0; i < CPPN_INPUTS; i++) {
@@ -187,10 +188,10 @@ export function compileCPPN(g: Genome): Compiled {
 const IN_BUF = new Float64Array(CPPN_INPUTS);
 
 /** Evaluate a compiled CPPN at a pair of 3-D points -> all CPPN_OUTPUTS channels
- *  [weight, bias, α, emit, modGate, fixX, fixY, fixScale]. Writes `outIdx.length`
- *  channels into `out`, growing it if shorter (so a caller that only reads
+ *  [weight, bias, α, emit, modGate, fixX, fixY, fixScale, halt, emitVal, emitEnd]. Writes
+ *  `outIdx.length` channels into `out`, growing it if shorter (so a caller that only reads
  *  out[0]/out[1] may still pass a short scratch — extra channels are written, ignored). */
-export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0]): number[] {
+export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]): number[] {
   IN_BUF[0] = x1;
   IN_BUF[1] = y1;
   IN_BUF[2] = z1;
@@ -219,12 +220,12 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
     }
   }
   const oi = c.outIdx;
-  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, α, emit, modGate, fixX, fixY, fixScale, halt]
+  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, α, emit, modGate, fixX, fixY, fixScale, halt, emitVal, emitEnd]
   return out;
 }
 
 /** Convenience: compile + evaluate once (not for hot loops). */
-export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0]): number[] {
+export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]): number[] {
   return evalCompiled(compileCPPN(g), x1, y1, z1, x2, y2, z2, out);
 }
 

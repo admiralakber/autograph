@@ -1,16 +1,16 @@
-// Headless sanity check for the (ES-)HyperNEAT + picture→brain read-back engine
-// (run with Node type stripping). Verifies: Genesis determinism; that genuine
-// ES-HyperNEAT discovers VARIABLE hidden placement/density (not a fixed grid);
-// that NEAT augmenting topologies complexify + speciate; that the read-back loop
-// (the PICTURE fed through the creature's own brain → DNA′) is HONEST (a
-// constant/trivial creature scores ~0, NOT ~97%, and a genuine creature reaches
-// real self-consistency); that fully iterating the loop drifts toward the trivial
-// fixed point the vitality gate refuses; and that lineage verification rejects
-// tampering. NOT part of the build.
+// Headless sanity check for the (ES-)HyperNEAT + self-writer engine (run with Node type
+// stripping). Verifies: Genesis determinism; that genuine ES-HyperNEAT discovers VARIABLE
+// hidden placement/density (not a fixed grid); that NEAT augmenting topologies complexify +
+// speciate; that the v7 SELF-WRITER loop (the brain reads its image then AUTOREGRESSIVELY
+// writes its DNA, deciding its own length) is HONEST (a constant/trivial creature scores
+// ~0, NOT ~97%) and genuinely EVOLVES (skill climbs off the floor AND the emitted length
+// converges toward the genome length — length-discovery bootstraps); that fully iterating
+// the loop drifts toward the trivial fixed point the vitality gate refuses; and that
+// lineage verification rejects tampering. NOT part of the build.
 import { Garden } from '../src/engine/evolution.ts';
 import { seededGenome, paramCount } from '../src/engine/cppn.ts';
 import { evaluate, iterateLoop, loopFidelity } from '../src/engine/fitness.ts';
-import { selfConsistencySkill, selfConsistencyR2 } from '../src/engine/readback.ts';
+import { selfConsistencySkill, selfConsistencyR2, writeSkill } from '../src/engine/readback.ts';
 import { buildPhenotype } from '../src/engine/substrate.ts';
 import { GENESIS_SEED } from '../src/engine/genesis.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile } from '../src/engine/lineage.ts';
@@ -28,17 +28,17 @@ function determinismCheck(): void {
   console.log(`genesis DNA: ${g.nodes.length} nodes, ${g.conns.length} connections (minimal) | ES-HyperNEAT substrate: ${p.hiddenCount} hidden neurons placed · ${p.liveConns} connections expressed`);
 }
 
-/** The honesty contract: the read-back flows THROUGH THE PICTURE (the rendered
- *  field → the creature's own brain → DNA′). A creature with nothing genuine to
- *  re-encode (a blank picture) must score ~0, never the old ~0.97. We assert it. */
+/** The honesty contract: the self-writer reads its image and AUTOREGRESSIVELY writes its
+ *  DNA from its own neurons. A creature with nothing genuine to re-encode (a blank image →
+ *  a constant write) must score ~0, never the old ~0.97. We assert it. */
 function readbackHonesty(): void {
-  // (a) a constant / trivial creature (all weights+biases zero → blank picture)
+  // (a) a constant / trivial creature (all weights+biases zero → blank image, constant write)
   const flat = seededGenome('honesty');
   for (const c of flat.conns) c.weight = 0;
   for (const n of flat.nodes) n.bias = 0;
   const flatSkill = selfConsistencySkill(flat, buildPhenotype(flat));
 
-  // (b) a random creature: not evolved → no genuine self-consistency
+  // (b) a random creature: not evolved → writer unconnected → constant write → no skill
   let randSkill = 0;
   const N = 120;
   for (let i = 0; i < N; i++) {
@@ -47,11 +47,11 @@ function readbackHonesty(): void {
   }
   randSkill /= N;
 
-  console.log(`READ-BACK HONESTY (picture → own brain → DNA′; baseline-corrected R²-skill):`);
+  console.log(`SELF-WRITER HONESTY (read image → autoregressively write DNA′; baseline-corrected R²-skill):`);
   console.log(`  constant/trivial creature skill: ${flatSkill.toFixed(3)}  (was ~0.97 with the old regression hack)`);
-  console.log(`  random-creature mean skill     : ${randSkill.toFixed(3)}  (predict-the-mean ⇒ 0)`);
+  console.log(`  random-creature mean skill     : ${randSkill.toFixed(3)}  (writer off → constant write → predict-the-mean ⇒ 0)`);
   const ok = flatSkill < 0.05 && randSkill < 0.1;
-  console.log(`  ⇒ a creature with nothing genuine to re-encode scores ~0: ${ok ? 'OK ✓' : 'FAIL ✗ — the metric is inflated'}`);
+  console.log(`  ⇒ a creature with nothing genuine to write scores ~0: ${ok ? 'OK ✓' : 'FAIL ✗ — the metric is inflated'}`);
   if (!ok) process.exitCode = 1;
 }
 
@@ -99,10 +99,15 @@ function evolve(): void {
     const g = lively.cell.genome;
     const p = buildPhenotype(g);
     const e = evaluate(g, p);
+    const w = writeSkill(g, p);
     console.log(
-      `best LIVELY creature: self-consistency skill ${(e.fidelity * 100).toFixed(1)}% (raw R² ${selfConsistencyR2(g, p).toFixed(3)}) | ` +
+      `best LIVELY creature: self-writer skill ${(e.fidelity * 100).toFixed(1)}% (honest r2self ${w.r2self.toFixed(3)}) | ` +
         `bd [c ${e.bd[0].toFixed(2)}, s ${e.bd[1].toFixed(2)}] | vit ${e.vitality.toFixed(2)} | ` +
         `DNA ${g.nodes.length}n·${g.conns.length}c (${paramCount(g)} genes) | brain ${p.hiddenCount} hidden·${p.liveConns} conns`,
+    );
+    console.log(
+      `  v7 self-write: wrote ${w.selfLen} genes vs ${w.geneCount} in its DNA (length-match Λ ${w.lenSim.toFixed(2)}) | ` +
+        `r2teacher ${w.r2teacher.toFixed(3)} · anneal ${w.anneal.toFixed(2)} — the brain DECIDES its own length, no quine, no length given`,
     );
     // Honesty (#10): fully ITERATING the loop g←g+α(E(R(B(g)))−g) settles the
     // creature; we report whether the genuine self-consistency it reaches is
@@ -144,6 +149,22 @@ function openEndedness(): void {
     `OPEN-ENDEDNESS: novelty ${a.nov}→${z.nov}, QD ${a.qd.toFixed(0)}→${z.qd.toFixed(0)}, DNA ${a.nodes}n→${z.nodes}n ` +
       `${keepsGrowing ? '— KEEPS DISCOVERING NEW KINDS ✓' : '(FAIL: stopped rising)'}`,
   );
+
+  // v7 LENGTH-DISCOVERY: the make-or-break evidence — by now the autoregressive writer
+  // should emit ~the genome length (it bootstraps from a constant via the curriculum +
+  // the length-shaping reward). Honest skill (r2self) is reported, however humbling.
+  const champ = garden.archive.bestLively() ?? garden.archive.best();
+  if (champ) {
+    const g = champ.cell.genome;
+    const w = writeSkill(g, buildPhenotype(g));
+    const discovered = w.selfLen > 1 && w.lenSim > 0.3;
+    console.log(
+      `LENGTH-DISCOVERY (v7 self-writer): champion writes ${w.selfLen} genes vs ${w.geneCount} in its DNA ` +
+        `(length-match Λ ${w.lenSim.toFixed(2)}; honest r2self ${w.r2self.toFixed(3)}) — ` +
+        `${discovered ? 'the brain genuinely LEARNED to decide its own length ✓' : 'FAIL — length stuck (evolvability wall)'}`,
+    );
+    if (!discovered) process.exitCode = 1;
+  }
 }
 
 async function lineageCheck(): Promise<void> {

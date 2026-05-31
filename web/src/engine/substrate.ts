@@ -76,8 +76,16 @@ export interface Phenotype {
   readonly fixScale: Float32Array;
   /** v6 Phase 5: per-node halt readout (Adaptive Computation Time). The brain's halt
    *  signal each READ step is the rectified mean of halt·activity; accumulated, it
-   *  decides "I've seen enough" → switch to EMIT. Off at birth (ponders to the cap). */
+   *  decides "I've seen enough" → switch to WRITE. Off at birth (ponders to the cap). */
   readonly halt: Float32Array;
+  /** v7: per-node AUTOREGRESSIVE WRITER readouts (painted by the CPPN's emitVal/emitEnd
+   *  channels, read at (p,p) like halt). After the read, each WRITE step the brain emits
+   *  `value = σ(mean of emitVal·activity)` (the next DNA element) and
+   *  `end = mean of emitEnd·activity` (the end-of-sequence signal — when it fires the
+   *  creature has DECIDED its length). NOT a CPPN re-projection: these are linear readouts
+   *  of the brain's OWN recurrent activity, painted once at build. Off at birth. */
+  readonly emitVal: Float32Array;
+  readonly emitEnd: Float32Array;
   /** v6: per-node cumulative incoming-edge offset into the flat plastic trace,
    *  and the total edge count (the trace scratch size). */
   readonly edgeBase: Int32Array;
@@ -129,6 +137,8 @@ export function buildPhenotype(g: Genome): Phenotype {
   const fixY = new Float32Array(N);
   const fixScale = new Float32Array(N);
   const halt = new Float32Array(N); // v6 Phase 5: per-node halt (ACT) readout (inputs stay 0)
+  const emitVal = new Float32Array(N); // v7: per-node autoregressive writer readouts (inputs stay 0)
+  const emitEnd = new Float32Array(N);
   const idOf = new Map<number, number>(); // coordKey (packed int) → node index
 
   const place = (c: Vec3, idx: number): void => {
@@ -157,6 +167,8 @@ export function buildPhenotype(g: Genome): Phenotype {
     fixY[idx] = Math.tanh(r[6]!);
     fixScale[idx] = Math.tanh(r[7]!);
     halt[idx] = Math.tanh(r[8]!); // v6 Phase 5: halt (ACT) readout
+    emitVal[idx] = Math.tanh(r[9]!); // v7: autoregressive writer readouts (next value + end signal)
+    emitEnd[idx] = Math.tanh(r[10]!);
     idx++;
   }
   for (const c of outputs) {
@@ -169,6 +181,8 @@ export function buildPhenotype(g: Genome): Phenotype {
     fixY[idx] = Math.tanh(r[6]!);
     fixScale[idx] = Math.tanh(r[7]!);
     halt[idx] = Math.tanh(r[8]!);
+    emitVal[idx] = Math.tanh(r[9]!);
+    emitEnd[idx] = Math.tanh(r[10]!);
     idx++;
   }
 
@@ -227,7 +241,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   }
   let hasHalt = false;
   for (let i = SUB_INPUTS; i < N && !hasHalt; i++) if (Math.abs(halt[i]!) > 1e-3) hasHalt = true;
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, fixX, fixY, fixScale, halt, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod, hasAttention, hasHalt };
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, fixX, fixY, fixScale, halt, emitVal, emitEnd, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod, hasAttention, hasHalt };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
@@ -371,6 +385,9 @@ let gridBuf = new Float32Array(0); // reused static-image grid scratch
 // PERF #3: reused glimpse-path scratch (grown to the ponder cap) — no per-step or
 // per-eval cap-sized allocation; readPonderEmit returns small ponder-sized slices.
 let gxBuf = new Float32Array(0), gyBuf = new Float32Array(0), gvalBuf = new Float32Array(0);
+/** v7 reused autoregressive-write scratch (grown to the emit cap). */
+let emitBuf = new Float32Array(0);
+const sig = (x: number): number => 1 / (1 + Math.exp(-x));
 
 /** Render the creature's STATIC density image to a res×res grid on the z=0 sheet —
  *  the field the attention glimpses read (plastic=false ⇒ the initial-state image). */
@@ -498,6 +515,66 @@ export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
     if (cumHalt >= 1) { halted = true; break; }
   }
   return { gx: gx.slice(0, ponder), gy: gy.slice(0, ponder), gval: gval.slice(0, ponder), ponder, deviation, halted };
+}
+
+// --- v7: the AUTOREGRESSIVE WRITER (the clean self-loop, no quine) -----------
+//
+// After the READ (readPonderEmit builds the recurrent state by glimpsing the image),
+// the brain WRITES its DNA element by element FROM ITS OWN NEURONS: each step it is fed
+// its own previous output (autoregressive), steps once (plasticity/neuromod stay active
+// — it keeps learning as it writes), and reads `value = σ(mean emitVal·activity)` (the
+// next gene) + `end = σ(mean emitEnd·activity)` (the halting signal). When `end` fires,
+// the creature has DECIDED its own length. No CPPN re-projection, no per-gene coordinate
+// lookup, no length given — v6's quine is gone. We run a bounded number of steps
+// (`min(emitMaxLen, 2·G)`, ≥ G) and record where the end-signal first fired (`selfLen`),
+// so a single rollout yields both the curriculum's teacher-length read (first G values)
+// and the honest self-length read (first `selfLen`). Off at birth ⇒ a fresh creature
+// writes a constant σ(0)=0.5 and never halts (runs to the cap) — predict-the-mean ⇒ skill 0.
+
+export interface WriteResult {
+  /** Emitted DNA′ values in [0,1] — the raw sequence, length `runLen`. */
+  readonly values: Float32Array;
+  /** Steps actually emitted = min(emitMaxLen, 2·G), always ≥ G (the teacher length). */
+  readonly runLen: number;
+  /** L — the step at which the brain's end-signal first fired (else `runLen`): the
+   *  creature's OWN decided DNA′ length. */
+  readonly selfLen: number;
+  /** True if the writer chose to halt before the cap (vs ran out the cap). */
+  readonly halted: boolean;
+  /** READ/ponder steps used (from the read phase) — the "thinking". */
+  readonly ponder: number;
+  /** Largest attention deviation in the read (0 ⇒ attention off — the ablation control). */
+  readonly deviation: number;
+}
+
+/** v7 — the brain READS its image then AUTOREGRESSIVELY WRITES its DNA, deciding its own
+ *  length. `G` is the genome's gene count (sets the teacher length + the run bound).
+ *  `noDeviation` clamps the read to the pure scan (attention ablation control). */
+export function selfWrite(p: Phenotype, G: number, noDeviation = false): WriteResult {
+  const r = readPonderEmit(p, noDeviation); // READ — leaves the recurrent state in `val`
+  const N = p.inFrom.length;
+  const outStart = N - SUB_OUTPUTS;
+  const runPlastic = p.hasPlastic;
+  const runNeuromod = runPlastic && p.hasNeuromod;
+  const cap = Math.max(1, Math.round(HYPER.emitMaxLen));
+  const runLen = Math.min(cap, Math.max(1, 2 * G)); // ≥ G (teacher) + room to see over-length
+  if (emitBuf.length < runLen) emitBuf = new Float32Array(runLen);
+  const invD = 1 / Math.max(1, N - SUB_INPUTS);
+  const invLen = 1 / Math.max(1, runLen);
+  let prevVal = 0;
+  let selfLen = runLen, halted = false;
+  for (let t = 0; t < runLen; t++) {
+    // WRITE-mode inputs: own previous output (autoregressive) + a mode flag + position.
+    val[0] = prevVal; val[1] = 1; val[2] = t * invLen; val[3] = 0; val[4] = 1;
+    stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
+    let ev = 0, ee = 0;
+    for (let i = SUB_INPUTS; i < N; i++) { const a = val[i]!; ev += p.emitVal[i]! * a; ee += p.emitEnd[i]! * a; }
+    const value = sig(ev * invD);
+    emitBuf[t] = value;
+    prevVal = value;
+    if (!halted && sig(ee * invD) > 0.5) { selfLen = t + 1; halted = true; } // the creature DECIDES its length
+  }
+  return { values: emitBuf.slice(0, runLen), runLen, selfLen, halted, ponder: r.ponder, deviation: r.deviation };
 }
 
 // --- Accessors for visualisation --------------------------------------------

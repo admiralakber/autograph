@@ -20,8 +20,12 @@
  *  v4: the v6 TEMPORAL BRAIN — `CPPN_OUTPUTS` 2→9 (the temporal channels), so the
  *      `genomeBytes` header records OUTPUTS=9 and v3-format (v5-epoch) elites no
  *      longer verify. Byte layout unchanged; the world rotates to a fresh genesis-v6
- *      room (see web/src/engine/genesis.ts ARCHIVE_EPOCH). `verify.ts` mirrors this. */
-export const PROTOCOL_VERSION = 4 as const;
+ *      room (see web/src/engine/genesis.ts ARCHIVE_EPOCH). `verify.ts` mirrors this.
+ *  v5: the v7 SELF-WRITER — `CPPN_OUTPUTS` 9→11 (the autoregressive writer channels
+ *      emitVal/emitEnd), so the header records OUTPUTS=11 and v6 elites no longer verify.
+ *      Byte layout unchanged; the world rotates to a fresh genesis-v7 room. The decode is
+ *      now a clean autoregressive self-write (no quine). `verify.ts` mirrors this. */
+export const PROTOCOL_VERSION = 5 as const;
 
 // ── Domain types (mirror of web/src/engine) ─────────────────────────────────
 

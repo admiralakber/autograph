@@ -2,7 +2,7 @@ import type { Genome } from '../engine/cppn.ts';
 import { seededGenome } from '../engine/cppn.ts';
 import { GENESIS_SEED } from '../engine/genesis.ts';
 import type { Evaluation } from '../engine/fitness.ts';
-import { evaluate, targetAtProbes, readBackUnits } from '../engine/fitness.ts';
+import { evaluate, targetAtProbes, readBackUnits, lastWrite } from '../engine/fitness.ts';
 import type { Phenotype } from '../engine/substrate.ts';
 import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substrate.ts';
 import { Garden, type GardenStats } from '../engine/evolution.ts';
@@ -32,11 +32,11 @@ const DEFAULT_COORDINATOR = 'wss://autograph-coordinator.usemeos.workers.dev';
 type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
 const CAPTIONS: Record<Mode, string> = {
-  stacked: 'STACKED · one creature, three ways at once — the image it’s born in (the output), the brain that emerges within it, and the DNA that paints it. Tap any panel to open it full-screen.',
+  stacked: 'STACKED · one creature, three ways at once — the image it’s born in (the DRAW half), the brain that emerges within it, and the DNA that paints it. The brain then READS this image and WRITES its own DNA back (THE LOOP). Tap any panel to open it full-screen.',
   render:
-    'THE IMAGE · the field the DNA paints across 3-D space — the image the brain emerges within. These glowing points are the image, not the wiring.',
-  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at, NOT a tidy column. They sit where the image has structure: the network and the image are one and the same.',
-  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. It paints the image and grows the brain within it; the brain then reads that image back to find its beginning — this DNA (THE LOOP).',
+    'THE IMAGE · the DRAW half — the substrate maps each 3-D coordinate to density + hue, painting the portrait the brain is born in (and later reads). These glowing points are the image, not the wiring.',
+  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at, NOT a tidy column. It paints the image (the DRAW half) and is the same network that reads it back and WRITES the DNA (THE LOOP).',
+  dna: 'DNA · the NEAT genotype — a CPPN with 11 output channels: weight + bias paint the image (the DRAW half); the others paint the temporal faculties (plasticity, neuromodulation, attention, halt) and the v7 WRITER (emitVal, emitEnd). It grows the brain, which reads its image then autoregressively writes this DNA back (THE LOOP).',
 };
 
 interface Focused {
@@ -714,26 +714,33 @@ export class AutographDashboard {
   }
 
   private drawLoop(genome: Genome, pheno: Phenotype): void {
-    const target = targetAtProbes(genome); // the original DNA (top row)
-    const n = target.length; // = targetCount(genome): the image-encoded genes the loop reconstructs (v6 (B): excludes α/neuromod)
-    const dna2 = readBackUnits(genome, pheno); // the read-back NETWORK's DNA′ (bottom row)
+    const target = targetAtProbes(genome); // DNA — the whole genome (top row), length G
+    const dna2 = readBackUnits(genome, pheno); // DNA′ — the brain's autoregressive WRITE, its OWN decided length
+    const w = lastWrite(); // { selfLen, ponder, geneCount, halted } — valid right after readBackUnits
+    const G = target.length;
+    const L = dna2.length;
+    const cols = Math.max(1, G, L); // shared cell width, so a shorter / longer DNA′ row is VISIBLE
     const ctx = this.loopCtx;
-    const Wd = (this.loop.width = Math.max(120, n * 5));
+    const Wd = (this.loop.width = Math.max(120, cols * 5));
     const Hd = (this.loop.height = 54);
-    const sw = Wd / n;
+    const sw = Wd / cols;
     const rh = 22;
     ctx.clearRect(0, 0, Wd, Hd);
-    for (let k = 0; k < n; k++) {
+    for (let k = 0; k < G; k++) {
       const tg = Math.round(target[k]! * 255);
       ctx.fillStyle = `rgb(${tg},${tg},${tg})`;
       ctx.fillRect(k * sw, 0, Math.ceil(sw), rh);
-      const pg = Math.round((dna2[k] ?? 0) * 255);
+    }
+    for (let k = 0; k < L; k++) {
+      const pg = Math.round(dna2[k]! * 255);
       ctx.fillStyle = `rgb(${pg},${pg},${pg})`;
       ctx.fillRect(k * sw, Hd - rh, Math.ceil(sw), rh);
     }
     const pct = (this.focused?.evaluation.fidelity ?? 0) * 100;
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
     this.setText('#ag-fid-label', `${pct.toFixed(1)}%`);
+    // v7 THINKING + LENGTH readout — how much it pondered to read, and the length it DECIDED
+    this.setText('#ag-ponder', `GLIMPSED · PONDERED ${w.ponder} · WROTE ${L}/${G} genes`);
   }
 
   private async updateFingerprint(genome: Genome): Promise<void> {

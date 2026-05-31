@@ -38,6 +38,12 @@ export const GENESIS_LABEL = 'GENESIS';
  * fixX/fixY/fixScale, halt]. v5 elites no longer verify against the v6 `genomeBytes`
  * header (which now records OUTPUTS=9), so the world rotates to a fresh v6 room —
  * reason (a), the genome wire format. The read-back is now a temporal read→ponder→
- * emit; the coordinator's `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step).
+ * emit; the coordinator's `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step) →
+ * v7 (THE SELF-WRITER: the GENOME WIRE FORMAT changed AGAIN — `CPPN_OUTPUTS` 9→11, adding
+ * the autoregressive WRITER channels [emitVal, emitEnd]. v6 elites no longer verify against
+ * the v7 `genomeBytes` header (OUTPUTS=11), so the world rotates to a fresh v7 room —
+ * reason (a). The decode is no longer v6's quine re-projection: the brain now reads its
+ * image then AUTOREGRESSIVELY WRITES its own DNA, one gene at a time, DECIDING its own
+ * length — a clean self-loop. `verify.ts` mirror + `PROTOCOL_VERSION` bump in lock-step).
  */
-export const ARCHIVE_EPOCH = 6;
+export const ARCHIVE_EPOCH = 7;

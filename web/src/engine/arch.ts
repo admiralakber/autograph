@@ -38,16 +38,23 @@ export const CPPN_INPUTS = 7;
  *      EVOLVED hard attention).
  *    • `halt` (v6 Phase 5) — per-neuron, read at (p,p) like emit: the brain's Adaptive
  *      Computation Time signal. It accumulates over the READ rollout; when it crosses
- *      threshold (or a hard cap) the brain stops pondering and switches to EMIT.
+ *      threshold (or a hard cap) the brain stops pondering and switches to WRITE.
+ *    • `emitVal`, `emitEnd` (v7) — per-neuron readout vectors (read at (p,p) like emit),
+ *      the AUTOREGRESSIVE WRITER. After the read, the brain emits its DNA element by
+ *      element from its OWN neurons: `value = σ(Σ emitVal·activity)` is the next gene,
+ *      `end = Σ emitEnd·activity` is the end-of-sequence signal — when it fires the
+ *      creature has DECIDED its own length. No CPPN re-projection, no per-gene lookup,
+ *      no length given (v6's quine is gone). Off at birth ⇒ a fresh creature writes a
+ *      constant and never halts; the writer arises by mutation like every faculty.
  *  All temporal channels arise by mutation, none pre-wired. Connection *expression* is
  *  decided by ES-HyperNEAT band-pruning on the weight pattern (Risi & Stanley 2012). */
-export const CPPN_OUTPUTS = 9;
+export const CPPN_OUTPUTS = 11;
 
-/** Canonical node ids: inputs 0..6, outputs 7..15 (weight, bias, α, emit, modGate,
- *  fixX, fixY, fixScale, halt), hidden ids start at 16. */
+/** Canonical node ids: inputs 0..6, outputs 7..17 (weight, bias, α, emit, modGate,
+ *  fixX, fixY, fixScale, halt, emitVal, emitEnd), hidden ids start at 18. */
 export const INPUT_IDS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
-export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 14, 15];
-export const FIRST_HIDDEN_ID = 16;
+export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+export const FIRST_HIDDEN_ID = 18;
 
 /** The gentle ON-RAMP wiring: `minimalGenome` wires ONLY the first `IMAGE_OUTPUTS`
  *  channels (weight, bias) at birth; every temporal channel (α, emit, modGate,
@@ -55,29 +62,19 @@ export const FIRST_HIDDEN_ID = 16;
  *  it is how each faculty on-ramps gently — and is independent of the target below. */
 export const IMAGE_OUTPUTS = 2;
 
-/** v6 fork (B) — which CPPN output channels are EXCLUDED from the reconstruction
- *  target: the temporal channels (α, emit, modGate, fixX/Y/Scale, halt).
+/** v7 — the reconstruction target is the FULL genome (empty deferral set).
  *
- *  Phase 5 tested the hypothesis that a TEMPORAL read→ponder→emit decode would make
- *  these reconstructable — and found, honestly, that it does NOT, for a structural
- *  reason that follows from fork (B)'s own premise: the image stays the STATIC
- *  initial-state field, and a static self-portrait does not encode how the creature
- *  learns / attends / ponders. Reading it over a plastic, attentional lifetime makes
- *  those faculties SHAPE the read (attention is load-bearing — ablating it measurably
- *  changes the reconstruction), but adds no spatial information ABOUT the temporal
- *  genes, so the spatial gene-readout cannot extract them. Forcing them into the target
- *  yields R² ≈ −12 (worse than the mean) and destroys the gradient (skill ≡ 0, no
- *  bootstrap) — a measured negative result, not honest difficulty.
- *
- *  So fork (B) STANDS: the temporal channels are load-bearing INPUTS to the read (they
- *  choose where to glimpse, when to halt), not reconstructed OUTPUTS. The creature can
- *  read back what its image SHOWS (its visible form: weight + bias) but not its
- *  invisible temporal interior. The loop reconstructs the image-encoded genome; the
- *  honest skill it earns is humbler than v5's, and that is the truth. (Empty set ⇒
- *  every channel rejoins — kept here, behind this measured finding, for a future
- *  dynamics-based readout that could reconstruct the temporal genes from the read's
- *  signature rather than the static image.) */
-export const DEFERRED_OUTPUT_IDS: ReadonlySet<number> = new Set(OUTPUT_IDS.slice(IMAGE_OUTPUTS));
+ *  v6's fork (B) excluded the temporal channels because its decode was a SPATIAL
+ *  gene-readout of a STATIC image (which cannot encode how a creature learns / attends /
+ *  ponders — forcing them in yielded R² ≈ −12, a measured negative result). v7's decode
+ *  is fundamentally different: the brain AUTOREGRESSIVELY WRITES its DNA from its OWN
+ *  recurrent state — a state shaped by ALL its genes (the temporal ones included, via the
+ *  plastic / neuromodulated / attentional read). So there is no static-image argument for
+ *  excluding any channel a priori: the writer is asked to reproduce its WHOLE genome, and
+ *  the honest skill reflects how much of it the brain can actually reach. Whether it can
+ *  reach the temporal genes is an open empirical question, reported honestly — not assumed
+ *  away. Hence: nothing deferred. `targetVector ≡ genomeVector`, `targetCount ≡ paramCount`. */
+export const DEFERRED_OUTPUT_IDS: ReadonlySet<number> = new Set<number>();
 /** Innovation numbers 0..(CPPN_INPUTS*CPPN_OUTPUTS-1) are the minimal genome's
  *  input→output connections; the registry hands out fresh ones after that. */
 export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;

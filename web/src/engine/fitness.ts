@@ -1,9 +1,11 @@
 import type { Genome } from './cppn.ts';
-import { unitToParam, applyTargetParams, targetVector, cloneGenome, W_SCALE } from './cppn.ts';
+import { unitToParam, applyParams, genomeVector, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
-import { selfReadback, dnaTargetUnits, selfConsistencySkill } from './readback.ts';
+import { selfReadback, dnaTargetUnits, selfConsistencySkill, lastWrite } from './readback.ts';
+
+export { lastWrite };
 
 // THE STRANGE LOOP — read back THROUGH THE IMAGE, not around it.
 //
@@ -44,13 +46,16 @@ export function loopFidelity(g: Genome, p: Phenotype): number {
 
 // --- The fixed-point iteration (the loop literally closing) -----------------
 
-/** Decode by reading the picture back through the brain: each reconstructed gene
- *  becomes the matching weight/bias; topology + activations carry over. */
+/** Decode by having the brain WRITE its DNA (v7 autoregressive self-write): the emitted
+ *  values become the matching genes in canonical order; genes the write did not reach
+ *  (self-length < genome length) keep their current value. Topology + activations carry
+ *  over. */
 export function readBackGenome(g: Genome, p: Phenotype): Genome {
-  const dna = selfReadback(g, p);
-  const vec = new Float32Array(dna.length);
-  for (let k = 0; k < dna.length; k++) vec[k] = unitToParam(dna[k]!);
-  return applyTargetParams(g, vec); // v6 (B): writes only the image-encoded genes
+  const dna = selfReadback(g, p); // length = the creature's own decided selfLen
+  const cur = genomeVector(g);
+  const vec = new Float32Array(cur.length);
+  for (let k = 0; k < cur.length; k++) vec[k] = k < dna.length ? unitToParam(dna[k]!) : cur[k]!;
+  return applyParams(g, vec);
 }
 
 export interface LoopTrajectory {
@@ -75,20 +80,20 @@ export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha
   for (let s = 0; s < steps; s++) {
     const p = buildPhenotype(g);
     fidelity.push(selfConsistencySkill(g, p));
-    const cur = targetVector(g); // v6 (B): iterate only the image-encoded genes
+    const cur = genomeVector(g); // v7: the full genome (the writer targets the whole DNA)
     const n = cur.length;
-    const dna = selfReadback(g, p);
+    const dna = selfReadback(g, p); // the brain's own-length write (selfLen may be < n)
     const next = new Float32Array(n);
     let se = 0;
     for (let i = 0; i < n; i++) {
-      const target = unitToParam(dna[i]!);
+      const target = i < dna.length ? unitToParam(dna[i]!) : cur[i]!; // unwritten genes hold
       const nv = cur[i]! + alpha * (target - cur[i]!);
       se += (nv - cur[i]!) ** 2;
       next[i] = nv;
     }
     const d = Math.sqrt(se / n) * DRIFT_NORM;
     drift.push(d);
-    g = applyTargetParams(g, next);
+    g = applyParams(g, next);
     if (d < tol) converged = true;
   }
   return { drift, fidelity, final: g, converged, residual: drift[drift.length - 1] ?? 1 };

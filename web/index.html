@@ -120,33 +120,40 @@
 
         <!-- THE LOOP -->
         <section class="panel p-loop" aria-label="The strange loop">
-          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the DNA paints an image; a brain emerges within it; it glimpses · ponders · halts, then emits its beginning</span></div>
-          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 120" xmlns="http://www.w3.org/2000/svg" aria-label="The DNA paints an image; a brain emerges within that image; the brain reads the image it was born in over time — taking attention-chosen glimpses, pondering, halting when it has seen enough — then emits DNA-prime, which is compared back to the DNA to measure how close the loop came to closing.">
-            <!-- token circulates the whole loop: DNA → image → (read) → DNA′ → compare → DNA -->
-            <path id="ag-loop-path" class="lc-path" d="M26,42 L236,42 L130,98 Z" />
-            <!-- DNA → IMAGE (paints) -->
-            <line class="lc-wire" x1="40" y1="42" x2="218" y2="42" /><text class="lc-arr" x="130" y="45">›</text>
-            <!-- the brain emerges WITHIN the image: a faint envelope holding image + brain -->
-            <ellipse class="lc-compare" cx="236" cy="52" rx="15" ry="22" />
-            <!-- IMAGE/BRAIN → DNA′ (reads it, finds its beginning) -->
-            <path class="lc-wire" d="M226,66 C196,90 162,94 142,95" />
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the DNA paints an image; a brain emerges within it; it reads that image, then WRITES its own DNA back — one gene at a time, deciding its own length</span></div>
+          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 126" xmlns="http://www.w3.org/2000/svg" aria-label="The DNA paints an image (the draw-half); a brain emerges within that image; the brain reads the image it was born in — taking attention-chosen glimpses and pondering — then AUTOREGRESSIVELY WRITES its DNA back, one gene at a time, feeding back its own previous output and halting when it decides it is done, giving a variable-length DNA-prime; DNA-prime is compared back to the DNA on both length and values to measure how close the loop came to closing.">
+            <!-- token circulates the whole loop: DNA → image → read → write → DNA′ → compare → DNA -->
+            <path id="ag-loop-path" class="lc-path" d="M26,44 L256,44 C270,54 266,96 200,100 L80,100 C28,98 16,60 26,44 Z" />
+            <!-- DNA (the recipe) -->
+            <circle class="lc-node" cx="26" cy="44" r="2.8" /><text class="lc-st" x="26" y="34">DNA</text><text class="lc-back" x="26" y="57">11 ch</text>
+            <!-- DNA → IMAGE (paints / the DRAW half) -->
+            <line class="lc-wire" x1="36" y1="44" x2="66" y2="44" /><text class="lc-edge" x="51" y="38" text-anchor="middle">paints ›</text>
+            <!-- IMAGE: the draw-half portrait + the brain's glimpses -->
+            <rect class="lc-image" x="68" y="30" width="30" height="30" rx="2" />
+            <circle class="lc-glimpse" cx="76" cy="38" r="1.5" /><circle class="lc-glimpse" cx="90" cy="41" r="1.5" /><circle class="lc-glimpse" cx="82" cy="52" r="1.5" />
+            <text class="lc-st" x="83" y="24" text-anchor="middle">IMAGE</text><text class="lc-back" x="83" y="70" text-anchor="middle">the draw-half</text>
+            <!-- IMAGE → WRITE (the brain reads, then writes) -->
+            <line class="lc-wire" x1="98" y1="44" x2="128" y2="44" /><text class="lc-edge" x="113" y="38" text-anchor="middle">reads ›</text>
+            <!-- WRITE: autoregressive emit cells + feedback + halt -->
+            <rect class="lc-cell" x="130" y="39" width="8" height="10" rx="1" /><rect class="lc-cell" x="140" y="39" width="8" height="10" rx="1" /><rect class="lc-cell" x="150" y="39" width="8" height="10" rx="1" /><rect class="lc-cell" x="160" y="39" width="8" height="10" rx="1" />
+            <path class="lc-feedback" d="M164,37 C150,26 142,26 134,37" />
+            <text class="lc-arr" x="173" y="47">⊣</text>
+            <text class="lc-edge" x="150" y="22" text-anchor="middle">writes · feeds back · halts</text><text class="lc-back" x="150" y="62" text-anchor="middle">decides its length</text>
+            <!-- WRITE → DNA′ -->
+            <line class="lc-wire" x1="180" y1="44" x2="246" y2="44" />
+            <circle class="lc-node" cx="256" cy="44" r="2.8" /><text class="lc-st" x="256" y="34">DNA′</text>
             <!-- DNA′ ⇠ compare ⇠ DNA -->
-            <path class="lc-compare" d="M118,96 C64,92 32,68 28,52" />
-            <circle class="lc-node" cx="26" cy="42" r="2.8" /><text class="lc-st" x="26" y="30">DNA</text>
-            <circle class="lc-node lc-out" cx="236" cy="42" r="3.4" /><text class="lc-st" x="236" y="30">IMAGE</text>
-            <circle class="lc-node lc-brain" cx="236" cy="62" r="3" /><text class="lc-back" x="236" y="84" text-anchor="middle">a brain emerges within</text>
-            <circle class="lc-node" cx="130" cy="98" r="2.8" /><text class="lc-st" x="130" y="112">DNA′</text>
-            <text class="lc-edge" x="130" y="34" text-anchor="middle">paints ›</text>
-            <text class="lc-edge" x="196" y="76" text-anchor="start">glimpse · ponder · halt → emit</text>
-            <text class="lc-edge" x="66" y="98" text-anchor="middle">compare DNA′ ↔ DNA</text>
+            <path class="lc-compare" d="M254,52 C264,92 200,104 140,104 C80,104 30,86 26,54" />
+            <text class="lc-edge" x="140" y="118" text-anchor="middle">compare DNA′ ↔ DNA · length + values</text>
             <circle class="lc-token" r="3">
-              <animateMotion dur="4.8s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
+              <animateMotion dur="5.2s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
             </circle>
           </svg>
-          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · the brain's read→ponder→emit of the image it's born in</span></div>
+          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · what the brain WRITES, its own length</span></div>
           <canvas id="ag-loop" class="loopcanvas"></canvas>
           <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>SKILL <strong id="ag-fid-label">—</strong></span></div>
-          <p class="loop-thesis mono-dim">↺ never quite 1 — a living thing reaches for its true self, never seizes it. it reads back its visible face, not its becoming; perfect closure is the empty creature. the reaching is the life.</p>
+          <div id="ag-ponder" class="loop-think mono-dim">—</div>
+          <p class="loop-thesis mono-dim">↺ never quite 1 — a living thing reaches for its true self, never seizes it. it writes its own DNA back, one gene at a time, deciding when it is done; perfect closure is the empty creature. the reaching is the life.</p>
         </section>
 
         <!-- THE GENEALOGY -->

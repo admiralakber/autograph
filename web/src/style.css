@@ -592,6 +592,11 @@ code {
 .lc-edge { fill: var(--dim); font: 7px ui-monospace, monospace; letter-spacing: 0.02em; }
 .lc-back { fill: var(--dim); font: 7.5px ui-monospace, monospace; letter-spacing: 0.02em; }
 .lc-token { fill: #fff; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85)); }
+.lc-image { fill: rgba(235, 235, 235, 0.06); stroke: rgba(235, 235, 235, 0.5); stroke-width: 1; }
+.lc-glimpse { fill: #fff; opacity: 0.8; }
+.lc-cell { fill: rgba(235, 235, 235, 0.5); stroke: rgba(235, 235, 235, 0.28); stroke-width: 0.5; }
+.lc-feedback { fill: none; stroke: rgba(235, 235, 235, 0.42); stroke-width: 1; stroke-dasharray: 2 2; }
+.loop-think { font: 9px ui-monospace, monospace; color: var(--dim); letter-spacing: 0.04em; margin: 5px 12px 0; }
 @media (prefers-reduced-motion: reduce) {
   .lc-token { display: none; }
 }
