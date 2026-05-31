@@ -54,6 +54,7 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'esIterationLevel', label: 'iteration level', value: 1, group: 'Substrate (ES-HyperNEAT)', note: 'how many times placement is re-applied from newly-discovered hidden neurons (hidden→hidden discovery)' },
   { key: 'esMaxHidden', label: 'max hidden neurons', value: 48, group: 'Substrate (ES-HyperNEAT)', note: 'defensive upper bound on discovered hidden neurons (browser memory/throughput guard)' },
   { key: 'substrateWeight', label: 'substrate weight scale', value: 3.0, group: 'Substrate (ES-HyperNEAT)', note: 'max magnitude a painted CPPN weight maps to in the substrate (max_weight)' },
+  { key: 'substrateSteps', label: 'substrate rollout steps', value: 6, group: 'Substrate (ES-HyperNEAT)', note: 'T — the v6 temporal forward pass: synchronous steps the substrate is rolled out per query so recurrent / self / lateral edges do real work (v5 used a fixed 2-pass settle). Forward edges still settle within a step, so a feed-forward-only creature is unchanged; higher = richer recurrent dynamics, slower. See docs/notes/v6-temporal-brain.md' },
 
   { key: 'loopRelaxAlpha', label: 'loop relaxation α', value: 0.55, group: 'The loop', note: 'under-relaxation for the fixed-point iteration g←g+α(T(g)−g)' },
   { key: 'loopTol', label: 'loop tolerance', value: 0.012, group: 'The loop', note: 'drift below this counts the iteration as converged' },

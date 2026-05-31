@@ -58,6 +58,10 @@ export interface Phenotype {
   readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
   /** Count of expressed connections — the phenotype's edge count for readouts. */
   readonly liveConns: number;
+  /** True if any wired edge is recurrent/lateral (source index ≥ target). Only such
+   *  creatures need the full T-step temporal rollout; feed-forward-only ones settle
+   *  in 2 steps exactly as in v5 (a perf-aware, behaviour-identical fast path). */
+  readonly hasRecurrent: boolean;
 }
 
 const o2: [number, number] = [0, 0];
@@ -124,17 +128,52 @@ export function buildPhenotype(g: Genome): Phenotype {
 
   const inFrom = inSrc.map((s) => Int32Array.from(s));
   const inW = inWt.map((w) => Float32Array.from(w));
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, edges, liveConns: edges.length };
+  // Recurrent/lateral = a wired source whose index is ≥ the target's: it reads the
+  // previous step, so it only does real work once the rollout runs > 1 step.
+  let hasRecurrent = false;
+  for (let i = 0; i < N && !hasRecurrent; i++) {
+    const f = inFrom[i]!;
+    for (let k = 0; k < f.length; k++) if (f[k]! >= i) { hasRecurrent = true; break; }
+  }
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, edges, liveConns: edges.length, hasRecurrent };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
 let val = new Float32Array(64);
 let prev = new Float32Array(64);
-const EVAL_PASSES = 2; // settle any hidden→hidden (lateral/recurrent) links
+/** v5 settle depth — also the feed-forward fast path (a feed-forward-only network
+ *  reaches its fixed point in one step; a second confirms it), kept identical so
+ *  such creatures are byte-for-byte unchanged from v5. */
+const FF_STEPS = 2;
+/** T — the v6 temporal forward pass budget (recurrent creatures only). */
+const rolloutSteps = (): number => Math.max(1, Math.round(HYPER.substrateSteps));
 
-/** Query the phenotype at a 3-D point -> [density in [0,1], hue in [0,1]]. The
- *  network is evaluated with a few synchronous passes so lateral hidden links
- *  settle; inputs are the sensor features [x, y, z, r=|p|, bias]. */
+/** ONE synchronous propagation step — the reusable temporal-pass primitive. Each
+ *  non-input node recomputes from its forward edges (`src < i`, this step's values,
+ *  so a feed-forward chain settles within the step) and its recurrent / self /
+ *  lateral edges (`src ≥ i`, the PREVIOUS step's values, via `prev`). Inputs are
+ *  held in `val[0..SUB_INPUTS)` and never overwritten, so later phases can vary
+ *  them per step (glimpse inputs) while the recurrent state carries forward. */
+function stepSubstrate(p: Phenotype, N: number, outStart: number): void {
+  prev.set(val.subarray(0, N));
+  for (let i = SUB_INPUTS; i < N; i++) {
+    const from = p.inFrom[i]!;
+    const w = p.inW[i]!;
+    let s = p.bias[i]!;
+    for (let k = 0; k < from.length; k++) {
+      const src = from[k]!;
+      s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
+    }
+    val[i] = i >= outStart ? s : activate(p.act[i]!, s);
+  }
+}
+
+/** Query the phenotype at a 3-D point -> [density in [0,1], hue in [0,1]] via the
+ *  v6 TEMPORAL FORWARD PASS: roll the substrate out for T synchronous steps so the
+ *  recurrent / self / lateral edges the genome already evolves do real work. A
+ *  feed-forward-only creature converges in `FF_STEPS` and is unchanged from v5;
+ *  only recurrent creatures pay the full T steps. Inputs are the sensor features
+ *  [x, y, z, r=|p|, bias], held constant across the rollout in this phase. */
 export function substrateForward(p: Phenotype, px: number, py: number, pz: number, out: [number, number] = [0, 0]): [number, number] {
   const N = p.inFrom.length;
   if (val.length < N) {
@@ -146,22 +185,10 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
   val[2] = pz;
   val[3] = Math.sqrt(px * px + py * py + pz * pz);
   val[4] = 1;
-  const hidStart = SUB_INPUTS;
   const outStart = N - SUB_OUTPUTS;
-  for (let i = hidStart; i < N; i++) val[i] = 0; // clear stale carryover from prior calls
-  for (let pass = 0; pass < EVAL_PASSES; pass++) {
-    prev.set(val.subarray(0, N));
-    for (let i = hidStart; i < N; i++) {
-      const from = p.inFrom[i]!;
-      const w = p.inW[i]!;
-      let s = p.bias[i]!;
-      for (let k = 0; k < from.length; k++) {
-        const src = from[k]!;
-        s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
-      }
-      val[i] = i >= outStart ? s : activate(p.act[i]!, s);
-    }
-  }
+  for (let i = SUB_INPUTS; i < N; i++) val[i] = 0; // clear stale carryover from prior calls
+  const steps = p.hasRecurrent ? rolloutSteps() : FF_STEPS;
+  for (let step = 0; step < steps; step++) stepSubstrate(p, N, outStart);
   let d = 0;
   let h = 0;
   if (outStart < N) d = val[outStart]!;

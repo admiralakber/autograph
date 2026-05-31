@@ -22,8 +22,9 @@ export const GENESIS_LABEL = 'GENESIS';
  *   (b) the SCORING-METRIC SEMANTICS change — old elites' signed `fidelity`
  *       means something different, so keep-best would mis-rank them against new
  *       ones (e.g. the v3→v4 bump: the loop's skill went from the bypassing
- *       "self-quine" echo to the genuine picture→brain read-back, so the old
- *       ~0.9 quine scores are not comparable to the new ~0.3–0.5 ones).
+ *       "self-quine" echo to the genuine image→brain read-back — a different
+ *       scoring scale entirely, so the old signed scores were no longer
+ *       comparable and keep-best had to start fresh).
  *
  * History: v1 (analytic read-back) → v2 (bolt-on reader weights) → v3 (intrinsic
  * self-quine; genome dropped reader) → v4 (read-back through the picture/brain;
