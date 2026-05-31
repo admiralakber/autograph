@@ -24,8 +24,9 @@ The loop is literal — and it is the *same function*, read two ways:
 ```mermaid
 flowchart LR
   DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints the weights ·<br/>ES-HyperNEAT places the neurons"| PHENO["🧠 brain · phenotype<br/>(an ES-HyperNEAT substrate)"]
-  PHENO -->|"queried over 3-D space →<br/>density + hue field"| ART["✨ self-portrait<br/>(volumetric, sunrise-coloured)"]
-  ART -->|"fed back through the creature's<br/>OWN brain → DNA′"| DNA2["🧬 DNA′"]
+  PHENO -->|"draws — queried over 3-D space →<br/>density + hue field"| ART["✨ self-portrait<br/>(volumetric, sunrise-coloured)"]
+  ART -->|"read back IN to the SAME brain"| PHENO
+  PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
   DNA2 -. "skill = how much of DNA it reconstructs<br/>above the mean (R²) — watched live" .-> DNA
 ```
 

@@ -37,8 +37,9 @@ A creature is **two networks that make each other**, closed into a loop:
 ```mermaid
 flowchart LR
   DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>ES-HyperNEAT places neurons"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
-  PHENO -->|"queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  ART -->|"fed back through the creature's<br/>OWN brain → DNA′"| DNA2["🧬 DNA′"]
+  PHENO -->|"draws — queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
+  ART -->|"read back IN to the SAME brain"| PHENO
+  PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
   DNA2 -. "loop skill = R² above the mean (measured live, ≈0.3–0.5)" .-> DNA
 ```
 

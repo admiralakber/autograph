@@ -77,8 +77,9 @@ the coefficient of determination of the read-back against the creature's own gen
 ```mermaid
 flowchart LR
   G["🧬 DNA g (connective CPPN)"] -->|"B: develop<br/>(paint + ES-HyperNEAT place)"| P["🧠 phenotype B(g) (substrate)"]
-  P -->|"R: render over 3-D"| X["✨ self-portrait x = R(B(g))<br/>(density + hue field)"]
-  X -->|"E: picture fed back through<br/>the creature's OWN brain → DNA′"| G2["🧬 recovered g′ = E(R(B(g)))"]
+  P -->|"R: draws — render over 3-D"| X["✨ self-portrait x = R(B(g))<br/>(density + hue field)"]
+  X -->|"E: read the picture back INTO<br/>the same brain"| P
+  P -->|"→ DNA′"| G2["🧬 recovered g′ = E(R(B(g)))"]
   G2 -. "skill = 1 − MSE/Var (R²)  →  fixed point (measured live)" .-> G
 ```
 
