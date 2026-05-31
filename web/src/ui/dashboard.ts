@@ -743,6 +743,10 @@ export class AutographDashboard {
     // v7 READ→WRITE readout — N foveated glimpses (each a halt-gated "look + think", no emit),
     // then L genes written autoregressively. Glimpses ARE the ponder steps (one per step).
     this.setText('#ag-ponder', `GLIMPSED ×${w.ponder} → WROTE ${L}/${G} genes`);
+    // Surface the plastic / neuromodulated / attentive brain — only the faculties THIS
+    // creature has actually evolved (honest: off at birth, each arises by mutation).
+    const fac = [pheno.hasPlastic && 'plastic', pheno.hasNeuromod && 'neuromodulated', pheno.hasAttention && 'attends', pheno.hasHalt && 'halts'].filter(Boolean).join(' · ');
+    this.setText('#ag-faculties', fac ? `BRAIN · ${fac}` : 'BRAIN · feed-forward (no temporal faculties yet)');
   }
 
   private async updateFingerprint(genome: Genome): Promise<void> {

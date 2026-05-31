@@ -92,13 +92,13 @@ const CPPN_OUT = ['weight', 'bias', 'α', 'emit', 'modGate', 'fixX', 'fixY', 'fi
 // v7 — the phenotype is READ and WRITTEN, not just painted. Its 5 input ports are
 // TIME-MULTIPLEXED across the substrate's uses; we label them by the READ glimpse (the
 // headline) and the titles carry the full truth (painter coord · write feedback). The 2
-// output neurons are the PAINTER's density/hue; the read/write OUTPUTS (the DNA token, the
+// output neurons are the PAINTER's density/hue; the read/write OUTPUTS (the real-valued gene, the
 // end-signal, the next glimpse) are CPPN-painted READOUTS distributed across the neurons,
 // NOT these two nodes — surfaced in the legend + the graph note, not as fake output ports.
 const SUB_IN = ['fix x', 'fix y', 'fovea', 'periph', 'b'];
 const SUB_OUT = ['density', 'hue'];
 const SUB_IN_DESC: Record<string, string> = {
-  'fix x': 'fix x — WHERE the brain looks (glimpse fixation x, the READ). Same port: the painter’s x-coord; in the WRITE it carries the brain’s previous DNA token (autoregressive feedback).',
+  'fix x': 'fix x — WHERE the brain looks (glimpse fixation x, the READ). Same port: the painter’s x-coord; in the WRITE it carries the brain’s previous emitted value (autoregressive feedback).',
   'fix y': 'fix y — WHERE the brain looks (glimpse fixation y, the READ). Same port: the painter’s y-coord; in the WRITE it carries the emit-mode flag.',
   fovea: 'fovea — the FINE central density the brain sees at its fixation (the READ glimpse). Same port: the painter’s z-coord; in the WRITE it carries the emit position.',
   periph: 'periph — the COARSE surrounding density at its fixation (the READ glimpse). Same port: the painter’s r = radius.',
@@ -106,7 +106,7 @@ const SUB_IN_DESC: Record<string, string> = {
 };
 const SUB_OUT_DESC: Record<string, string> = {
   density: 'density — the PAINTER output: “is there substance here?” (the glow that makes the image the brain reads). NOT a read/write output.',
-  hue: 'hue — the PAINTER output: the colour painted at this point. The DNA the brain WRITES is read out across its neurons (token · halt · next-glimpse), not from this node.',
+  hue: 'hue — the PAINTER output: the colour painted at this point. The DNA the brain WRITES is read out across its neurons (real-valued gene · halt · next-glimpse), not from this node.',
 };
 const CPPN_OUT_DESC: Record<string, string> = {
   weight: 'weight — the connection strength painted between two coordinates (paints the image)',
@@ -215,8 +215,8 @@ function drawLegend(svg: SVGSVGElement, acts: number[], spatial = false): void {
   path.setAttribute('y', String(LEGEND_Y + 24));
   path.setAttribute('class', 'ag-legend-t');
   path.textContent = spatial
-    ? 'loop: reads its image (glimpses) → writes its DNA — token · halt · next-glimpse, across the neurons'
-    : 'outputs: weight·bias paint the image · the rest paint the faculties (plasticity, attention, halt, writer)';
+    ? 'plastic · neuromodulated · attentive brain'
+    : 'outputs paint the image (weight·bias) + the faculties + the writer';
   g.appendChild(path);
 
   svg.appendChild(g);
@@ -239,8 +239,8 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
       note.textContent = txt;
       svg.append(note);
     };
-    mk(11, 'the brain READS its image (glimpses, left) → WRITES its DNA across its neurons');
-    mk(21, 'density · hue = the painter that makes the image · neurons sit where it has structure');
+    mk(11, 'reads its image (glimpses) → writes its DNA');
+    mk(21, 'writes value·halt·next-look · density·hue = painter');
   } else {
     const headIn = el('text');
     headIn.setAttribute('x', String(PAD_X));
