@@ -25,7 +25,7 @@
         </div>
         <dl class="readouts" aria-label="Live readouts">
           <div><dt>GEN</dt><dd id="ag-gen">0</dd></div>
-          <div><dt>GEN/S</dt><dd id="ag-gens" title="generations per second — the swarm's pulse">0</dd></div>
+          <div><dt>GEN/S</dt><dd id="ag-gens" title="generations per second across the live swarm — your own node when offline">0</dd></div>
           <div><dt>POP</dt><dd id="ag-pop">0/144</dd></div>
           <div><dt>COVERAGE</dt><dd id="ag-cov">0%</dd></div>
           <div><dt>SPECIES</dt><dd id="ag-species" title="NEAT species — protecting newly-evolved structure">1</dd></div>
@@ -35,7 +35,7 @@
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
         </dl>
         <div class="bar-end">
-          <span class="swarm" title="today Autograph runs only on your device — set ?swarm=wss://… (or the coordinator URL) to join the shared archipelago; the participant count then goes live"><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;<span id="ag-swarm-label">node&nbsp;(you)</span> · <strong id="ag-swarm-explored">0</strong>&nbsp;explored</span>
+          <span class="swarm" title="you're connected to the live shared archipelago — the peer count and the collective gen/s are real, and best-per-niche creatures migrate between machines; add ?swarm=off to explore solo"><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;<span id="ag-swarm-label">connecting…</span> · <strong id="ag-swarm-explored">0</strong>&nbsp;explored</span>
           <button id="ag-tuning-open" class="btn" type="button" title="structural options + the hyperparameters this run uses">⚙ TUNING</button>
           <button id="ag-help-open" class="btn" type="button" title="what am I looking at? a quick tour of the parts">? WHAT IS THIS</button>
           <button id="ag-info-open" class="btn" type="button">INFO</button>
@@ -251,12 +251,12 @@
         <p>The single most misunderstood thing: a beautiful render <em>is</em> a neural network, and that network has a DNA. Toggle <em>SELF-PORTRAIT / PHENOTYPE / DNA</em> on the same individual to see one thing three ways. That is genotype → phenotype → render, shown rather than lectured.</p>
 
         <h2>You, and the swarm</h2>
-        <p>Today this runs entirely on your device — a single local node, no backend, no telemetry. The roadmap is a shared world: many machines growing <em>one</em> genealogy, coordinated by a sandboxed <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>. The signed tree of life persists in your browser and grows across visits; one day it becomes everyone's.</p>
+        <p>You're part of a live shared world right now. Many machines grow <em>one</em> genealogy together through a <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>: the <strong>peer count</strong> and the <strong>collective gen/s</strong> at the top are real, best-per-niche creatures <strong>migrate</strong> between machines as they're discovered, and the signed tree of life — already everyone's — persists in your browser and grows across visits. Prefer solitude? <code>?swarm=off</code> keeps you fully local. The coordinator verifies every shared creature's signature and keeps the best per niche; <em>full replication and a zero-knowledge "proof of becoming" for untrusted machines are still to come</em>.</p>
 
         <h2>What's real vs illustrative</h2>
         <ul>
-          <li><strong>Real:</strong> the CPPN evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation, the HyperNEAT substrate with simplified ES-HyperNEAT placement, an optional <a href="https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf" rel="noopener">Novelty Search</a> mode (Lehman &amp; Stanley), the 3D volumetric render, MAP-Elites quality-diversity, loop fidelity (measured), and a signed, hash-chained lineage that auto-records the champion line and persists in IndexedDB.</li>
-          <li><strong>Illustrative / roadmap:</strong> the worldwide swarm (single device for now), zk "proof of becoming", full quadtree ES-HyperNEAT (we ship a simplified placement), and the quantum framing — metaphor and lineage only. <strong>There are no qubits here.</strong></li>
+          <li><strong>Real:</strong> the CPPN evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation, the HyperNEAT substrate with simplified ES-HyperNEAT placement, an optional <a href="https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf" rel="noopener">Novelty Search</a> mode (Lehman &amp; Stanley), the 3D volumetric render, MAP-Elites quality-diversity, loop fidelity (measured), a signed, hash-chained lineage that auto-records the champion line and persists in IndexedDB, and the <strong>live swarm</strong> — peer count, collective gen/s, and best-per-niche migration through the coordinator.</li>
+          <li><strong>Illustrative / roadmap:</strong> the zk "proof of becoming" and full verification of untrusted machines (today the swarm's trust is signed-lineage + rate-limiting + keep-best merge), full quadtree ES-HyperNEAT (we ship a simplified placement), and the quantum framing — metaphor and lineage only. <strong>There are no qubits here.</strong></li>
         </ul>
 
         <h2>How this was made 🤖</h2>

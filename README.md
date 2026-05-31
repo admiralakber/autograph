@@ -99,13 +99,13 @@ The discipline is Dieter Rams / Braun restraint: nothing decorative, everything 
 
 ---
 
-## You are a node: local-first → swarm 🌐
+## You are a node in a live swarm 🌐
 
-Today, the instrument runs entirely on your own device: **you are a node — a node of one.** No backend, no account, no data leaves the tab.
+Open the tab and **you join a shared world** — many machines growing *one* genealogy together, right now. A [PartyServer](https://github.com/cloudflare/partykit)-on-Cloudflare coordinator owns the global MAP-Elites archive and the signed lineage behind the same swap-able `Archive` seam in the code: a creature discovered on one machine **migrates** to illuminate the wall for everyone, the **peer count** and the **collective gen/s** are live, and the tree of life is a single, shared genealogy across all participants. It's on by default; `?swarm=off` keeps you fully local (no backend, no account, nothing leaves the tab). The deploy details are in the [coordinator runbook](./docs/DEPLOY-coordinator.md).
 
-The roadmap is a **swarm**: many devices growing *one shared garden*, so a creature discovered on one machine illuminates the wall for everyone and the tree of life becomes a single, shared genealogy across all participants. The chosen path — a [PartyServer](https://github.com/cloudflare/partykit)-on-Cloudflare coordinator that owns the global MAP-Elites archive and the signed lineage behind the same swap-able `Archive` seam already in the code — is specified, sandboxed and **undeployed by design** in the [coordinator runbook](./docs/DEPLOY-coordinator.md). We link to it rather than repeat it.
+**The swarm's natural shape is an archipelago.** Heterogeneous device speeds and sporadic syncing make it an *asynchronous island model*: demes emerge on their own (no designed topology), best-per-niche elites migrate through the coordinator, and isolation breeds allopatric speciation → diversity.
 
-**The swarm's natural shape is an archipelago.** Heterogeneous device speeds and sporadic syncing make it an *asynchronous island model*: demes emerge on their own (no designed topology), best-per-niche elites migrate through the coordinator, and isolation breeds allopatric speciation → diversity. *Honest status:* v1 is a single local population; true islands arrive only with the coordinator (even a local multi-deme demo is future work, not built). The dynamics are written up in the [whitepaper §3.8](./docs/WHITEPAPER.md).
+*Honest trust model:* the coordinator **verifies every shared creature's signature**, rate-limits, and keeps the best per niche — enough for a grift-free shared archive today. **Full replication/quorum and a zkML "proof of becoming" that verifies untrusted machines' fitness claims are still roadmap** (see the [cryptography note](./docs/notes/cryptography.md)). The dynamics are written up in the [whitepaper §3.8](./docs/WHITEPAPER.md).
 
 ---
 

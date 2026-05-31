@@ -18,19 +18,19 @@ The whole project lives or dies on not over-claiming, so here is the honest spli
 | **MAP-Elites** quality-diversity archive (complexity × symmetry), speciation, optional **Novelty Search** | ✅ **Real, on device** | `mapelites.ts`, `evolution.ts` |
 | **3-D volumetric render** (Three.js) with a **Canvas 2D fallback**; sunrise HSLuv palette (colour for life only) | ✅ **Real, on device** | `render/` |
 | **Signed, content-addressed Merkle-DAG lineage** (ECDSA P-256, Web Crypto), **persisted in IndexedDB**, round-trip verifiable | ✅ **Real, on device** | `lineage.ts` |
-| **Networked swarm** — a `SharedArchive` client + a PartyServer-on-Cloudflare coordinator (push best-per-niche, pull migration, live peer count, **server-side signature verification**, keep-best merge, rate-limiting) | 🟡 **Built behind the seam** | [`web/src/net/swarm.ts`](../../web/src/net/swarm.ts), [`coordinator/`](../../coordinator), [deploy runbook](../DEPLOY-coordinator.md) |
+| **Live swarm** — a `SharedArchive` client + a PartyServer-on-Cloudflare coordinator: best-per-niche **push**, **pull** migration, a **live peer count**, a **collective gen/s**, **server-side signature verification**, keep-best merge, rate-limiting; on by default (`?swarm=off` to go solo) | ✅ **Live, behind the seam** | [`web/src/net/swarm.ts`](../../web/src/net/swarm.ts), [`coordinator/`](../../coordinator), [deploy runbook](../DEPLOY-coordinator.md) |
 | **Planetary scale** — many islands, GPU (WGSL) evaluation spanning phones to servers, BOINC-style replication/quorum trust | 🔭 **Roadmap** | [runtime & GPU note](./runtime-and-gpu.md) |
 | **zkML "proof of becoming"** + recursive proof composition | 🔭 **Roadmap (north star)** | [cryptography note](./cryptography.md) |
 | **Full quadtree band-pruning ES-HyperNEAT** | 🔭 **Roadmap** | [whitepaper §3.2](../WHITEPAPER.md) |
 | **Quantum** anything | 🚫 **Metaphor & lineage only** — there are no qubits here | [quantum note](./quantum.md) |
 
-The rule of thumb: **the single-device instrument and the signed tree of life are real and running in your browser.** The swarm's *machinery* is built behind a swap-able seam; its *planetary scale*, the GPU runtime, and the cryptographic frontier are honestly labelled as roadmap wherever they appear.
+The rule of thumb: **the instrument, the signed tree of life, and the shared swarm are real and running in your browser right now.** What's roadmap is the swarm's *planetary scale* (GPU-tier evaluation across devices) and its *full trust layer* — verifying untrusted machines via replication, then zkML. Today the swarm's trust is signed-lineage + rate-limiting + keep-best merge.
 
 ---
 
-## The shape: local-first, one device
+## The shape: an on-device engine, in a shared swarm
 
-Today the instrument runs **entirely on your own device** — no backend, no telemetry, no account, nothing leaves the tab. You are a node — a node of one. That constraint is a feature: it keeps the piece honest, private and forkable, and it forces the evaluation core to be small and portable enough to run anywhere.
+The engine runs **on your own device** — no backend, no account, and nothing leaves the tab but the elites you share. By default the tab also **joins a live shared swarm** (next section); `?swarm=off` keeps it purely local. Keeping the evaluation core small and portable is a feature: honest, private, forkable — and it is exactly what lets the *same* core scale from a phone to a server GPU.
 
 A creature is **two networks that make each other**, closed into a loop:
 
@@ -71,9 +71,9 @@ This is the load-bearing design choice. Because the network sync sits *behind* t
 
 ---
 
-## From one node to a swarm: the archipelago 🌐
+## The shared swarm: an archipelago 🌐
 
-The roadmap is a **swarm**: many devices growing *one shared garden*, so a creature discovered on one machine illuminates the wall for everyone, and the tree of life becomes a single shared genealogy.
+Open the tab and you join a **live swarm**: many devices growing *one shared garden*, so a creature discovered on one machine migrates to illuminate the wall for everyone, and the tree of life is a single shared genealogy — with a live peer count and a collective gen/s that climbs as machines join.
 
 The natural shape is an **archipelago**. Because devices run at wildly different speeds and sync only now and then, the swarm is an *asynchronous island model*: isolated demes form on their own — with no designed topology — simply because a fast desktop and a throttled phone drift apart between syncs. Best-per-niche elites migrate through the coordinator; isolation breeds *allopatric speciation*; speciation breeds diversity. A planetary archipelago of emergent islands, all feeding one signed genealogy, is the prize.
 
@@ -90,7 +90,7 @@ flowchart TB
   C <-->|"push ↔ pull"| COORD
 ```
 
-**Honest status:** the shipping experience is a single local population. The coordinator and client are *built* (below); the *planetary scale* — many live islands, GPU evaluation across device tiers, trust under churn — is roadmap.
+**Honest status:** the swarm is live and on by default — peer count, collective gen/s, and best-per-niche migration are real. What's roadmap is the *planetary scale* (GPU evaluation across device tiers) and the *full trust layer* — verifying untrusted machines under churn (replication/quorum, then zkML); today the coordinator signature-checks and keeps best-per-niche.
 
 ---
 
@@ -98,7 +98,7 @@ flowchart TB
 
 The chosen path is a [PartyServer](https://github.com/cloudflare/partykit)-on-Cloudflare coordinator that owns the global MAP-Elites archive and the signed lineage, behind the same `Archive` seam already in the code. It is small and deliberately boring:
 
-- **Protocol (v1).** A client sends `hello`, `pull` (migration: seed my mirror from the shared archive) and `push` (best-per-niche elites). The server answers with `welcome` (peer count + room info), `peers` (live count), `elites` (a pull snapshot) and `delta` (newly accepted elites, fanned out to the *other* peers so they migrate them in).
+- **Protocol (v1).** A client sends `hello`, `pull` (migration: seed my mirror from the shared archive), `push` (best-per-niche elites) and `rate` (its local generations/sec). The server answers with `welcome` (peer count + room info), `peers` (live count), `elites` (a pull snapshot), `delta` (newly accepted elites, fanned out to the *other* peers so they migrate them in) and `swarm` (the collective: peer count + summed gen/s, broadcast as peers report or leave). The `rate`/`swarm` pair is additive — a client that never reports simply contributes 0.
 - **Anti-forgery is server-side.** Every pushed elite carries its signed, content-addressed lineage entry; the coordinator re-derives the genome hash, re-derives the content id, binds the ranked fidelity to the signed one, and verifies the ECDSA P-256 signature before a keep-best merge. You cannot graft a creature onto a lineage you do not hold the key for. The cryptographic design is in the [cryptography note](./cryptography.md).
 - **Resilience by design.** Per-connection rate-limiting, a message-size cap, and graceful client fallback to the offline garden if the coordinator is unreachable — the site must always work with the coordinator absent.
 
