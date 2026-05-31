@@ -12,16 +12,16 @@ The whole project lives or dies on not over-claiming, so here is the honest spli
 
 | Capability | Status | Where |
 |---|---|---|
-| **CPPN genotype with real NEAT** — augmenting topologies (add-node / add-connection, innovation numbers, recurrent + optional gated links), heterogeneous activations, crossover, speciation | ✅ **Real, on device** | [`web/src/engine/cppn.ts`](../../web/src/engine), `evolution.ts` |
-| **HyperNEAT substrate** with **simplified ES neuron placement** (variance-scored) | ✅ **Real, on device** | `substrate.ts` |
-| **Self-encoding loop + live loop fidelity**, with a **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `fitness.ts` |
+| **CPPN genotype with real NEAT** — augmenting topologies (add-node / add-connection, innovation numbers, recurrent + optional gated links), heterogeneous activations, textbook innovation-aligned crossover, speciation | ✅ **Real, on device** | [`web/src/engine/cppn.ts`](../../web/src/engine), `mutate.ts`, `evolution.ts` |
+| **Genuine ES-HyperNEAT substrate** — quadtree division + initialization (variance) and pruning + extraction (band-pruning), discovering hidden **placement, density and connectivity** (Risi & Stanley 2012); iterated + dead-node-pruned | ✅ **Real, on device** *(quadtree depth bounded for browser real time; 2-D placement sheet, 3-D swept render; heterogeneous activations + CPPN biases are extensions — all flagged)* | `eshyperneat.ts`, `substrate.ts` |
+| **Intrinsic self-quine loop + honest skill** — the same CPPN read at its genome coordinates returns its genes (DNA′); skill = R² above the mean (`1−MSE/Var`); **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `quine.ts`, `fitness.ts` |
 | **MAP-Elites** quality-diversity archive (complexity × symmetry), speciation, optional **Novelty Search** | ✅ **Real, on device** | `mapelites.ts`, `evolution.ts` |
 | **3-D volumetric render** (Three.js) with a **Canvas 2D fallback**; sunrise HSLuv palette (colour for life only) | ✅ **Real, on device** | `render/` |
 | **Signed, content-addressed Merkle-DAG lineage** (ECDSA P-256, Web Crypto), **persisted in IndexedDB**, round-trip verifiable | ✅ **Real, on device** | `lineage.ts` |
 | **Live swarm** — a `SharedArchive` client + a PartyServer-on-Cloudflare coordinator: best-per-niche **push**, **pull** migration, a **live peer count**, a **collective gen/s**, **server-side signature verification**, keep-best merge, rate-limiting; on by default (`?swarm=off` to go solo) | ✅ **Live, behind the seam** | [`web/src/net/swarm.ts`](../../web/src/net/swarm.ts), [`coordinator/`](../../coordinator), [deploy runbook](../DEPLOY-coordinator.md) |
 | **Planetary scale** — many islands, GPU (WGSL) evaluation spanning phones to servers, BOINC-style replication/quorum trust | 🔭 **Roadmap** | [runtime & GPU note](./runtime-and-gpu.md) |
 | **zkML "proof of becoming"** + recursive proof composition | 🔭 **Roadmap (north star)** | [cryptography note](./cryptography.md) |
-| **Full quadtree band-pruning ES-HyperNEAT** | 🔭 **Roadmap** | [whitepaper §3.2](../WHITEPAPER.md) |
+| **Deeper / unbounded ES-HyperNEAT** — higher quadtree resolution, full 3-D octree placement | 🔭 **Roadmap** *(today's depth is capped for browser real time)* | [whitepaper §3.2](../WHITEPAPER.md) |
 | **Quantum** anything | 🚫 **Metaphor & lineage only** — there are no qubits here | [quantum note](./quantum.md) |
 
 The rule of thumb: **the instrument, the signed tree of life, and the shared swarm are real and running in your browser right now.** What's roadmap is the swarm's *planetary scale* (GPU-tier evaluation across devices) and its *full trust layer* — verifying untrusted machines via replication, then zkML. Today the swarm's trust is signed-lineage + rate-limiting + keep-best merge.
@@ -36,10 +36,10 @@ A creature is **two networks that make each other**, closed into a loop:
 
 ```mermaid
 flowchart LR
-  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>places neurons (ES)"| PHENO["🧠 brain · phenotype<br/>(HyperNEAT substrate)"]
+  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>ES-HyperNEAT places neurons"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
   PHENO -->|"queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  ART -->|"fed through the creature's<br/>read-back network (co-evolved)"| DNA2["🧬 DNA′"]
-  DNA2 -. "loop fidelity (measured live)" .-> DNA
+  DNA -->|"the SAME CPPN, read at its<br/>genome coordinates (self-quine)"| DNA2["🧬 DNA′"]
+  DNA2 -. "loop skill = R² above the mean (measured live)" .-> DNA
 ```
 
 The maths of that loop is the subject of the [whitepaper](../WHITEPAPER.md); this note is about the *system* the loop lives inside.
@@ -98,7 +98,7 @@ flowchart TB
 
 The chosen path is a [PartyServer](https://github.com/cloudflare/partykit)-on-Cloudflare coordinator that owns the global MAP-Elites archive and the signed lineage, behind the same `Archive` seam already in the code. It is small and deliberately boring:
 
-- **Protocol (v1).** A client sends `hello`, `pull` (migration: seed my mirror from the shared archive), `push` (best-per-niche elites) and `rate` (its local generations/sec). The server answers with `welcome` (peer count + room info), `peers` (live count), `elites` (a pull snapshot), `delta` (newly accepted elites, fanned out to the *other* peers so they migrate them in) and `swarm` (the collective: peer count + summed gen/s, broadcast as peers report or leave). The `rate`/`swarm` pair is additive — a client that never reports simply contributes 0.
+- **Protocol (v3).** A client sends `hello`, `pull` (migration: seed my mirror from the shared archive), `push` (best-per-niche elites) and `rate` (its local generations/sec). (`PROTOCOL_VERSION` is bumped with the genome wire format; v3 dropped the old read-back-network weights now that the loop's decode half is the intrinsic self-quine. `/health` reports it.) The server answers with `welcome` (peer count + room info), `peers` (live count), `elites` (a pull snapshot), `delta` (newly accepted elites, fanned out to the *other* peers so they migrate them in) and `swarm` (the collective: peer count + summed gen/s, broadcast as peers report or leave). The `rate`/`swarm` pair is additive — a client that never reports simply contributes 0.
 - **Anti-forgery is server-side.** Every pushed elite carries its signed, content-addressed lineage entry; the coordinator re-derives the genome hash, re-derives the content id, binds the ranked fidelity to the signed one, and verifies the ECDSA P-256 signature before a keep-best merge. You cannot graft a creature onto a lineage you do not hold the key for. The cryptographic design is in the [cryptography note](./cryptography.md).
 - **Resilience by design.** Per-connection rate-limiting, a message-size cap, and graceful client fallback to the offline garden if the coordinator is unreachable — the site must always work with the coordinator absent.
 
@@ -122,7 +122,7 @@ Every layer is a different face of one idea: self-portrait → self-description 
 
 For anyone forking or rebuilding, the shape that ships and still scales:
 
-- **Client.** TypeScript + Vite. The engine (CPPN, substrate, simplified ES placement, MAP-Elites, the render, the Web-Crypto lineage) is written from scratch and dependency-light. The render uses Three.js with a Canvas 2D fallback so no device is excluded.
+- **Client.** TypeScript + Vite. The engine (CPPN, genuine ES-HyperNEAT substrate, the self-quine loop, MAP-Elites, the render, the Web-Crypto lineage) is written from scratch and dependency-light. The render uses Three.js with a Canvas 2D fallback so no device is excluded.
 - **The seam.** Everything talks to the `Archive` interface; `LocalArchive` ships, `SharedArchive` adds the network without touching the engine.
 - **Coordinator.** A small PartyServer Durable Object: dispatch, the global archive, keep-best merge, signature verification, replication policy. WebSocket + persistence.
 - **Why it scales.** The evaluation kernels and the job protocol are identical from a budget phone to a server GPU — only batch size, precision and replication policy change. That portability is the subject of the [runtime & GPU note](./runtime-and-gpu.md).

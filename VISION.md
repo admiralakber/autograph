@@ -16,20 +16,20 @@ And yet.... 🦕 a trace.... ✨ of.. the true self... 🐣 exists.... 🐥 with
 
 A creature is **two networks that make each other**:
 
-- 🧬 **DNA — the genotype.** A small *connective* CPPN. Hand it the positions of two points in space and it answers with a connection: a weight, and a gate that decides whether the connection exists at all. It is the recipe, and we draw it as a small graph of nodes and edges.
-- 🧠 **The brain — the phenotype.** A HyperNEAT *substrate*. Its wiring is **painted** by the DNA, and its hidden neurons are **placed** by the DNA. Queried across three-dimensional space, it answers with a field of *density* and *hue* — and that field, rendered, is the creature's **self-portrait**.
+- 🧬 **DNA — the genotype.** A small *connective* CPPN. Hand it two coordinates in space and it answers with `[weight, bias]` — the connection strength painted between them, and (read at a single point) a neuron's bias. It is the recipe, and we draw it as a small graph of nodes and edges.
+- 🧠 **The brain — the phenotype.** An ES-HyperNEAT *substrate*. Its wiring is **painted** by the DNA, and its hidden neurons are **placed, made dense, and wired** by a genuine quadtree of the DNA's weight pattern (Risi & Stanley 2012). Queried across three-dimensional space, it answers with a field of *density* and *hue* — and that field, rendered, is the creature's **self-portrait**.
 
-The loop is literal:
+The loop is literal — and it is the *same function*, read two ways:
 
 ```mermaid
 flowchart LR
-  DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints the weights ·<br/>places the neurons (ES)"| PHENO["🧠 brain · phenotype<br/>(a HyperNEAT substrate)"]
+  DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints the weights ·<br/>ES-HyperNEAT places the neurons"| PHENO["🧠 brain · phenotype<br/>(an ES-HyperNEAT substrate)"]
   PHENO -->|"queried over 3-D space →<br/>density + hue field"| ART["✨ self-portrait<br/>(volumetric, sunrise-coloured)"]
-  ART -->|"fed through the creature's<br/>read-back network (co-evolved)"| DNA2["🧬 DNA′"]
-  DNA2 -. "iterate: DNA′ → brain → portrait → DNA″ → …<br/>until it settles to a fixed point — watched live" .-> DNA
+  DNA -->|"the SAME CPPN, read at its<br/>own genome coordinates (self-quine)"| DNA2["🧬 DNA′"]
+  DNA2 -. "skill = how much of DNA it reconstructs<br/>above the mean (R²) — watched live" .-> DNA
 ```
 
-The creature draws a picture of itself; that picture is then fed through the creature's **own read-back network** — co-evolved with it — which outputs a **DNA′**, and **loop fidelity** measures how faithfully it reconstructs the original DNA — measured live, never faked (a random reader sits ≈0.81; evolved self-encoders climb to ≈0.95). Then comes the honest, humbling part. If you *fully iterate* the loop — DNA′ grows its own brain, draws its own portrait, is read back to DNA″, again and again — it does **not** settle into a richer likeness. The only **perfect** fixed point is the *empty* one: a flat, silent creature that "encodes itself" by saying nothing (the *zero quine*, vitality 0). A living creature can only ever *approach* closure, never reach it. The reader is genuinely a network — but it must be **per-creature**: a single *shared* "mirror brain" mapping portrait → DNA across the whole population doesn't generalise (held-out R² ≈ 0), so each creature carries and co-evolves its own reader, learning to read itself. So **perfect self-knowledge is emptiness; life is the imperfect, unfinished kind** — and the vitality gate + quality-diversity (see §3) hold the search on the living side. We never fake the closure; the strange-loop panel shows the read-back arc turning back into the DNA, and the fidelity is whatever it honestly is.
+The creature draws a picture of itself with one reading of its CPPN; with **another reading of the very same CPPN** — sampled at its genome's own canonical coordinates — it reports its genes straight back as a **DNA′**. This is a genuine neural-network quine ([Chang & Lipson](https://arxiv.org/abs/1803.05859)): there is **no separate read-back network** to over-fit or game. **Loop skill** measures how much of its own DNA it reconstructs *above just predicting the mean* (R² = 1 − MSE/Var) — measured live, never faked: a constant or random creature scores **~0** (not the old inflated ~0.97), evolved self-encoders reach genuine self-consistency around **0.7–0.9**. Then comes the honest, humbling part. If you *fully iterate* the self-map — replace each gene with the CPPN's readout of it, again and again — it does **not** settle into a richer likeness. It drifts toward the only effortless fixed point: a flat, silent creature whose genes have lost all variance and which "encodes itself" by saying nothing (the *zero quine*, vitality → 0 — we measured the drift). A living creature can only ever *approach* closure, never rest there. So **perfect self-knowledge is emptiness; life is the imperfect, unfinished kind** — and the vitality gate + quality-diversity (see §3) hold the search on the living side.
 
 ---
 
@@ -47,7 +47,7 @@ flowchart LR
   V3 -. "same individual, three faces" .-> V1
 ```
 
-Seeing genotype → substrate → render as three views of one thing teaches *indirect encoding* — the genome is a small recipe that grows a much larger body — in a way no diagram can. The neurons aren't placed on a fixed grid; the DNA decides where information lives. That placement is **ES-HyperNEAT's** idea, and we are honest about how far we take it (§3).
+Seeing genotype → substrate → render as three views of one thing teaches *indirect encoding* — the genome is a small recipe that grows a much larger body — in a way no diagram can. The neurons aren't placed on a fixed grid; a genuine **ES-HyperNEAT** quadtree of the DNA's weight pattern decides where information lives, how dense the neurons are, and which connections express (Risi & Stanley 2012). We implement the real algorithm and name its one honest bound — a browser-capped quadtree depth — in §3.
 
 ### Goal B — what distributed compute is for (a live swarm)
 
@@ -61,9 +61,9 @@ Autograph runs **on your own device and joins a shared world**. There is no acco
 
 The project lives or dies on not over-claiming. Three rules, no exceptions:
 
-- **Real is labelled real; illustrative is labelled illustrative.** Today the DNA evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation, the HyperNEAT substrate with simplified ES neuron-placement, an optional Novelty Search mode, the 3-D volumetric render, the live loop-fidelity measurement, the signed lineage that auto-records the champion line and persists across sessions, the MAP-Elites diversity map, and the **live shared swarm** (peer count, collective gen/s, best-per-niche migration through the coordinator) are **real and running**. The zero-knowledge "proof of becoming" and full verification of untrusted machines, the quantum framing, and *full quadtree* ES-HyperNEAT are **directions** — and we say so, plainly, wherever they appear.
+- **Real is labelled real; illustrative is labelled illustrative.** Today the DNA evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation + textbook innovation-aligned crossover, the genuine ES-HyperNEAT substrate (quadtree division + band-pruning placement/density/connectivity), an optional Novelty Search mode, the 3-D volumetric render, the intrinsic self-quine and its honest baseline-corrected skill (R²), the signed lineage that auto-records the champion line and persists across sessions, the MAP-Elites diversity map, and the **live shared swarm** (peer count, collective gen/s, best-per-niche migration through the coordinator) are **real and running**. The honestly-flagged approximations are the *bounded* ES-HyperNEAT quadtree depth, its 2-D placement sheet (with a 3-D swept render), and the heterogeneous-activation / CPPN-bias extensions. The zero-knowledge "proof of becoming" and full verification of untrusted machines, and the quantum framing, are **directions** — and we say so, plainly, wherever they appear.
 - **No grift.** No coin, no token, no manufactured scarcity, no pay-to-participate. Provenance is proved the way [Git](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) proves it — content-addressed and signed — with no blockchain.
-- **Self-reference must be load-bearing.** A blank creature "encodes itself" perfectly and means nothing — the *zero quine*. So we never reward closure alone: a **vitality gate** plus **MAP-Elites quality-diversity** keep the population pushing against a real world, exactly as a self-replicator coupled to a task must ([Chang & Lipson](https://arxiv.org/abs/1803.05859)'s lesson).
+- **Self-reference must be load-bearing.** A blank creature "encodes itself" with nothing to reconstruct — it scores ~0 skill (no variance) *and* is refused by the vitality gate. So closure alone is never rewarded: a **vitality gate** plus **MAP-Elites quality-diversity** keep the population pushing against a real world, exactly as a self-replicator coupled to a task must ([Chang & Lipson](https://arxiv.org/abs/1803.05859)'s lesson).
 
 ---
 

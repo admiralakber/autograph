@@ -1,4 +1,4 @@
-# 🌐 Autograph swarm coordinator (v2)
+# 🌐 Autograph swarm coordinator (protocol v3)
 
 > **One room = one shared world.** A [PartyServer](https://github.com/cloudflare/partykit/tree/main/packages/partyserver)-on-[Cloudflare-Durable-Objects](https://developers.cloudflare.com/durable-objects/) coordinator that holds the global [MAP-Elites](https://arxiv.org/abs/1504.04909) archive (the **archipelago**) and the signed lineage, so a creature discovered in one tab illuminates the wall for everyone.
 
@@ -69,7 +69,7 @@ coordinator/
 
 ## 📡 Protocol
 
-One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `archipelago`). All frames are JSON. `PROTOCOL_VERSION = 1`.
+One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `genesis-v3`). All frames are JSON. `PROTOCOL_VERSION = 3` (bumped with the genome wire format; v3 dropped the old read-back-network weights now that the loop's decode half is the intrinsic self-quine — old v2 elites no longer verify, so the fresh `genesis-v3` room starts clean). `/health` reports the protocol.
 
 ### Client → server
 
@@ -94,9 +94,9 @@ A **`WireElite`** is `{ genome, evaluation, lineage }` — the DNA, its measured
 
 ---
 
-## 🔐 Trust model — honest about v1
+## 🔐 Trust model — honest about today
 
-Untrusted browsers can submit junk. v1 leans on three real, weekend-buildable pillars, and is explicit about what is **roadmap**:
+Untrusted browsers can submit junk. Today's coordinator leans on three real, weekend-buildable pillars, and is explicit about what is **roadmap**:
 
 | Pillar | What it guarantees | Status |
 |---|---|---|
