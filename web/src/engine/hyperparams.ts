@@ -12,7 +12,7 @@ export interface ParamSpec {
   readonly value: number;
   readonly unit?: string;
   readonly note: string;
-  readonly group: 'Population (MAP-Elites)' | 'Mutation (NEAT)' | 'Speciation' | 'The loop' | 'Tempo';
+  readonly group: 'Population (MAP-Elites)' | 'Mutation (NEAT)' | 'Speciation' | 'Substrate (ES-HyperNEAT)' | 'The loop' | 'Tempo';
   readonly selfTunes?: boolean;
 }
 
@@ -35,17 +35,28 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'addGateRate', label: 'add-gate rate', value: 0.05, group: 'Mutation (NEAT)', note: 'neataptic-style: let a neuron gate a connection (option)' },
   { key: 'recurrentRate', label: 'recurrent chance', value: 0.3, group: 'Mutation (NEAT)', note: 'chance an added connection may be a back/lateral edge (recurrent — ON by default)' },
   { key: 'selfConnRate', label: 'self-connection chance', value: 0.2, group: 'Mutation (NEAT)', note: 'chance an added connection is a self-loop (option)' },
-  { key: 'readerMutRate', label: 'reader-mutate rate', value: 0.7, group: 'Mutation (NEAT)', note: 'fraction of the read-back network’s weights perturbed per mutation' },
-  { key: 'readerMutSigma', label: 'reader σ', value: 0.3, group: 'Mutation (NEAT)', note: 'std-dev of the Gaussian perturbation on read-back-network weights' },
 
   { key: 'speciesThreshold', label: 'compatibility threshold', value: 0.7, group: 'Speciation', note: 'NEAT compatibility distance above which creatures split species', selfTunes: false },
   { key: 'crossoverRate', label: 'crossover rate', value: 0.3, group: 'Speciation', note: 'fraction of offspring from innovation-aligned crossover (else mutation only) — balanced against novelty' },
   { key: 'respeciateEvery', label: 'respeciate interval', value: 20, unit: 'gen', group: 'Speciation', note: 'recompute species membership every N generations' },
 
+  // Genuine ES-HyperNEAT (Risi & Stanley 2012): the CPPN paints a weight pattern
+  // over the substrate; a quadtree decides WHERE hidden neurons sit, how DENSE
+  // they are, and which connections express — no fixed/uniform grid. The depth
+  // caps below are the one honest approximation: a browser instrument bounds the
+  // quadtree resolution (the paper itself sets a max resolution rm for the same
+  // reason). Thresholds match the paper's defaults (0.03).
+  { key: 'esInitialDepth', label: 'initial quad depth', value: 1, group: 'Substrate (ES-HyperNEAT)', note: 'minimum quadtree resolution sampled before variance decides (2^d × 2^d grid)' },
+  { key: 'esMaxDepth', label: 'max quad depth', value: 2, group: 'Substrate (ES-HyperNEAT)', note: 'upper bound on quadtree resolution — the browser-real-time resolution cap (rm in the paper); higher = more neurons, slower' },
+  { key: 'esDivisionThreshold', label: 'division threshold', value: 0.03, group: 'Substrate (ES-HyperNEAT)', note: 'subdivide a quad while its weight variance exceeds this (more neurons where there is more information)' },
+  { key: 'esVarianceThreshold', label: 'variance threshold', value: 0.03, group: 'Substrate (ES-HyperNEAT)', note: 'recurse pruning while a quad’s variance exceeds this' },
+  { key: 'esBandThreshold', label: 'band threshold', value: 0.05, group: 'Substrate (ES-HyperNEAT)', note: 'express a connection only if it sits in a band (min neighbour-difference exceeds this) — the band-pruning step' },
+  { key: 'esIterationLevel', label: 'iteration level', value: 1, group: 'Substrate (ES-HyperNEAT)', note: 'how many times placement is re-applied from newly-discovered hidden neurons (hidden→hidden discovery)' },
+  { key: 'esMaxHidden', label: 'max hidden neurons', value: 32, group: 'Substrate (ES-HyperNEAT)', note: 'defensive upper bound on discovered hidden neurons (browser memory/throughput guard)' },
+  { key: 'substrateWeight', label: 'substrate weight scale', value: 3.0, group: 'Substrate (ES-HyperNEAT)', note: 'max magnitude a painted CPPN weight maps to in the substrate (max_weight)' },
+
   { key: 'loopRelaxAlpha', label: 'loop relaxation α', value: 0.55, group: 'The loop', note: 'under-relaxation for the fixed-point iteration g←g+α(T(g)−g)' },
   { key: 'loopTol', label: 'loop tolerance', value: 0.012, group: 'The loop', note: 'drift below this counts the iteration as converged' },
-  { key: 'readerFeatures', label: 'read-back features', value: 12, group: 'The loop', note: 'self-portrait samples (Fibonacci-sphere densities) the per-creature read-back network sees as input' },
-  { key: 'readerHidden', label: 'read-back hidden units', value: 10, group: 'The loop', note: 'hidden tanh units in the per-creature read-back network that reconstructs the DNA from the self-portrait' },
 
   { key: 'baseBudget', label: 'offspring / frame', value: 20, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame normally' },
   { key: 'turboBudget', label: 'TURBO offspring / frame', value: 60, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame with TURBO on' },

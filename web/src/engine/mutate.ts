@@ -6,10 +6,6 @@ import { cloneGenome, W_SCALE } from './cppn.ts';
 import type { Rng } from './prng.ts';
 
 const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W_SCALE : x);
-/** Read-back-network weights live on their own scale (MLP, not DNA); keep them
- *  bounded so tanh/sigmoid stay well-conditioned. */
-const READER_CLAMP = 6;
-const clampR = (x: number): number => (x < -READER_CLAMP ? -READER_CLAMP : x > READER_CLAMP ? READER_CLAMP : x);
 
 /** neataptic-inspired structural options, toggleable from the UI. */
 export interface MutateOptions {
@@ -70,13 +66,6 @@ export function mutate(g: Genome, rng: Rng, innov: Innovations, opts: MutateOpti
   if (rng.next() < HYPER.addConnRate) addConnection(child, rng, innov, opts);
   if (rng.next() < HYPER.addNodeRate) addNode(child, rng, innov);
   if (opts.gating && rng.next() < HYPER.addGateRate) addGate(child, rng);
-  // Co-evolve the read-back network: the loop's other half mutates too, so each
-  // creature keeps adapting how it reads its own self-portrait.
-  if (child.reader) {
-    for (let i = 0; i < child.reader.length; i++) {
-      if (rng.next() < HYPER.readerMutRate) child.reader[i] = clampR(child.reader[i]! + rng.normal() * HYPER.readerMutSigma);
-    }
-  }
   return child;
 }
 
@@ -145,19 +134,30 @@ function addGate(g: Genome, rng: Rng): void {
   c.gater = g.nodes[rng.int(g.nodes.length)]!.id;
 }
 
-/** Innovation-aligned NEAT crossover. The FITTER parent must be passed as `a`
- *  (the caller orders them): matching genes are inherited at random from either
- *  parent, while disjoint + excess genes are taken from the fitter `a` — the
- *  classic NEAT rule. The read-back network (fixed-length) is recombined per
- *  weight, uniformly. */
+/** Textbook NEAT crossover (Stanley & Miikkulainen 2002). The FITTER parent must
+ *  be passed as `a` (the caller orders them by quality):
+ *   • genes are aligned by innovation number;
+ *   • MATCHING genes inherit their attributes at random from either parent;
+ *   • DISJOINT + EXCESS genes are taken from the fitter parent `a` (genes present
+ *     only in the less-fit `b` are discarded);
+ *   • the 75% disable rule: if a matching gene is disabled in either parent, the
+ *     child gene is disabled with probability 0.75 (else enabled).
+ *  Node genes follow the connections they serve, preferring the fitter parent. */
 export function crossover(a: Genome, b: Genome, rng: Rng): Genome {
   const mb = new Map<number, ConnGene>();
   for (const c of b.conns) mb.set(c.innov, c);
   const conns: ConnGene[] = [];
   for (const ca of a.conns) {
     const cb = mb.get(ca.innov);
-    const pick = cb && rng.next() < 0.5 ? cb : ca; // matching → either parent; disjoint/excess → fitter a
-    conns.push({ innov: pick.innov, from: pick.from, to: pick.to, weight: pick.weight, enabled: ca.enabled && (cb ? cb.enabled || rng.next() < 0.75 : true), gater: pick.gater });
+    if (cb) {
+      // Matching gene: attributes random from either parent (from/to are equal).
+      const src = rng.next() < 0.5 ? ca : cb;
+      const enabled = ca.enabled && cb.enabled ? true : rng.next() < 0.75 ? false : true;
+      conns.push({ innov: ca.innov, from: ca.from, to: ca.to, weight: src.weight, enabled, gater: src.gater });
+    } else {
+      // Disjoint / excess gene: inherited from the fitter parent `a`, unchanged.
+      conns.push({ innov: ca.innov, from: ca.from, to: ca.to, weight: ca.weight, enabled: ca.enabled, gater: ca.gater });
+    }
   }
   const need = new Set<number>();
   for (const c of conns) {
@@ -174,11 +174,5 @@ export function crossover(a: Genome, b: Genome, rng: Rng): Genome {
     const src = na.get(id) ?? nbm.get(id);
     if (src) nodes.push({ id: src.id, kind: src.kind, act: src.act, bias: src.bias });
   }
-  // Recombine the read-back networks per weight (fixed topology → aligned 1:1).
-  const ra = a.reader ?? [];
-  const rb = b.reader ?? [];
-  const L = Math.max(ra.length, rb.length);
-  const reader = new Array<number>(L);
-  for (let i = 0; i < L; i++) reader[i] = rng.next() < 0.5 ? (ra[i] ?? rb[i] ?? 0) : (rb[i] ?? ra[i] ?? 0);
-  return { nodes, conns, reader };
+  return { nodes, conns };
 }

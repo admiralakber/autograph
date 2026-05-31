@@ -1,150 +1,171 @@
-import { SUB_INPUTS, SUB_HIDDEN, SUB_OUTPUTS } from './arch.ts';
+import { SUB_INPUTS, SUB_OUTPUTS } from './arch.ts';
 import type { Genome } from './cppn.ts';
 import { compileCPPN, evalCompiled } from './cppn.ts';
 import { activate, ACTIVATION_COUNT } from './activations.ts';
+import { growSubstrate, coordKey } from './eshyperneat.ts';
+import type { Vec3 } from './eshyperneat.ts';
+import { HYPER } from './hyperparams.ts';
 
-// The PHENOTYPE: a HyperNEAT substrate. Hidden neurons are *placed* by the CPPN
-// (simplified ES-HyperNEAT — see below), every connection weight is *painted* by
-// the CPPN from the two nodes' 3D positions, and each hidden neuron is given a
-// *heterogeneous activation* (also chosen by the CPPN). Queried over space, the
-// substrate outputs a density and a hue: the volumetric self-portrait.
+// The PHENOTYPE: a HyperNEAT substrate whose hidden neurons are PLACED, made
+// DENSE, and WIRED by genuine ES-HyperNEAT (eshyperneat.ts) — no fixed/uniform
+// grid. The CPPN paints every connection weight from the two endpoints' 3-D
+// coordinates and supplies each neuron's bias (its second output channel, read
+// at (p,p)) and each hidden neuron's activation (heterogeneous — an Autograph
+// extension beyond standard ES-HyperNEAT, which keeps the fields beautiful).
+// Queried over 3-D space the network outputs a density and a hue: the volumetric
+// self-portrait. (Placement is the algorithm's native 2-D sheet at z = 0; the
+// PICTURE is 3-D because the query coordinate sweeps the volume.)
 
-const WEIGHT_GAIN = 3.0;
-// Hidden-node activations drawn from the full palette — heterogeneity (sin,
-// gauss, cos, triangle, …) is what makes the field beautiful and expressive.
-const HIDDEN_ACT_SET = ACTIVATION_COUNT;
-
-/** Fixed positions of the 5 input feature-nodes (x, y, z, r, bias) at z = -0.85. */
-const INPUT_POS: Float32Array = (() => {
-  const p = new Float32Array(SUB_INPUTS * 3);
+// 5 fixed input *sensor* neurons (x, y, z, r, bias) on a ring at the z = −1 layer.
+const INPUT_POS: Vec3[] = (() => {
+  const p: Vec3[] = [];
   for (let i = 0; i < SUB_INPUTS; i++) {
     const a = (i / SUB_INPUTS) * Math.PI * 2;
-    p[i * 3] = Math.cos(a) * 0.55;
-    p[i * 3 + 1] = Math.sin(a) * 0.55;
-    p[i * 3 + 2] = -0.85;
+    p.push([Math.cos(a) * 0.7, Math.sin(a) * 0.7, -1]);
   }
   return p;
 })();
 
-/** Fixed positions of the 2 output nodes (density, hue) at z = +0.85. */
-const OUTPUT_POS = new Float32Array([-0.3, 0, 0.85, 0.3, 0, 0.85]);
+// 2 fixed output neurons (density, hue) at the z = +1 layer.
+const OUTPUT_POS: Vec3[] = [
+  [-0.35, 0, 1],
+  [0.35, 0, 1],
+];
 
-/** Deterministic candidate sites for hidden neurons (two Fibonacci shells). */
-const CANDIDATES: Float32Array = (() => {
-  const pts: number[] = [];
-  const ga = Math.PI * (3 - Math.sqrt(5));
-  for (const [n, rad] of [
-    [20, 0.42],
-    [20, 0.78],
-  ] as const) {
-    for (let i = 0; i < n; i++) {
-      const y = 1 - (i / (n - 1)) * 2;
-      const r = Math.sqrt(Math.max(0, 1 - y * y));
-      const a = i * ga;
-      pts.push(Math.cos(a) * r * rad, y * rad, Math.sin(a) * r * rad);
-    }
-  }
-  return new Float32Array(pts);
-})();
+const esParams = () => ({
+  initialDepth: HYPER.esInitialDepth,
+  maxDepth: HYPER.esMaxDepth,
+  divisionThreshold: HYPER.esDivisionThreshold,
+  varianceThreshold: HYPER.esVarianceThreshold,
+  bandThreshold: HYPER.esBandThreshold,
+  iterationLevel: HYPER.esIterationLevel,
+  maxHidden: HYPER.esMaxHidden,
+  weightScale: HYPER.substrateWeight,
+});
 
 export interface Phenotype {
-  readonly hidden: Float32Array; // SUB_HIDDEN * 3 positions
-  readonly hiddenAct: Uint8Array; // per-hidden activation id (heterogeneous → rich fields)
-  readonly Wih: Float32Array; // SUB_INPUTS * SUB_HIDDEN
-  readonly Who: Float32Array; // SUB_HIDDEN * SUB_OUTPUTS
-  readonly liveIh: Uint8Array; // expressed (leo>0) input→hidden links
-  readonly liveHo: Uint8Array; // expressed hidden→output links
-  /** Count of expressed connections — the phenotype's edge count for the readouts. */
+  /** Node coordinates, laid out [inputs(5)] ++ [hidden(H)] ++ [outputs(2)]. */
+  readonly pos: Float32Array; // nodeCount * 3
+  readonly hiddenCount: number;
+  /** Activation id per node (inputs/outputs linear; hidden heterogeneous). */
+  readonly act: Uint8Array;
+  /** Per-node bias (inputs 0; hidden + outputs painted by the CPPN). */
+  readonly bias: Float32Array;
+  /** Per-node incoming source indices + weights (the wired ES-HyperNEAT graph). */
+  readonly inFrom: Int32Array[];
+  readonly inW: Float32Array[];
+  /** Flat expressed-edge list (for the network visualisation). */
+  readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
+  /** Count of expressed connections — the phenotype's edge count for readouts. */
   readonly liveConns: number;
 }
 
-const out2: [number, number] = [0, 0];
+const o2: [number, number] = [0, 0];
+const HUE_ACT = ACTIVATION_COUNT - 1; // outputs run linear (clamped identity)
 
-/** Build the phenotype deterministically from the DNA: ES-place hidden neurons,
- *  choose their activations, then paint every connection. */
+/** Build the phenotype from the DNA via genuine ES-HyperNEAT: grow the substrate,
+ *  then paint per-neuron biases + heterogeneous hidden activations from the CPPN. */
 export function buildPhenotype(g: Genome): Phenotype {
-  const cc = compileCPPN(g); // compile the NEAT graph once; paint with it below
-  // --- Simplified ES-HyperNEAT placement -----------------------------------
-  // Score each candidate site by the *variance* of the incoming weight pattern
-  // across the input nodes — ES-HyperNEAT's idea of "place neurons where the
-  // connectivity carries information". Keep the top SUB_HIDDEN sites.
-  const nCand = CANDIDATES.length / 3;
-  const info = new Float32Array(nCand);
-  for (let c = 0; c < nCand; c++) {
-    const cx = CANDIDATES[c * 3]!;
-    const cy = CANDIDATES[c * 3 + 1]!;
-    const cz = CANDIDATES[c * 3 + 2]!;
-    let mean = 0;
-    const ws = new Float32Array(SUB_INPUTS);
-    for (let i = 0; i < SUB_INPUTS; i++) {
-      const w = evalCompiled(cc, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, cx, cy, cz, out2)[0];
-      ws[i] = w;
-      mean += w;
-    }
-    mean /= SUB_INPUTS;
-    let v = 0;
-    for (let i = 0; i < SUB_INPUTS; i++) {
-      const d = ws[i]! - mean;
-      v += d * d;
-    }
-    info[c] = v;
+  const cc = compileCPPN(g);
+  const grown = growSubstrate(cc, INPUT_POS, OUTPUT_POS, esParams());
+
+  const inputs = INPUT_POS;
+  const hidden = grown.hidden;
+  const outputs = OUTPUT_POS;
+  const H = hidden.length;
+  const N = inputs.length + H + outputs.length;
+
+  const pos = new Float32Array(N * 3);
+  const act = new Uint8Array(N);
+  const bias = new Float32Array(N);
+  const idOf = new Map<string, number>();
+
+  const place = (c: Vec3, idx: number): void => {
+    pos[idx * 3] = c[0];
+    pos[idx * 3 + 1] = c[1];
+    pos[idx * 3 + 2] = c[2];
+    idOf.set(coordKey(c[0], c[1], c[2]), idx);
+  };
+
+  let idx = 0;
+  for (const c of inputs) {
+    place(c, idx);
+    act[idx] = HUE_ACT; // sensors pass their feature through (clamped identity)
+    idx++;
   }
-  const order = Array.from({ length: nCand }, (_, i) => i).sort((a, b) => info[b]! - info[a]!);
-  const hidden = new Float32Array(SUB_HIDDEN * 3);
-  const hiddenAct = new Uint8Array(SUB_HIDDEN);
-  for (let j = 0; j < SUB_HIDDEN; j++) {
-    const c = order[j]!;
-    const hx = (hidden[j * 3] = CANDIDATES[c * 3]!);
-    const hy = (hidden[j * 3 + 1] = CANDIDATES[c * 3 + 1]!);
-    const hz = (hidden[j * 3 + 2] = CANDIDATES[c * 3 + 2]!);
-    // The CPPN also picks each neuron's activation (at its own coordinate).
-    const t = evalCompiled(cc, hx, hy, hz, hx, hy, hz, out2)[0] * 0.5 + 0.5;
-    hiddenAct[j] = Math.max(0, Math.min(HIDDEN_ACT_SET - 1, Math.floor((((t % 1) + 1) % 1) * HIDDEN_ACT_SET)));
+  for (const c of hidden) {
+    place(c, idx);
+    // The CPPN chooses each hidden neuron's activation + bias at its own coordinate.
+    const r = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2);
+    const t = r[0] * 0.5 + 0.5;
+    act[idx] = Math.max(0, Math.min(ACTIVATION_COUNT - 1, Math.floor((((t % 1) + 1) % 1) * ACTIVATION_COUNT)));
+    bias[idx] = r[1];
+    idx++;
+  }
+  for (const c of outputs) {
+    place(c, idx);
+    act[idx] = HUE_ACT;
+    bias[idx] = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2)[1];
+    idx++;
   }
 
-  // --- Paint connection weights (gated by link-expression leo) --------------
-  const Wih = new Float32Array(SUB_INPUTS * SUB_HIDDEN);
-  const liveIh = new Uint8Array(SUB_INPUTS * SUB_HIDDEN);
-  let live = 0;
-  for (let i = 0; i < SUB_INPUTS; i++) {
-    for (let j = 0; j < SUB_HIDDEN; j++) {
-      const r = evalCompiled(cc, INPUT_POS[i * 3]!, INPUT_POS[i * 3 + 1]!, INPUT_POS[i * 3 + 2]!, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, out2);
-      const on = r[1] > 0 ? 1 : 0;
-      liveIh[i * SUB_HIDDEN + j] = on;
-      Wih[i * SUB_HIDDEN + j] = on ? r[0] * WEIGHT_GAIN : 0;
-      live += on;
-    }
+  // Wire incoming lists from the expressed connections (skip any unmapped end).
+  const inSrc: number[][] = Array.from({ length: N }, () => []);
+  const inWt: number[][] = Array.from({ length: N }, () => []);
+  const edges: { from: number; to: number; weight: number }[] = [];
+  for (const c of grown.conns) {
+    const a = idOf.get(coordKey(c.from[0], c.from[1], c.from[2]));
+    const b = idOf.get(coordKey(c.to[0], c.to[1], c.to[2]));
+    if (a === undefined || b === undefined || a === b) continue;
+    inSrc[b]!.push(a);
+    inWt[b]!.push(c.weight);
+    edges.push({ from: a, to: b, weight: c.weight });
   }
-  const Who = new Float32Array(SUB_HIDDEN * SUB_OUTPUTS);
-  const liveHo = new Uint8Array(SUB_HIDDEN * SUB_OUTPUTS);
-  for (let j = 0; j < SUB_HIDDEN; j++) {
-    for (let o = 0; o < SUB_OUTPUTS; o++) {
-      const r = evalCompiled(cc, hidden[j * 3]!, hidden[j * 3 + 1]!, hidden[j * 3 + 2]!, OUTPUT_POS[o * 3]!, OUTPUT_POS[o * 3 + 1]!, OUTPUT_POS[o * 3 + 2]!, out2);
-      const on = r[1] > 0 ? 1 : 0;
-      liveHo[j * SUB_OUTPUTS + o] = on;
-      Who[j * SUB_OUTPUTS + o] = on ? r[0] * WEIGHT_GAIN : 0;
-      live += on;
-    }
-  }
-  return { hidden, hiddenAct, Wih, Who, liveIh, liveHo, liveConns: live };
+
+  const inFrom = inSrc.map((s) => Int32Array.from(s));
+  const inW = inWt.map((w) => Float32Array.from(w));
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, edges, liveConns: edges.length };
 }
 
-const hbuf = new Float32Array(SUB_HIDDEN);
+// Reusable evaluation scratch (grows as needed) — substrateForward is hot.
+let val = new Float32Array(64);
+let prev = new Float32Array(64);
+const EVAL_PASSES = 2; // settle any hidden→hidden (lateral/recurrent) links
 
-/** Query the phenotype at a 3D point -> [density in [0,1], hue in [0,1]]. */
+/** Query the phenotype at a 3-D point -> [density in [0,1], hue in [0,1]]. The
+ *  network is evaluated with a few synchronous passes so lateral hidden links
+ *  settle; inputs are the sensor features [x, y, z, r=|p|, bias]. */
 export function substrateForward(p: Phenotype, px: number, py: number, pz: number, out: [number, number] = [0, 0]): [number, number] {
-  const inp = [px, py, pz, Math.sqrt(px * px + py * py + pz * pz), 1];
-  for (let j = 0; j < SUB_HIDDEN; j++) {
-    let s = 0;
-    for (let i = 0; i < SUB_INPUTS; i++) s += inp[i]! * p.Wih[i * SUB_HIDDEN + j]!;
-    hbuf[j] = activate(p.hiddenAct[j]!, s);
+  const N = p.inFrom.length;
+  if (val.length < N) {
+    val = new Float32Array(N);
+    prev = new Float32Array(N);
+  }
+  val[0] = px;
+  val[1] = py;
+  val[2] = pz;
+  val[3] = Math.sqrt(px * px + py * py + pz * pz);
+  val[4] = 1;
+  const hidStart = SUB_INPUTS;
+  const outStart = N - SUB_OUTPUTS;
+  for (let i = hidStart; i < N; i++) val[i] = 0; // clear stale carryover from prior calls
+  for (let pass = 0; pass < EVAL_PASSES; pass++) {
+    prev.set(val.subarray(0, N));
+    for (let i = hidStart; i < N; i++) {
+      const from = p.inFrom[i]!;
+      const w = p.inW[i]!;
+      let s = p.bias[i]!;
+      for (let k = 0; k < from.length; k++) {
+        const src = from[k]!;
+        s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
+      }
+      val[i] = i >= outStart ? s : activate(p.act[i]!, s);
+    }
   }
   let d = 0;
   let h = 0;
-  for (let j = 0; j < SUB_HIDDEN; j++) {
-    d += hbuf[j]! * p.Who[j * SUB_OUTPUTS]!;
-    h += hbuf[j]! * p.Who[j * SUB_OUTPUTS + 1]!;
-  }
+  if (outStart < N) d = val[outStart]!;
+  if (outStart + 1 < N) h = val[outStart + 1]!;
   out[0] = 1 / (1 + Math.exp(-1.3 * d)); // density (alpha)
   out[1] = (Math.sin(h * 1.4) + 1) * 0.5; // hue
   return out;
@@ -167,33 +188,44 @@ export interface SubConn {
 }
 
 export function phenotypeNodes(p: Phenotype): SubNode[] {
+  const N = p.inFrom.length;
+  const hidEnd = N - SUB_OUTPUTS;
   const nodes: SubNode[] = [];
-  for (let i = 0; i < SUB_INPUTS; i++) nodes.push({ x: INPUT_POS[i * 3]!, y: INPUT_POS[i * 3 + 1]!, z: INPUT_POS[i * 3 + 2]!, role: 'in' });
-  for (let j = 0; j < SUB_HIDDEN; j++) nodes.push({ x: p.hidden[j * 3]!, y: p.hidden[j * 3 + 1]!, z: p.hidden[j * 3 + 2]!, role: 'hidden', act: p.hiddenAct[j]! });
-  for (let o = 0; o < SUB_OUTPUTS; o++) nodes.push({ x: OUTPUT_POS[o * 3]!, y: OUTPUT_POS[o * 3 + 1]!, z: OUTPUT_POS[o * 3 + 2]!, role: 'out' });
+  for (let i = 0; i < N; i++) {
+    const role: SubNode['role'] = i < SUB_INPUTS ? 'in' : i < hidEnd ? 'hidden' : 'out';
+    nodes.push({
+      x: p.pos[i * 3]!,
+      y: p.pos[i * 3 + 1]!,
+      z: p.pos[i * 3 + 2]!,
+      role,
+      act: role === 'hidden' ? p.act[i]! : undefined,
+    });
+  }
   return nodes;
 }
 
-/** A copy of the phenotype with hidden neuron `j` silenced (its in/out weights
- *  zeroed) — for showing a neuron's receptive field by ablation diff. */
+/** A copy of the phenotype with hidden neuron `j` (0-based among hidden) silenced
+ *  — its incoming and outgoing weights zeroed — for ablation receptive fields. */
 export function ablateHidden(p: Phenotype, j: number): Phenotype {
-  const Wih = p.Wih.slice();
-  const Who = p.Who.slice();
-  for (let i = 0; i < SUB_INPUTS; i++) Wih[i * SUB_HIDDEN + j] = 0;
-  for (let o = 0; o < SUB_OUTPUTS; o++) Who[j * SUB_OUTPUTS + o] = 0;
-  return { ...p, Wih, Who };
+  const target = SUB_INPUTS + j;
+  const inFrom = p.inFrom.map((a) => a.slice());
+  const inW = p.inW.map((a) => a.slice());
+  // zero its incoming
+  if (inW[target]) inW[target] = new Float32Array(inW[target]!.length);
+  // zero its outgoing (it as a source in every other node's incoming list)
+  for (let i = 0; i < inFrom.length; i++) {
+    const f = inFrom[i]!;
+    for (let k = 0; k < f.length; k++) if (f[k] === target) inW[i]![k] = 0;
+  }
+  return { ...p, inFrom, inW };
 }
 
 export function phenotypeConns(p: Phenotype, nodes: SubNode[] = phenotypeNodes(p)): SubConn[] {
-  const inOff = 0;
-  const hidOff = SUB_INPUTS;
-  const outOff = SUB_INPUTS + SUB_HIDDEN;
   const conns: SubConn[] = [];
-  for (let i = 0; i < SUB_INPUTS; i++)
-    for (let j = 0; j < SUB_HIDDEN; j++)
-      if (p.liveIh[i * SUB_HIDDEN + j]) conns.push({ a: nodes[inOff + i]!, b: nodes[hidOff + j]!, weight: p.Wih[i * SUB_HIDDEN + j]! });
-  for (let j = 0; j < SUB_HIDDEN; j++)
-    for (let o = 0; o < SUB_OUTPUTS; o++)
-      if (p.liveHo[j * SUB_OUTPUTS + o]) conns.push({ a: nodes[hidOff + j]!, b: nodes[outOff + o]!, weight: p.Who[j * SUB_OUTPUTS + o]! });
+  for (const e of p.edges) {
+    const a = nodes[e.from];
+    const b = nodes[e.to];
+    if (a && b) conns.push({ a, b, weight: e.weight });
+  }
   return conns;
 }

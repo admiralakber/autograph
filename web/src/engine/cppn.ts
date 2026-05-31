@@ -2,13 +2,21 @@ import { CPPN_INPUTS, CPPN_OUTPUTS, INPUT_IDS, OUTPUT_IDS } from './arch.ts';
 import { activate, ACTIVATION_COUNT, IDENTITY_ACT } from './activations.ts';
 import type { Rng } from './prng.ts';
 import { rngFromSeed } from './prng.ts';
-import { seedReader } from './reader.ts';
 
 // The DNA: a *connective* CPPN evolved with NEAT (augmenting topologies). The
 // genome is a graph — node genes + connection genes with innovation numbers —
 // so structure GROWS over evolution (add-node / add-connection). Connections may
 // be recurrent; the compiled evaluator runs a few propagation passes. Given two
-// 3-D points it emits [weight, leo]; HyperNEAT uses that to paint the brain.
+// 3-D coordinates it emits [weight, bias]; ES-HyperNEAT uses the weight pattern
+// to grow the brain (substrate.ts), and the SAME CPPN read at canonical genome
+// coordinates reconstructs its own genes — the self-quine (quine.ts).
+//
+// The genome shape is faithful to neataptic's clean encoding (wagenaartje):
+//   node       → { id, kind:type, act:squash, bias }
+//   connection → { from, to, weight, enabled, gater }   (gain = gater's activation)
+// There is NO separate read-back network: the loop's decode half is intrinsic
+// to this CPPN (a neural-network quine, Chang & Lipson 2018), so a creature can
+// only score by genuinely being self-consistent — nothing external can cheat.
 
 /** Half-range mapping DNA weights <-> the [0,1] interval used by the loop. */
 export const W_SCALE = 4;
@@ -34,10 +42,6 @@ export interface ConnGene {
 export interface Genome {
   nodes: NodeGene[];
   conns: ConnGene[];
-  /** The per-creature read-back network's weights (the genuine other half of the
-   *  loop: self-portrait → DNA′). Fixed topology, evolved + inherited like any
-   *  gene. See reader.ts. Part of `genomeBytes`, so it is signed + verified. */
-  reader: number[];
 }
 
 const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W_SCALE : x);
@@ -55,7 +59,7 @@ export function minimalGenome(rng: Rng): Genome {
       conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight: rng.normal() * 1.4, enabled: true });
     }
   }
-  return { nodes, conns, reader: seedReader(rng) };
+  return { nodes, conns };
 }
 
 export function randomGenome(rng: Rng): Genome {
@@ -71,7 +75,6 @@ export function cloneGenome(g: Genome): Genome {
   return {
     nodes: g.nodes.map((n) => ({ id: n.id, kind: n.kind, act: n.act, bias: n.bias })),
     conns: g.conns.map((c) => ({ innov: c.innov, from: c.from, to: c.to, weight: c.weight, enabled: c.enabled, gater: c.gater })),
-    reader: (g.reader ?? []).slice(),
   };
 }
 
@@ -174,7 +177,7 @@ export function compileCPPN(g: Genome): Compiled {
 
 const IN_BUF = new Float64Array(CPPN_INPUTS);
 
-/** Evaluate a compiled CPPN at a pair of 3-D points -> [weight, leo]. */
+/** Evaluate a compiled CPPN at a pair of 3-D points -> [weight, bias]. */
 export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: [number, number] = [0, 0]): [number, number] {
   IN_BUF[0] = x1;
   IN_BUF[1] = y1;
@@ -203,8 +206,8 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
       val[i] = activate(nodeAct[i]!, sum);
     }
   }
-  out[0] = val[c.outIdx[0]!]!; // weight
-  out[1] = val[c.outIdx[1]!]!; // leo
+  out[0] = val[c.outIdx[0]!]!; // weight (connection between two coordinates)
+  out[1] = val[c.outIdx[1]!]!; // bias (read at a single coordinate as (p,p))
   return out;
 }
 
@@ -215,12 +218,14 @@ export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: numb
 
 // --- The real vector the self-portrait must re-encode (variable length) -----
 
-/** Non-input nodes in canonical (id-sorted) order — they carry biases. */
-function biasNodes(g: Genome): NodeGene[] {
+/** Non-input nodes in canonical (id-sorted) order — they carry biases. The ONE
+ *  ordering used by `genomeVector`, `applyParams`, and the self-quine readout, so
+ *  the DNA vector and its reconstruction stay index-aligned by construction. */
+export function biasNodes(g: Genome): NodeGene[] {
   return g.nodes.filter((n) => n.kind !== 0).slice().sort((a, b) => a.id - b.id);
 }
 /** Connections in canonical (innovation-sorted) order — they carry weights. */
-function sortedConns(g: Genome): ConnGene[] {
+export function sortedConns(g: Genome): ConnGene[] {
   return g.conns.slice().sort((a, b) => a.innov - b.innov);
 }
 
@@ -266,21 +271,21 @@ export function unitToParam(u: number): number {
   return (c - 0.5) * 2 * W_SCALE;
 }
 
-/** Stable little-endian serialisation for content hashing — binds the topology
- *  AND the per-creature read-back network (reader weights), so the signed genome
- *  covers the whole strange loop, both halves. */
+/** Stable little-endian serialisation for content hashing — binds the whole
+ *  genome (topology + node biases/activations + connection weights/gaters). The
+ *  loop's decode half is now INTRINSIC (the CPPN self-quine, quine.ts), so there
+ *  is no separate read-back network to serialise: the genome is just the graph.
+ *  This is the v3 wire format (v2 appended reader weights; those are gone). */
 export function genomeBytes(g: Genome): Uint8Array {
   const nodes = g.nodes.slice().sort((a, b) => a.id - b.id);
   const conns = sortedConns(g);
-  const reader = g.reader ?? [];
-  const header = 10;
-  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 20 + reader.length * 4);
+  const header = 8;
+  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 20);
   const dv = new DataView(bytes.buffer);
   dv.setUint16(0, CPPN_INPUTS, true);
   dv.setUint16(2, CPPN_OUTPUTS, true);
   dv.setUint16(4, nodes.length, true);
   dv.setUint16(6, conns.length, true);
-  dv.setUint16(8, reader.length, true);
   let o = header;
   for (const n of nodes) {
     dv.setInt32(o, n.id, true);
@@ -296,10 +301,6 @@ export function genomeBytes(g: Genome): Uint8Array {
     dv.setFloat32(o + 12, c.enabled ? c.weight : 0, true);
     dv.setInt32(o + 16, c.gater ?? -1, true); // gater node id (-1 = ungated)
     o += 20;
-  }
-  for (const w of reader) {
-    dv.setFloat32(o, w, true);
-    o += 4;
   }
   return bytes;
 }
