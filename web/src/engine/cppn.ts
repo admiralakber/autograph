@@ -1,4 +1,4 @@
-import { CPPN_INPUTS, CPPN_OUTPUTS, INPUT_IDS, OUTPUT_IDS } from './arch.ts';
+import { CPPN_INPUTS, CPPN_OUTPUTS, INPUT_IDS, OUTPUT_IDS, DEFERRED_OUTPUT_IDS } from './arch.ts';
 import { activate, ACTIVATION_COUNT, IDENTITY_ACT } from './activations.ts';
 import type { Rng } from './prng.ts';
 import { rngFromSeed } from './prng.ts';
@@ -261,6 +261,57 @@ export function applyParams(g: Genome, vec: Float32Array): Genome {
   const child = cloneGenome(g);
   const conns = child.conns.slice().sort((a, b) => a.innov - b.innov);
   const bns = child.nodes.filter((n) => n.kind !== 0).slice().sort((a, b) => a.id - b.id);
+  let k = 0;
+  for (const c of conns) c.weight = clampW(vec[k++] ?? c.weight);
+  for (const n of bns) n.bias = clampW(vec[k++] ?? n.bias);
+  return child;
+}
+
+// --- v6 (B): the RECONSTRUCTION TARGET — only what the static image encodes ---
+//
+// During Phases 2–4 the self-encoding loop must reconstruct ONLY the genes the
+// static density/hue field can physically carry: the weight (output 0) and bias
+// (output 1) channels. The α-plasticity channel (output 2) and the neuromod
+// channels Phase 3 adds paint the TEMPORAL dynamics, invisible to the static
+// image, so including them would measure an impossible subtask (a meaningless
+// drag, not genuine difficulty). We exclude exactly the genes that feed those
+// deferred output nodes — the direct conns into them + their own biases — which is
+// the minimal, clean cut (genes that also touch the visible channels via shared
+// hidden nodes stay in the target, because they DO affect the image). These
+// channels rejoin the target at Phase 5. With DEFERRED_OUTPUT_IDS empty this is
+// byte-for-byte the full genome again, so v5 / Phase-5 behaviour is recovered for
+// free. The full genome (genomeVector / paramCount / genomeBytes) is untouched —
+// serialisation, lineage and complexity-of-the-whole-creature still see everything.
+
+/** Target connections = expressed conns whose sink is NOT a deferred output node. */
+export function targetConns(g: Genome): ConnGene[] {
+  return g.conns.filter((c) => !DEFERRED_OUTPUT_IDS.has(c.to)).slice().sort((a, b) => a.innov - b.innov);
+}
+/** Target bias nodes = non-input nodes that are NOT deferred output nodes. */
+export function targetBiasNodes(g: Genome): NodeGene[] {
+  return g.nodes.filter((n) => n.kind !== 0 && !DEFERRED_OUTPUT_IDS.has(n.id)).slice().sort((a, b) => a.id - b.id);
+}
+/** Dimension of the reconstruction target (≤ paramCount; equal when nothing is deferred). */
+export function targetCount(g: Genome): number {
+  return targetConns(g).length + targetBiasNodes(g).length;
+}
+/** The reconstruction target as a real vector: target conn weights ++ target biases. */
+export function targetVector(g: Genome): Float32Array {
+  const conns = targetConns(g);
+  const bns = targetBiasNodes(g);
+  const v = new Float32Array(conns.length + bns.length);
+  let k = 0;
+  for (const c of conns) v[k++] = c.weight;
+  for (const n of bns) v[k++] = n.bias;
+  return v;
+}
+/** Write a TARGET-aligned vector back into a clone — the deferred channels (α /
+ *  neuromod) are left exactly as evolution painted them; only the image-encoded
+ *  genes are updated by the loop. Same canonical order as `targetVector`. */
+export function applyTargetParams(g: Genome, vec: Float32Array): Genome {
+  const child = cloneGenome(g);
+  const conns = child.conns.filter((c) => !DEFERRED_OUTPUT_IDS.has(c.to)).slice().sort((a, b) => a.innov - b.innov);
+  const bns = child.nodes.filter((n) => n.kind !== 0 && !DEFERRED_OUTPUT_IDS.has(n.id)).slice().sort((a, b) => a.id - b.id);
   let k = 0;
   for (const c of conns) c.weight = clampW(vec[k++] ?? c.weight);
   for (const n of bns) n.bias = clampW(vec[k++] ?? n.bias);

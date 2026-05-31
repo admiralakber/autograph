@@ -119,19 +119,44 @@ coordinator's verifier — but only at v6-out.
 - **Functional (ablation-confirmed):** for plastic creatures the plastic rollout's
   field differs from the static one by mean |Δ| ≈ **0.30** — the weights genuinely
   self-modify and change behaviour.
-- **NOT yet load-bearing for skill — two honest findings (a fork for review):**
+- **NOT yet load-bearing for skill — two honest findings:**
   1. Sampling the readback PICTURE via the plastic rollout *crashed* skill
      (~47% → ~2%): the runtime weight-change scrambles the picture↔genome map. So
      the picture stays the **static initial-state field** (owner's spec item 6,
      confirmed by this negative result) — plasticity belongs in the **decode**.
-  2. With α in the genome, ~⅓ of the genome (the α channel) is **invisible to the
-     static picture** (plasticity doesn't affect the static field), so it is
-     unreconstructable and drags the loop: smoke best-skill **11% by 2000 gens**
-     (down from Phase 1's 47%), still honest + climbing, blank/random → 0.
+  2. With α in the genome but invisible to the static picture, including it in the
+     reconstruction TARGET measured an **impossible subtask**: ~⅓ of the genome the
+     image physically cannot encode, dragging the loop to **11% by 2000 gens**
+     (down from Phase 1's 47%), still honest, blank/random → 0.
+
+### Fork (B) — APPLIED: measure only what the static image encodes
+
+The owner's call (first duty to truth): reconstructing a channel the static image
+physically can't carry is measuring an impossible subtask — a meaningless drag, not
+genuine difficulty. So during **Phases 2–4 the reconstruction target = only the
+image-encoded channels (weight + bias)**; α (and the neuromod channels Phase 3 adds)
+are **DEFERRED from the target** until Phase 5, when the read→ponder→emit plastic
+decode finally makes them reconstructable. This is a deliberate, truthful
+*measurement* choice, encoded once in `arch.ts` (`IMAGE_OUTPUTS` /
+`DEFERRED_OUTPUT_IDS`) and honoured by `cppn.ts` (`targetConns` / `targetVector` /
+`applyTargetParams`), so target, read-back, complexity weight and the loop iteration
+all agree by construction. The **full** genome (`genomeVector` / `paramCount` /
+`genomeBytes`) is untouched — serialisation, lineage and whole-creature complexity
+still see every channel; only the *loop's target* shrinks.
+
+- **Recovery (measured).** Removing α from the target restored the loop:
+  smoke best-skill **11% → 27% by 2000 gens**, blank/random still **0.000** — the
+  α-drag was the impossible-subtask penalty, exactly as predicted.
+- **Residual gap to Phase 1's 47% is honest evolutionary dilution, not a measurement
+  artefact.** The α channel is **33%** of the genome (minimal: full 24 genes →
+  target 16); ~⅓ of mutations now land on a channel that doesn't help the Phase 2–4
+  target, so the visible-channel search runs ~⅓ slower per generation. That third is
+  *earned back* at Phase 5 when α becomes load-bearing.
 - **Resolution (Phase 5).** When read→ponder→emit makes the decode temporal, the
-  creature reads its image over a plastic *lifetime*; α then shapes the decode's
-  dynamics, becomes reconstructable, and earns its place. Phase 2 builds the
-  faculty + on-ramp; Phase 5 makes it load-bearing.
+  creature reads its image over a plastic *lifetime*; α (and neuromod) then shape the
+  decode's dynamics, become reconstructable, and rejoin the target (shrink
+  `DEFERRED_OUTPUT_IDS` → the helpers collapse to the full genome again, for free).
+  Phase 2 builds the faculty + on-ramp; Phase 5 makes it load-bearing.
 
 ## References (verified)
 

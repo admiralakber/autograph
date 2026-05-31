@@ -554,7 +554,7 @@ export class AutographDashboard {
 
   private drawLoop(genome: Genome, pheno: Phenotype): void {
     const target = targetAtProbes(genome); // the original DNA (top row)
-    const n = target.length; // = paramCount(genome): grows as the DNA complexifies
+    const n = target.length; // = targetCount(genome): the image-encoded genes the loop reconstructs (v6 (B): excludes α/neuromod)
     const dna2 = readBackUnits(genome, pheno); // the read-back NETWORK's DNA′ (bottom row)
     const ctx = this.loopCtx;
     const Wd = (this.loop.width = Math.max(120, n * 5));

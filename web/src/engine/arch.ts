@@ -34,6 +34,18 @@ export const CPPN_OUTPUTS = 3;
 export const INPUT_IDS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
 export const OUTPUT_IDS: readonly number[] = [7, 8, 9];
 export const FIRST_HIDDEN_ID = 10;
+
+/** v6 (B) — which CPPN output channels the STATIC image physically encodes.
+ *  Channels [0]=weight and [1]=bias paint the substrate's density/hue field, so
+ *  they ARE the image; channels at index ≥ IMAGE_OUTPUTS (α plasticity, and the
+ *  neuromod channels Phase 3 adds) paint only the TEMPORAL/plastic dynamics, which
+ *  the static field cannot show. Reconstructing those from the static image is an
+ *  impossible subtask — a meaningless drag, not genuine difficulty — so they are
+ *  DEFERRED from the self-encoding target during Phases 2–4 and rejoin it at Phase 5,
+ *  when the read→ponder→emit plastic decode finally makes them reconstructable.
+ *  (Empty set ⇒ v5 behaviour: every channel is in the target.) */
+export const IMAGE_OUTPUTS = 2;
+export const DEFERRED_OUTPUT_IDS: ReadonlySet<number> = new Set(OUTPUT_IDS.slice(IMAGE_OUTPUTS));
 /** Innovation numbers 0..(CPPN_INPUTS*CPPN_OUTPUTS-1) are the minimal genome's
  *  input→output connections; the registry hands out fresh ones after that. */
 export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;

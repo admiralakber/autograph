@@ -1,5 +1,5 @@
 import type { Genome } from './cppn.ts';
-import { genomeVector, unitToParam, applyParams, cloneGenome, W_SCALE } from './cppn.ts';
+import { unitToParam, applyTargetParams, targetVector, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
@@ -50,7 +50,7 @@ export function readBackGenome(g: Genome, p: Phenotype): Genome {
   const dna = selfReadback(g, p);
   const vec = new Float32Array(dna.length);
   for (let k = 0; k < dna.length; k++) vec[k] = unitToParam(dna[k]!);
-  return applyParams(g, vec);
+  return applyTargetParams(g, vec); // v6 (B): writes only the image-encoded genes
 }
 
 export interface LoopTrajectory {
@@ -75,7 +75,7 @@ export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha
   for (let s = 0; s < steps; s++) {
     const p = buildPhenotype(g);
     fidelity.push(selfConsistencySkill(g, p));
-    const cur = genomeVector(g);
+    const cur = targetVector(g); // v6 (B): iterate only the image-encoded genes
     const n = cur.length;
     const dna = selfReadback(g, p);
     const next = new Float32Array(n);
@@ -88,7 +88,7 @@ export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha
     }
     const d = Math.sqrt(se / n) * DRIFT_NORM;
     drift.push(d);
-    g = applyParams(g, next);
+    g = applyTargetParams(g, next);
     if (d < tol) converged = true;
   }
   return { drift, fidelity, final: g, converged, residual: drift[drift.length - 1] ?? 1 };

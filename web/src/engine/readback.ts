@@ -1,5 +1,5 @@
 import type { Genome } from './cppn.ts';
-import { compileCPPN, evalCompiled, sortedConns, biasNodes, paramToUnit, genomeVector, paramCount } from './cppn.ts';
+import { compileCPPN, evalCompiled, paramToUnit, paramCount, targetConns, targetBiasNodes, targetVector, targetCount } from './cppn.ts';
 import { SUB_INPUTS } from './arch.ts';
 import { activate } from './activations.ts';
 import { HYPER } from './hyperparams.ts';
@@ -97,11 +97,13 @@ const sigmoid = (x: number): number => 1 / (1 + Math.exp(-x));
 const o2: [number, number] = [0, 0];
 
 /** Read the creature's DNA back OUT OF ITS PICTURE, through its own brain.
- *  Returns DNA′ in [0,1] unit space, in genome-vector order (conns by innovation,
- *  then non-input node biases by id) so it aligns with `genomeVector`. */
+ *  Returns DNA′ in [0,1] unit space, in TARGET-vector order (target conns by
+ *  innovation, then target biases by id) so it aligns with `targetVector`. v6 (B):
+ *  the target is only what the static image encodes (weight/bias) — the deferred
+ *  α/neuromod channels are out of the loop until Phase 5 (see cppn.ts targetConns). */
 export function selfReadback(g: Genome, p: Phenotype): Float32Array {
   const cc = compileCPPN(g);
-  const F = probeCount(paramCount(g));
+  const F = probeCount(targetCount(g));
   const probes = probesFor(F);
   const H = p.hiddenCount;
 
@@ -133,8 +135,8 @@ export function selfReadback(g: Genome, p: Phenotype): Float32Array {
   // 3. Read each gene OUT of the hidden layer at its canonical genome coordinate
   //    (CPPN-painted weights hidden→gene; gene-output bias from the CPPN's bias
   //    channel at that coordinate). conn gene ↦ midpoint of its endpoints' homes.
-  const conns = sortedConns(g);
-  const biases = biasNodes(g);
+  const conns = targetConns(g);
+  const biases = targetBiasNodes(g);
   const out = new Float32Array(conns.length + biases.length);
   let k = 0;
   for (const c of conns) {
@@ -160,9 +162,11 @@ function readGene(cc: ReturnType<typeof compileCPPN>, hid: Float32Array, p: Phen
   return sigmoid(s);
 }
 
-/** The DNA's own values in unit space — the targets the read-back must match. */
+/** The DNA's own values in unit space — the targets the read-back must match.
+ *  v6 (B): only the image-encoded genes (weight/bias); the deferred α/neuromod
+ *  channels are excluded until Phase 5. */
 export function dnaTargetUnits(g: Genome): Float32Array {
-  const v = genomeVector(g);
+  const v = targetVector(g);
   const out = new Float32Array(v.length);
   for (let i = 0; i < v.length; i++) out[i] = paramToUnit(v[i]!);
   return out;
@@ -182,7 +186,7 @@ const complexityWeight = (genes: number): number => clamp01(genes / Math.max(1, 
  *  reconstructing a richer self scores higher than nailing a dozen easy genes.
  *  A blank/trivial creature still scores ~0; nothing is faked. */
 export function selfConsistencySkill(g: Genome, p: Phenotype): number {
-  return clamp01(selfConsistencyR2(g, p)) * complexityWeight(paramCount(g));
+  return clamp01(selfConsistencyR2(g, p)) * complexityWeight(targetCount(g));
 }
 
 /** Unclamped, UN-weighted R² — the raw reconstruction quality (negative when the
