@@ -2,27 +2,28 @@ import type { Genome } from './cppn.ts';
 import { unitToParam, applyParams, genomeVector, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
-import { buildPhenotype, substrateForward } from './substrate.ts';
+import { buildPhenotype, paintCppnArt } from './substrate.ts';
 import { selfReadback, dnaTargetUnits, selfConsistencySkill, lastWrite } from './readback.ts';
 
 export { lastWrite };
 
-// THE STRANGE LOOP — read back THROUGH THE IMAGE, not around it.
+// THE STRANGE LOOP — the brain reads its own portrait and writes its own DNA.
 //
-//   write:  DNA (CPPN) paints an IMAGE across space; the brain (ES-HyperNEAT
-//           substrate) EMERGES WITHIN it and, queried over space, renders it.
-//   read :  that IMAGE — the image the creature is born in — is fed back through
-//           the creature's OWN brain (its hidden neurons, weights painted by the
-//           same CPPN) → DNA′ (readback.ts): it tries to find its own beginning.
-//   close:  fidelity = how well DNA′ matches DNA — baseline-corrected SKILL (R²),
-//           complexity-weighted, read through a bounded per-gene view of the image,
-//           so a blank / "predict the mean" / trivial creature scores ~0, never ~97%.
+//   paint: DNA (CPPN) paints an IMAGE across space — density + hue, CPPN-art (the
+//          genome's appearance). ES-HyperNEAT grows the BRAIN from the same CPPN's
+//          weight pattern. (paintCppnArt in substrate.ts; the brain does NOT paint.)
+//   read : the brain READS that image — its own self-portrait — via attention-chosen
+//          foveated glimpses, over a plastic, neuromodulated, ponder-gated lifetime.
+//   write: it then AUTOREGRESSIVELY WRITES its DNA from its OWN output neurons, one
+//          gene at a time, deciding its own length → DNA′ (readback.ts).
+//   close: fidelity = baseline-corrected SKILL (R²) of DNA′ vs DNA, on both LENGTH and
+//          VALUES, complexity-weighted — so a blank / "predict the mean" / trivial
+//          creature scores ~0, never ~97%.
 //
-//   The phenotype is genuinely IN the read path: DNA′ is produced by processing
-//   the rendered image, not by re-querying the CPPN at abstract coordinates.
-//   The reader is the creature's own painted network; nothing external. The only
-//   effortless fixed point is the empty creature (blank image → ~mean DNA → ~0
-//   skill AND ~0 vitality), which the vitality gate refuses.
+//   The behaviours are real substrate OUTPUT NEURONS computed by running, never CPPN
+//   channels — the Stanley-grade genotype↔phenotype boundary. The only effortless fixed
+//   point is the empty creature (blank image → constant write → ~0 skill AND ~0
+//   vitality), which the vitality gate refuses.
 
 const o2: [number, number] = [0, 0];
 
@@ -137,7 +138,7 @@ function projection(p: Phenotype, g: number): Float32Array {
     for (let xi = 0; xi < g; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
       field[yi * g + xi] = acc / zs.length;
     }
   }
@@ -158,7 +159,7 @@ export function behaviourSignature(p: Phenotype, n = 5): Float32Array {
     for (let xi = 0; xi < n; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
       sig[yi * n + xi] = acc / zs.length;
     }
   }

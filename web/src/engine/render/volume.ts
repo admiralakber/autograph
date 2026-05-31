@@ -1,11 +1,13 @@
 import type { Phenotype } from '../substrate.ts';
-import { substrateForward, ablateHidden } from '../substrate.ts';
+import { paintCppnArt } from '../substrate.ts';
+import { ablateHiddenCppn } from '../cppn.ts';
 import { SUB_INPUTS, SUB_OUTPUTS } from '../arch.ts';
 import { lifeRgb, lifeRgbF } from '../palette.ts';
 
-// Sampling the phenotype's volumetric image. The substrate's density
-// field becomes alpha; its hue field is mapped through the sunrise (HSLuv)
-// palette. Used by the 3D point cloud and the 2D fallback / thumbnails.
+// Sampling the creature's volumetric image — the CPPN-art SELF-PORTRAIT, painted directly
+// by the DNA's density + hue channels (paintCppnArt). density → alpha; hue → the sunrise
+// (HSLuv) palette. This is the genome's APPEARANCE (the picture the brain reads), NOT a
+// substrate output. Used by the 3D point cloud and the 2D fallback / thumbnails.
 
 export interface PointCloud {
   readonly positions: Float32Array; // n * 3
@@ -33,7 +35,7 @@ export function volumeCloud(p: Phenotype, gridN = 42, threshold = 0.34): PointCl
       for (let xi = 0; xi < gridN; xi++) {
         const x = xi * inv - 1;
         if (x * x + y * y + z * z > 1.02) continue; // clip to the unit ball
-        const r = substrateForward(p, x, y, z, o2);
+        const r = paintCppnArt(p.cc, x, y, z, o2);
         const d = r[0];
         if (d < threshold) continue;
         const t = (d - threshold) / span;
@@ -72,7 +74,7 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
       let best = 0;
       let hue = 0;
       for (const z of zs) {
-        const r = substrateForward(p, x, y, z, o2);
+        const r = paintCppnArt(p.cc, x, y, z, o2);
         if (r[0] > best) {
           best = r[0];
           hue = r[1];
@@ -193,7 +195,7 @@ export function substratePipeSegments(p: Phenotype, maxEdges = 40): { a: Float32
     const bz = p.pos[e.to * 3 + 2]!;
     a[i * 3] = ax; a[i * 3 + 1] = ay; a[i * 3 + 2] = az;
     b[i * 3] = bx; b[i * 3 + 1] = by; b[i * 3 + 2] = bz;
-    const hue = substrateForward(p, (ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, o2)[1];
+    const hue = paintCppnArt(p.cc, (ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, o2)[1];
     const [cr, cg, cb] = lifeRgbF(hue);
     col[i * 3] = cr; col[i * 3 + 1] = cg; col[i * 3 + 2] = cb;
     mag[i] = Math.min(1, Math.abs(e.weight) / maxAbs);
@@ -220,7 +222,7 @@ export function paintSlice(p: Phenotype, canvas: HTMLCanvasElement, size: number
     const y = yi * inv - 1;
     for (let xi = 0; xi < size; xi++) {
       const x = xi * inv - 1;
-      const r = substrateForward(p, x, y, z, o2);
+      const r = paintCppnArt(p.cc, x, y, z, o2);
       const a = smooth(0.38, 0.82, r[0]); // contrast curve → structure pops
       const [cr, cg, cb] = lifeRgb(r[1]);
       const o = (yi * size + xi) * 4;
@@ -235,15 +237,16 @@ export function paintSlice(p: Phenotype, canvas: HTMLCanvasElement, size: number
 
 const o3: [number, number] = [0, 0];
 
-/** A hidden neuron's receptive field: where silencing it changes the image
- *  most (ablation diff over the z-slice), drawn as a white heat — the
- *  genotype→brain→image link a neuroscientist can read. */
+/** A CPPN node's receptive field on the SELF-PORTRAIT: silence the j-th hidden CPPN node
+ *  and re-render the CPPN-art image — where the picture shifts is that gene's contribution.
+ *  Relocated to the CPPN (the image's true author): the DNA paints the image, so ablating a
+ *  DNA node — not a brain neuron — is the honest "silence a node → watch the image change". */
 export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanvasElement, size: number, z = 0): void {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const abl = ablateHidden(base, j);
+  const ablCc = ablateHiddenCppn(base.g, j); // silence the j-th hidden CPPN node, recompile
   const img = ctx.createImageData(size, size);
   const data = img.data;
   const inv = 2 / (size - 1);
@@ -251,8 +254,8 @@ export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanv
     const y = yi * inv - 1;
     for (let xi = 0; xi < size; xi++) {
       const x = xi * inv - 1;
-      const d0 = substrateForward(base, x, y, z, o2)[0];
-      const d1 = substrateForward(abl, x, y, z, o3)[0];
+      const d0 = paintCppnArt(base.cc, x, y, z, o2)[0];
+      const d1 = paintCppnArt(ablCc, x, y, z, o3)[0];
       const v = Math.round(Math.min(1, Math.abs(d0 - d1) * 3.2) * 255);
       const o = (yi * size + xi) * 4;
       data[o] = v;

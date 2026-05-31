@@ -37,13 +37,14 @@
 
 import type { Evaluation, Genome, LineageEntry, WireElite } from './protocol.ts';
 
-// Mirrors web/src/engine/arch.ts. v6 grew CPPN_OUTPUTS 2→9 (the temporal channels);
-// v7 grew it 9→11, adding the autoregressive writer channels (emitVal, emitEnd) — so the
-// full set is weight, bias | α, emit, modGate, fixX, fixY, fixScale, halt | emitVal, emitEnd.
-// genomeBytes writes this into the header, so the coordinator MUST match the engine or v7
-// genomes fail the integrity re-hash. The byte LAYOUT is unchanged from v3 — only this grew.
+// Mirrors web/src/engine/arch.ts. The v9 CLEAN-ARCHITECTURE fix moves the brain's
+// behaviours OUT of the CPPN (they become substrate output neurons) and makes density/hue
+// genuine CPPN-art channels, so CPPN_OUTPUTS drops 11→6: the full set is now
+// weight, bias, density, hue, α, modGate (structure · appearance · faculties — no behaviour).
+// genomeBytes writes this count into the header, so the coordinator MUST match the engine or
+// v9 genomes fail the integrity re-hash. The byte LAYOUT is unchanged from v3 — only this count.
 const CPPN_INPUTS = 7;
-const CPPN_OUTPUTS = 11;
+const CPPN_OUTPUTS = 6;
 // Mirrors web/src/engine/lineage.ts
 const LINEAGE_VERSION = 1;
 
@@ -90,11 +91,13 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 // half is now the intrinsic CPPN self-quine), so the header is back to 8 bytes
 // and no reader weights are appended. v4 = v6 temporal brain: the byte layout is
 // UNCHANGED, but CPPN_OUTPUTS grew 2→9 (the temporal channels). v5 = v7 self-writer:
-// byte layout still UNCHANGED, CPPN_OUTPUTS grew 9→11 (the writer channels emitVal/emitEnd),
-// so the header's OUTPUTS field differs and v6/v7 genomes are mutually non-verifying — the
-// epoch rotates (genesis-v7). If the engine's genome encoding changes again,
-// `npm run make-fixture && npm run smoke` trips — that is the drift gate.
-const GENOME_FORMAT_VERSION = 5;
+// byte layout still UNCHANGED, CPPN_OUTPUTS grew 9→11 (the writer channels). v6 = the v9
+// CLEAN-ARCHITECTURE fix: byte layout STILL UNCHANGED, but CPPN_OUTPUTS drops 11→6 — the
+// brain's behaviours leave the CPPN to become substrate output neurons, and density/hue
+// become genuine CPPN-art channels. The header's OUTPUTS field differs, so old/new genomes
+// are mutually non-verifying — the epoch rotates (genesis-v9). If the engine's genome
+// encoding changes again, `npm run make-fixture && npm run smoke` trips — the drift gate.
+const GENOME_FORMAT_VERSION = 6;
 
 /** Stable little-endian serialisation — EXACT mirror of cppn.ts:genomeBytes (v3). */
 export function genomeBytes(g: Genome): Uint8Array {

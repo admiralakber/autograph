@@ -32,11 +32,11 @@ const DEFAULT_COORDINATOR = 'wss://autograph-coordinator.usemeos.workers.dev';
 type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
 const CAPTIONS: Record<Mode, string> = {
-  stacked: 'STACKED · one creature, three ways at once — the image it’s born in (the DRAW half), the brain that emerges within it, and the DNA that paints it. The brain then READS this image and WRITES its own DNA back (THE LOOP). Tap any panel to open it full-screen.',
+  stacked: 'STACKED · one creature, three ways at once — the IMAGE the DNA paints (CPPN-art), the BRAIN that emerges within it, and the DNA itself. The brain READS the image and WRITES its own DNA back (THE LOOP). Tap any panel to open it full-screen.',
   render:
-    'THE IMAGE · the DRAW half — the substrate maps each 3-D coordinate to density + hue, painting the portrait the brain is born in (and later reads). These glowing points are the image, not the wiring.',
-  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at, NOT a tidy column. It paints the image (the DRAW half) and is the same network that reads it back and WRITES the DNA (THE LOOP).',
-  dna: 'DNA · the NEAT genotype — a CPPN with 11 output channels: weight + bias paint the image (the DRAW half); the others paint the temporal faculties (plasticity, neuromodulation, attention, halt) and the v7 WRITER (emitVal, emitEnd). It grows the brain, which reads its image then autoregressively writes this DNA back (THE LOOP).',
+    'THE IMAGE · the self-portrait the DNA (CPPN) paints — each 3-D coordinate mapped to density + hue (CPPN-art, à la Picbreeder). This is the genome’s APPEARANCE, the picture the brain is born in and later reads. The glowing points are the image, not the wiring.',
+  net: 'PHENOTYPE · the brain ES-HyperNEAT grew from the DNA’s weight pattern — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at. It READS the image (foveated glimpses) and WRITES the DNA back via its output neurons (THE LOOP); it does not paint the image — the DNA does.',
+  dna: 'DNA · the NEAT genotype — a CPPN with 6 output channels: weight + bias (STRUCTURE — it grows the brain), density + hue (APPEARANCE — the image it paints), α + modGate (FACULTIES — plasticity + neuromodulation). The brain then reads the image and writes this DNA back; the writer (emit · end · look · halt · m) is the brain’s own OUTPUT NEURONS, not a DNA channel.',
 };
 
 interface Focused {

@@ -52,6 +52,14 @@ export const GENESIS_LABEL = 'GENESIS';
  * old early-halting teacher-gamed value. Old v7 elites would mis-rank against the honest cold
  * metric, so the world rotates to a fresh room. The GENOME WIRE FORMAT is UNCHANGED
  * (`CPPN_OUTPUTS` stays 11), so the coordinator's `verify.ts` + `PROTOCOL_VERSION` are
- * untouched — this is a metric rotation, and the v7 self-writer ARCHITECTURE stands.)
+ * untouched — this is a metric rotation, and the v7 self-writer ARCHITECTURE stands.) →
+ * epoch 9 (THE CLEAN ARCHITECTURE: reason (a), the GENOME WIRE FORMAT changed. The
+ * Stanley-grade genotype↔phenotype fix moves the brain's BEHAVIOURS out of the CPPN — they
+ * become substrate OUTPUT NEURONS, computed by running — and makes density/hue genuine
+ * CPPN-art APPEARANCE channels (the image the brain READS, never a brain output). So
+ * `CPPN_OUTPUTS` drops 11→6 (weight, bias, density, hue, α, modGate). v7/epoch-8 elites no
+ * longer verify against the new `genomeBytes` header (OUTPUTS=6), so the world rotates to a
+ * fresh genesis-v9 room. Byte layout unchanged; `verify.ts` mirror + `PROTOCOL_VERSION` 5→6
+ * bump in lock-step.)
  */
-export const ARCHIVE_EPOCH = 8;
+export const ARCHIVE_EPOCH = 9;

@@ -24,8 +24,13 @@
  *  v5: the v7 SELF-WRITER — `CPPN_OUTPUTS` 9→11 (the autoregressive writer channels
  *      emitVal/emitEnd), so the header records OUTPUTS=11 and v6 elites no longer verify.
  *      Byte layout unchanged; the world rotates to a fresh genesis-v7 room. The decode is
- *      now a clean autoregressive self-write (no quine). `verify.ts` mirrors this. */
-export const PROTOCOL_VERSION = 5 as const;
+ *      now a clean autoregressive self-write (no quine). `verify.ts` mirrors this.
+ *  v6: the CLEAN-ARCHITECTURE fix (Stanley-grade genotype↔phenotype boundary) — the brain's
+ *      behaviours LEAVE the CPPN to become substrate OUTPUT NEURONS, and density/hue become
+ *      genuine CPPN-art channels, so `CPPN_OUTPUTS` drops 11→6 (weight, bias, density, hue,
+ *      α, modGate). The header records OUTPUTS=6 and v7 elites no longer verify. Byte layout
+ *      unchanged; the world rotates to a fresh genesis-v9 room. `verify.ts` mirrors this. */
+export const PROTOCOL_VERSION = 6 as const;
 
 // ── Domain types (mirror of web/src/engine) ─────────────────────────────────
 
