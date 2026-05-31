@@ -12,7 +12,7 @@ export interface ParamSpec {
   readonly value: number;
   readonly unit?: string;
   readonly note: string;
-  readonly group: 'Population (MAP-Elites)' | 'Mutation (NEAT)' | 'Speciation' | 'Substrate (ES-HyperNEAT)' | 'The loop' | 'Tempo';
+  readonly group: 'Population (MAP-Elites)' | 'Diversity (open-endedness)' | 'Mutation (NEAT)' | 'Speciation' | 'Substrate (ES-HyperNEAT)' | 'The loop' | 'Tempo';
   readonly selfTunes?: boolean;
 }
 
@@ -22,6 +22,14 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'founders', label: 'random founders', value: 24, group: 'Population (MAP-Elites)', note: 'random minimal genomes seeded when a world starts' },
   { key: 'minVitality', label: 'vitality gate', value: 0.05, group: 'Population (MAP-Elites)', note: 'reject near-flat creatures (the trivial empty fixed point)' },
   { key: 'noveltyBias', label: 'novelty bias', value: 0.4, group: 'Population (MAP-Elites)', note: 'when Novelty Search is on, fraction of selections drawn from the frontier — novelty INFORMS exploration without dominating fitness/species' },
+
+  // Diversifiers (NOT a claim of perpetual open-endedness — that is v6's structural
+  // job). When the shared map matures, these spread peers across behaviour space
+  // and keep a single node exploring rather than all refining one champion.
+  { key: 'noveltyStallBoost', label: 'novelty stall boost', value: 0.4, group: 'Diversity (open-endedness)', note: 'extra frontier-selection bias added (on top of novelty bias) as the search STALLS — auto-pushes toward “different” when the frontier flatlines; ramps 0→this over the stall window' },
+  { key: 'stallWindow', label: 'stall window', value: 80, unit: 'gen', group: 'Diversity (open-endedness)', note: 'generations with no new champion AND no new niche before the search counts as fully stalled (ramps the novelty boost to full)' },
+  { key: 'freshBloodEvery', label: 'fresh-blood interval', value: 220, unit: 'gen', group: 'Diversity (open-endedness)', note: 'inject a few fresh random genomes this often — a gentle perturbation to escape a saturated basin; 0 = off. Keep-best + the vitality gate mean it can only fill gaps, never degrade a cell' },
+  { key: 'freshBloodCount', label: 'fresh-blood / injection', value: 3, group: 'Diversity (open-endedness)', note: 'how many fresh random genomes per injection (small — exploration pressure, not churn)' },
 
   { key: 'weightMutRate', label: 'weight-mutate rate', value: 0.7, group: 'Mutation (NEAT)', note: 'fraction of connection weights perturbed per mutation' },
   { key: 'weightMutSigma', label: 'weight σ', value: 0.4, group: 'Mutation (NEAT)', note: 'std-dev of the Gaussian weight perturbation' },

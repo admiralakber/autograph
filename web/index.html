@@ -25,7 +25,9 @@
         </div>
         <dl class="readouts" aria-label="Live readouts">
           <div><dt>GEN</dt><dd id="ag-gen" title="generations elapsed in this world so far">0</dd></div>
-          <div><dt>GEN/S</dt><dd id="ag-gens" title="generations per second across the live swarm — your own node when offline">0</dd></div>
+          <div><dt>EVAL/S</dt><dd id="ag-gens" title="creatures EVALUATED per second — the true throughput of THIS node, your pulse. It counts work done, not animation frames, so TURBO (a bigger per-frame offspring batch) reads flat-or-HIGHER — never the old phantom ~3× ‘slowdown’, which was the ruler, not the engine. The whole swarm's collective eval/s, summed across islands, is on the SWARM line at the right.">0</dd></div>
+          <div class="ro-your"><dt>YOUR&nbsp;BEST</dt><dd id="ag-your-best" title="the finest self-encoder THIS machine has personally evolved this session — your own climb, always moving. It starts low and rises; ✧ pulses each time you beat your own best. On the swarm your line begins from its OWN divergent origin, not the global champion, so the journey is genuinely yours.">—</dd><span class="pb-mark" aria-hidden="true">✧</span></div>
+          <div><dt>FOUND</dt><dd id="ag-your-found" title="new behavioural KINDS your own Novelty Search has discovered THIS SESSION — open-ended exploration that keeps climbing even after the shared quality frontier saturates. It's yours, and it resets each visit (distinct from the swarm's all-time ‘explored’).">—</dd></div>
           <div><dt>POP</dt><dd id="ag-pop" title="niches filled — distinct creature ‘kinds’ alive now, of 196 (the 14×14 behaviour map: structural complexity × mirror symmetry)">0/196</dd></div>
           <div><dt>COVERAGE</dt><dd id="ag-cov" title="share of the 196 niches filled — how much of behaviour space has been explored">0%</dd></div>
           <div><dt>SPECIES</dt><dd id="ag-species" title="NEAT species (Stanley &amp; Miikkulainen) — creatures grouped by genetic compatibility, so newly-evolved structure is protected until it matures">1</dd></div>
@@ -35,7 +37,7 @@
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
         </dl>
         <div class="bar-end">
-          <span class="swarm" title="ISLANDS — the other machines/devices evolving with you in the live shared archipelago (distinct from your local diversity grid). The count, the collective gen/s, and the explored total (cumulative discoveries the shared archive has kept — persisted, not your local tab) are all real; best-per-niche creatures migrate between islands; add ?swarm=off to explore solo"><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;<span id="ag-swarm-label">connecting…</span> · <strong id="ag-swarm-gps">0</strong>&nbsp;gen/s · <strong id="ag-swarm-explored">0</strong>&nbsp;explored</span>
+          <span class="swarm" title="ISLANDS — the other machines evolving WITH you in the live shared archipelago (distinct from your own diversity grid). The island COUNT and the COLLECTIVE eval/s (creatures evaluated per second, genuinely SUMMED across every connected island — same unit as your own EVAL/S) are live; ‘best’ is the global champion's loop skill; ‘explored’ is every best-per-niche discovery the shared archive has EVER kept (monotonic, persisted across the whole swarm — it climbs fast early, then plateaus honestly as the 196-niche map fills with near-optimal champions). Best-per-niche creatures migrate between islands. Opt out for ONE visit with ?swarm=off — it will NOT stick, and while off this line says so."><span class="dot" aria-hidden="true"></span> SWARM · <strong id="ag-swarm-nodes">1</strong>&nbsp;<span id="ag-swarm-label">connecting…</span> · <strong id="ag-swarm-gps">0</strong>&nbsp;eval/s · best&nbsp;<strong id="ag-world-best">—</strong> · <strong id="ag-swarm-explored">0</strong>&nbsp;explored<button id="ag-swarm-join" class="swarm-join" type="button" hidden title="re-join the live swarm — reloads at the default (swarm ON) so this tab contributes again">JOIN ↻</button></span>
           <button id="ag-tuning-open" class="btn" type="button" title="structural options + the hyperparameters this run uses">⚙ TUNING</button>
           <button id="ag-help-open" class="btn" type="button" title="what am I looking at? a quick tour of the parts">? WHAT IS THIS</button>
           <button id="ag-info-open" class="btn" type="button">INFO</button>
@@ -100,7 +102,14 @@
 
         <!-- THE POPULATION -->
         <section class="panel p-population" aria-label="The diversity map">
-          <div class="panel-head"><span class="panel-title">DIVERSITY MAP</span><span class="mono-dim">best-bet self-encoders · one per niche (complexity → · symmetry ↑) · brightness = skill · ⬚ = watched</span></div>
+          <div class="panel-head">
+            <span class="panel-title">DIVERSITY MAP</span>
+            <div id="ag-mapview" class="dim" role="group" aria-label="diversity map source — your own archive vs the shared world's">
+              <button id="ag-map-local" class="dim-btn" type="button" title="YOUR own evolving map — only the creatures THIS machine has bred this session (dynamic, always churning)">LOCAL</button>
+              <button id="ag-map-world" class="dim-btn active" type="button" title="the SHARED archive — everyone's best per niche, shared across every island; the live champion skill is the WORLD BEST readout">WORLD</button>
+            </div>
+          </div>
+          <div class="map-sub"><span id="ag-map-caption" class="mono-dim">WORLD · the shared archive (everyone's best per niche) · complexity → · symmetry ↑ · brightness = skill · ⬚ = watched</span></div>
           <div class="grid-wrap">
             <div class="grid-box">
               <canvas id="ag-grid"></canvas>
@@ -161,6 +170,9 @@
         <span class="foot-end"><a href="https://github.com/admiralakber/autograph" rel="noopener">SOURCE</a> · MIT · NO QUBITS HERE</span>
       </footer>
     </div>
+
+    <!-- ░░ CELEBRATION — the rare moment a local creature beats the WORLD champion ░░ -->
+    <div id="ag-celebrate" class="celebrate" role="status" aria-live="polite"></div>
 
     <!-- ░░ WELCOME — first thing on landing (dismissible, re-openable from “?”) ░░ -->
     <div id="ag-welcome" class="overlay welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">

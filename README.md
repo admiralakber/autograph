@@ -11,6 +11,27 @@
 
 ---
 
+## 🌍 Lend an idle box to the swarm
+
+Autograph evolves **on whatever device opens it** and auto-joins the shared swarm the instant it loads — so a spare VPS or an idle laptop can help, with **no install beyond a browser you already have**. Point a *headless* browser at the live site and it quietly pulls the shared map, evolves, and pushes anything that beats a niche back up to everyone:
+
+```bash
+chromium --headless=new --disable-gpu \
+  --disable-background-timer-throttling \
+  --disable-renderer-backgrounding \
+  --disable-backgrounding-occluded-windows \
+  --user-data-dir="$(mktemp -d)" \
+  https://admiralakber.github.io/autograph/
+```
+
+Leave it running and that box *is* a node — no account, no GPU, fully anonymous. The two flags that matter are `--headless=new` and `--disable-gpu`; the rest keep the loop full-speed if the OS tries to background the renderer, and the throwaway `--user-data-dir` means swarm-on-by-default with no profile clash.
+
+- 🧠 **It genuinely contributes.** A headless tab still reports as *visible*, so the evolution loop runs **un-throttled** (~15–20 generations/s on a single core in testing); each elite it discovers is signed, pushed, and — once accepted — lifts the swarm's shared **explored** count for everyone.
+- 🐢 **Honest caveat.** No GPU means it's **software-rendered** (it falls back to the Canvas-2D path), so it's slower than a desktop tab and keeps roughly one core busy — but it is a real, contributing peer, not a spectator.
+- 🔧 **Notes.** `google-chrome`/`google-chrome-stable` work identically; on a **root-only VPS** add `--no-sandbox`; stop it with `Ctrl-C` or `pkill chromium`; opt a normal browser tab out any time with [`?swarm=off`](https://admiralakber.github.io/autograph/?swarm=off).
+
+---
+
 ## The one line that holds it together 🌀
 
 > **You can't copy a mind — you can only re-grow it from a recipe, and prove the lineage.**

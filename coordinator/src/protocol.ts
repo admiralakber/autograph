@@ -104,7 +104,8 @@ export const LIMITS = {
   bucketCapacity: 40,
   /** Token-bucket sustained refill (messages/second) per connection. */
   bucketRefillPerSec: 12,
-  /** Max plausible generations/sec one peer may report (anti-inflation clamp). */
+  /** Max plausible rate (creatures evaluated/sec) one peer may report (anti-inflation
+   *  clamp). Generous — far above any honest single-machine throughput. */
   maxGpsPerPeer: 100_000,
   /** Default archive grid (matches the engine's MapElites default 14×14). */
   cols: 14,
@@ -132,11 +133,14 @@ export interface PullMsg {
   readonly limit?: number;
 }
 
-/** Periodic local generations-per-second report. The room sums these across all
- *  connected peers and broadcasts the collective total (see `SwarmMsg`). Additive
- *  in v1: a peer that never sends it simply contributes 0 to the swarm total. */
+/** Periodic local THROUGHPUT report — creatures evaluated per second. The room sums
+ *  these across all connected peers and broadcasts the collective total (see
+ *  `SwarmMsg`). The field is historically named `gps`; it now carries creatures/sec
+ *  (the client's EVAL/S), so local and collective share one unit. Additive in v1: a
+ *  peer that never sends it simply contributes 0 to the swarm total. */
 export interface RateMsg {
   readonly type: 'rate';
+  /** Creatures evaluated per second (legacy field name). */
   readonly gps: number;
 }
 
@@ -200,12 +204,13 @@ export interface ErrorMsg {
   readonly message: string;
 }
 
-/** The live collective: peer count + summed generations/second across every
- *  connected peer. Broadcast whenever a peer reports a new rate or leaves, so the
- *  total visibly grows as machines join. */
+/** The live collective: peer count + summed THROUGHPUT (creatures evaluated/sec)
+ *  across every connected peer. Broadcast whenever a peer reports a new rate or
+ *  leaves, so the total visibly grows as machines join. (`gps` is a legacy name.) */
 export interface SwarmMsg {
   readonly type: 'swarm';
   readonly peers: number;
+  /** Summed creatures evaluated per second (legacy field name). */
   readonly gps: number;
 }
 

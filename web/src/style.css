@@ -338,6 +338,18 @@ code {
   color: var(--bg);
   background: var(--ink);
 }
+.dim-btn:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+.dim-btn:disabled.active {
+  background: transparent;
+}
+/* DIVERSITY MAP source caption (LOCAL vs WORLD) — a thin line under the panel head */
+.map-sub {
+  padding: 4px 0 7px;
+  line-height: 1.4;
+}
 .mode-bar {
   display: flex;
   align-items: flex-start;
@@ -735,6 +747,38 @@ code {
 
 /* ---- Swarm stats + main-view selection badge ---- */
 .swarm strong { color: var(--bright); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* YOUR-BEST ✧ pulse — monochrome (the only colour in the product lives on the
+   creatures, never the chrome): a brief white glow + a rising ✧ when you beat your own. */
+.ro-your { position: relative; }
+.pb-mark { position: absolute; top: -2px; right: -11px; font-size: 11px; color: var(--bright); opacity: 0; }
+.ro-your.pb-pulse .pb-mark { animation: pbMark 1.2s ease-out; }
+.ro-your.pb-pulse dd { animation: pbGlow 1.2s ease-out; }
+@keyframes pbMark { 0%, 100% { opacity: 0; transform: translateY(2px); } 25% { opacity: 1; transform: translateY(0); } 70% { opacity: 0.85; transform: translateY(-2px); } }
+@keyframes pbGlow { 0% { text-shadow: 0 0 0 rgba(250, 250, 250, 0); } 35% { text-shadow: 0 0 9px rgba(250, 250, 250, 0.85); } 100% { text-shadow: 0 0 0 rgba(250, 250, 250, 0); } }
+
+/* Re-join affordance + loud "not contributing" state — no silent opt-out. */
+.swarm-join {
+  font: inherit; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bg); background: var(--bright); border: 0; padding: 3px 8px; margin-left: 8px; cursor: pointer;
+}
+.swarm-join:hover { background: var(--ink); }
+.swarm.swarm-off { color: var(--ink); }
+.swarm.swarm-off .dot { background: var(--faint); animation: none; }
+.swarm.swarm-off #ag-swarm-label { color: var(--bright); font-weight: 600; letter-spacing: 0.06em; }
+
+/* The rare global-win celebration: your creature advanced the SHARED frontier. */
+.celebrate {
+  position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 16px); z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 13px 24px; background: rgba(7, 7, 7, 0.93); border: 1px solid var(--bright);
+  color: var(--bright); text-align: center; letter-spacing: 0.12em;
+  opacity: 0; pointer-events: none; transition: opacity 0.5s ease, transform 0.5s ease;
+  box-shadow: 0 0 32px rgba(250, 250, 250, 0.18);
+}
+.celebrate.show { opacity: 1; transform: translate(-50%, 0); }
+.celebrate strong { font-size: 13px; font-weight: 700; }
+.cel-sig { font-size: 10px; color: var(--dim); letter-spacing: 0.06em; }
 .sel-badge {
   position: absolute;
   top: 8px;
@@ -815,4 +859,6 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .swarm .dot, .lf, .grid-highlight { animation: none; }
+  .ro-your.pb-pulse .pb-mark, .ro-your.pb-pulse dd { animation: none; }
+  .celebrate { transition: opacity 0.2s ease; }
 }
