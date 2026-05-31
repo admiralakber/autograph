@@ -14,7 +14,7 @@ The whole project lives or dies on not over-claiming, so here is the honest spli
 |---|---|---|
 | **CPPN genotype with real NEAT** — augmenting topologies (add-node / add-connection, innovation numbers, recurrent + optional gated links), heterogeneous activations, textbook innovation-aligned crossover, speciation | ✅ **Real, on device** | [`web/src/engine/cppn.ts`](../../web/src/engine), `mutate.ts`, `evolution.ts` |
 | **Genuine ES-HyperNEAT substrate** — quadtree division + initialization (variance) and pruning + extraction (band-pruning), discovering hidden **placement, density and connectivity** (Risi & Stanley 2012); iterated + dead-node-pruned | ✅ **Real, on device** *(quadtree depth bounded for browser real time; 2-D placement sheet, 3-D swept render; heterogeneous activations + CPPN biases are extensions — all flagged)* | `eshyperneat.ts`, `substrate.ts` |
-| **Read-back loop through the picture + honest skill** — the rendered self-portrait is fed back through the creature's own brain (CPPN-painted substrate) → DNA′; skill = R² above the mean (`1−MSE/Var`), measured ≈0.3–0.5 evolved; **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `readback.ts`, `fitness.ts` |
+| **Read-back loop through the picture + honest skill** — the rendered self-portrait is fed back through the creature's own brain (CPPN-painted substrate) → DNA′; skill = R² above the mean (`1−MSE/Var`): blank ~0, compact creatures close it tightly, richer genomes face a harder loop; **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `readback.ts`, `fitness.ts` |
 | **MAP-Elites** quality-diversity archive (complexity × symmetry), speciation, optional **Novelty Search** | ✅ **Real, on device** | `mapelites.ts`, `evolution.ts` |
 | **3-D volumetric render** (Three.js) with a **Canvas 2D fallback**; sunrise HSLuv palette (colour for life only) | ✅ **Real, on device** | `render/` |
 | **Signed, content-addressed Merkle-DAG lineage** (ECDSA P-256, Web Crypto), **persisted in IndexedDB**, round-trip verifiable | ✅ **Real, on device** | `lineage.ts` |
@@ -40,7 +40,7 @@ flowchart LR
   PHENO -->|"draws — queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
   ART -->|"read back IN to the SAME brain"| PHENO
   PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
-  DNA2 -. "loop skill = R² above the mean (measured live, ≈0.3–0.5)" .-> DNA
+  DNA2 -. "loop skill = R² above the mean (measured live; blank ~0)" .-> DNA
 ```
 
 The maths of that loop is the subject of the [whitepaper](../WHITEPAPER.md); this note is about the *system* the loop lives inside.
