@@ -32,11 +32,11 @@ const DEFAULT_COORDINATOR = 'wss://autograph-coordinator.usemeos.workers.dev';
 type Mode = 'stacked' | 'render' | 'net' | 'dna';
 
 const CAPTIONS: Record<Mode, string> = {
-  stacked: 'STACKED · one creature, three ways at once — the IMAGE the DNA paints (CPPN-art), the BRAIN that emerges within it, and the DNA itself. The brain READS the image and WRITES its own DNA back (THE LOOP). Tap any panel to open it full-screen.',
+  stacked: 'STACKED · one creature, three ways at once — the SELF-PORTRAIT (a true picture of its own wiring), the BRAIN, and the DNA. The brain reads the portrait and WRITES its exact DNA back — topology, activations and weights (von Neumann self-reproduction). Tap any panel to open it full-screen.',
   render:
-    'THE IMAGE · the self-portrait the DNA (CPPN) paints — each 3-D coordinate mapped to density + hue (CPPN-art, à la Picbreeder). This is the genome’s APPEARANCE, the picture the brain is born in and later reads. The glowing points are the image, not the wiring.',
-  net: 'PHENOTYPE · the brain ES-HyperNEAT grew from the DNA’s weight pattern — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at. It READS the image (foveated glimpses) and WRITES the DNA back via its output neurons (THE LOOP); it does not paint the image — the DNA does.',
-  dna: 'DNA · the NEAT genotype — a CPPN with 6 output channels: weight + bias (STRUCTURE — it grows the brain), density + hue (APPEARANCE — the image it paints), α + modGate (FACULTIES — plasticity + neuromodulation). The brain then reads the image and writes this DNA back; the writer (emit · end · look · halt · m) is the brain’s own OUTPUT NEURONS, not a DNA channel.',
+    'THE SELF-PORTRAIT · a true depiction of the BUILT NETWORK — density ↔ each neuron’s connection strength (and the wires between them), hue ↔ its ACTIVATION TYPE. "Render = network = code", made literal: the picture IS the wiring. This is what the brain reads to reconstruct its DNA. The glowing points are the network.',
+  net: 'PHENOTYPE · the brain ES-HyperNEAT grew from the DNA’s weight pattern — shown at the neurons’ REAL (x,y), the coordinates the quadtree placed them at. It READS its self-portrait (spherical foveated glimpses) and WRITES its DNA GRAPH back via its output neurons (THE LOOP) — node activations + biases, connection topology + weights.',
+  dna: 'DNA · the NEAT genotype — a CPPN with 4 output channels: weight + bias (STRUCTURE — it grows the brain, and the weights ARE the portrait’s density) + α + modGate (FACULTIES — plasticity + neuromodulation). The brain reconstructs this exact graph; the writer (node + connection heads) is the brain’s own OUTPUT NEURONS, not a DNA channel.',
 };
 
 interface Focused {
@@ -740,9 +740,9 @@ export class AutographDashboard {
     const pct = (Number.isFinite(fid) ? (fid as number) : 0) * 100; // a NaN skill is never honest → floor to 0
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
     this.setText('#ag-fid-label', `${pct.toFixed(1)}%`);
-    // v7 READ→WRITE readout — N foveated glimpses (each a halt-gated "look + think", no emit),
-    // then L genes written autoregressively. Glimpses ARE the ponder steps (one per step).
-    this.setText('#ag-ponder', `GLIMPSED ×${w.ponder} → WROTE ${L}/${G} genes`);
+    // Structural-write readout — the brain reads its self-portrait then writes its DNA GRAPH:
+    // the node + connection counts it DECIDED vs its genome's (von Neumann self-reproduction).
+    this.setText('#ag-ponder', `WROTE ${w.nodeLen}n·${w.connLen}c / ${w.tgtNodes}n·${w.tgtConns}c (its DNA graph)`);
     // Surface the plastic / neuromodulated / attentive brain — only the faculties THIS
     // creature has actually evolved (honest: off at birth, each arises by mutation).
     const fac = [pheno.hasPlastic && 'plastic', pheno.hasNeuromod && 'neuromodulated', pheno.hasAttention && 'attends', pheno.hasHalt && 'halts'].filter(Boolean).join(' · ');

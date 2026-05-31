@@ -60,6 +60,14 @@ export const GENESIS_LABEL = 'GENESIS';
  * `CPPN_OUTPUTS` drops 11→6 (weight, bias, density, hue, α, modGate). v7/epoch-8 elites no
  * longer verify against the new `genomeBytes` header (OUTPUTS=6), so the world rotates to a
  * fresh genesis-v9 room. Byte layout unchanged; `verify.ts` mirror + `PROTOCOL_VERSION` 5→6
- * bump in lock-step.)
+ * bump in lock-step.) →
+ * epoch 10 (THE STRUCTURAL SELF-WRITE: reason (a), the GENOME WIRE FORMAT changed. The brain
+ * now reconstructs its EXACT DNA — the genome GRAPH (topology + activation types + weights),
+ * von Neumann self-reproduction — reading a self-portrait that is a true DEPICTION OF THE
+ * BUILT NETWORK (rendered from the substrate, not a CPPN channel). The density/hue appearance
+ * channels are retired, so `CPPN_OUTPUTS` drops 11→4 (weight, bias, α, modGate). genesis-v9
+ * elites no longer verify against the new `genomeBytes` header (OUTPUTS=4) → a fresh
+ * genesis-v10 room. Byte layout unchanged; `verify.ts` mirror + `PROTOCOL_VERSION` 6→7 in
+ * lock-step. The glimpse also becomes SPHERICAL (r,θ,φ) volumetric attention — phenotype-only.)
  */
-export const ARCHIVE_EPOCH = 9;
+export const ARCHIVE_EPOCH = 10;
