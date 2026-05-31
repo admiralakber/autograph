@@ -601,6 +601,14 @@ code {
   color: var(--bright);
   font-variant-numeric: tabular-nums;
 }
+.loop-thesis {
+  margin: 0;
+  padding: 9px 12px 2px;
+  font-size: 9px;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  font-style: italic;
+}
 
 /* ---- Genealogy ---- */
 .tree {
