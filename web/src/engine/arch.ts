@@ -26,6 +26,8 @@
 //   problem: read the network's portrait → write the CPPN recipe that grows it. It is NOT
 //   a CPPN output channel and NEVER a brain output (see substrate.ts renderSubstrateImage).
 
+import { ACTIVATION_COUNT } from './activations.ts';
+
 // --- CPPN genotype (DNA) — NEAT graph ---------------------------------------
 
 /** CPPN inputs: x1,y1,z1, x2,y2,z2, bias — the two 3-D coordinates it relates. */
@@ -74,13 +76,15 @@ export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;
  *           WRITE mode, bias].
  *  The image read is a true picture of the wiring; where to look next is the brain's output. */
 export const SUB_INPUTS = 6;
-/** Substrate OUTPUT neurons (8) — the WRITER, computed by running the brain:
- *    0 emitVal   — the next DNA value (a real value, σ of the neuron; NOT a discrete token).
- *    1 emitEnd   — end-of-sequence: the creature decides its own DNA length.
- *    2 fixX, 3 fixY, 4 fixZ, 5 fixScale — where (in the VOLUME) + how zoomed to glimpse next
- *                  (RAM hard attention, now 3-D — the brain attends in depth).
- *    6 halt      — Adaptive Computation Time: "I've read enough", switch to writing.
- *    7 m         — the brain's own neuromodulator (gates its plasticity; Backpropamine). */
-export const SUB_OUTPUTS = 8;
+/** Substrate OUTPUT neurons — the STRUCTURAL WRITER, computed by running the brain. The brain
+ *  emits its DNA as a GRAPH (von Neumann self-reproduction), so the head has three groups:
+ *    READ (6): fixR, fixθ, fixφ — SPHERICAL fixation (radius + direction into the volume);
+ *              fixScale (glimpse extent); halt (ACT: stop reading); m (neuromodulator).
+ *    NODE head (2 + ACTIVATION_COUNT): nodeEnd (decide #nodes); bias (real); actLogits[…]
+ *              (a CATEGORICAL head over activation types — argmax picks the node's activation).
+ *    CONN head (5): from, to (real → node-slot pointers — the topology); weight (real);
+ *              enabled (bit); connEnd (decide #connections).
+ *  All are real substrate output neurons, computed by running — never CPPN channels. */
+export const SUB_OUTPUTS = 13 + ACTIVATION_COUNT;
 // NOTE: hidden-neuron count is NOT fixed — ES-HyperNEAT discovers placement and density
 // from the CPPN weight pattern (see eshyperneat.ts / hyperparams.ts caps).

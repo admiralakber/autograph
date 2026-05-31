@@ -1,6 +1,7 @@
-import { SUB_INPUTS, SUB_OUTPUTS, CPPN_OUTPUTS } from './arch.ts';
+import { SUB_INPUTS, SUB_OUTPUTS, CPPN_INPUTS, CPPN_OUTPUTS } from './arch.ts';
 import type { Genome } from './cppn.ts';
 import { compileCPPN, evalCompiled } from './cppn.ts';
+import type { EmittedGenome } from './structural.ts';
 import { activate, ACTIVATION_COUNT } from './activations.ts';
 import { growSubstrate, coordKey } from './eshyperneat.ts';
 import type { Vec3 } from './eshyperneat.ts';
@@ -46,17 +47,24 @@ const OUTPUT_POS: Vec3[] = (() => {
   return p;
 })();
 
-// Canonical writer-output offsets from the first output neuron (outStart). The attention
-// fixation is SPHERICAL (r, θ, φ) — the brain picks a radius + direction into the volume,
-// geometrically natural for the creature's roughly-spherical self-portrait.
-const O_EMITVAL = 0;
-const O_EMITEND = 1;
-const O_FIXR = 2;
-const O_FIXTHETA = 3;
-const O_FIXPHI = 4;
-const O_FIXSCALE = 5;
-const O_HALT = 6;
-const O_M = 7;
+// Canonical writer-output offsets from the first output neuron (outStart). READ head first
+// (SPHERICAL fixation r, θ, φ — radius + direction into the volume), then the NODE head
+// (end + bias + a categorical activation logit bank), then the CONN head (from, to, weight,
+// enabled, end). The brain emits its DNA as a GRAPH; these are all real output neurons.
+const O_FIXR = 0;
+const O_FIXTHETA = 1;
+const O_FIXPHI = 2;
+const O_FIXSCALE = 3;
+const O_HALT = 4;
+const O_M = 5;
+const O_NODE_END = 6;
+const O_BIAS = 7;
+const O_ACT0 = 8; // categorical activation logits span O_ACT0 .. O_ACT0+ACTIVATION_COUNT-1
+const O_FROM = O_ACT0 + ACTIVATION_COUNT;
+const O_TO = O_FROM + 1;
+const O_WEIGHT = O_FROM + 2;
+const O_ENABLED = O_FROM + 3;
+const O_CONN_END = O_FROM + 4;
 
 const esParams = () => ({
   initialDepth: HYPER.esInitialDepth,
@@ -344,7 +352,9 @@ const GLIMPSE_BALL: ReadonlyArray<readonly [number, number, number]> = [
   [-0.577, -0.577, 0.577], [-0.577, 0.577, -0.577], [0.577, -0.577, -0.577], [-0.577, -0.577, -0.577],
 ];
 let gxBuf = new Float32Array(0), gyBuf = new Float32Array(0), gzBuf = new Float32Array(0), gvalBuf = new Float32Array(0);
-let emitBuf = new Float32Array(0);
+// Structural-write scratch (grown to the caps): node (act, bias) + conn (from, to, weight, enabled).
+let emActBuf = new Uint8Array(0), emBiasBuf = new Float32Array(0);
+let emFromBuf = new Int32Array(0), emToBuf = new Int32Array(0), emWeightBuf = new Float32Array(0), emEnBuf = new Uint8Array(0);
 const sig = (x: number): number => 1 / (1 + Math.exp(-x));
 const fieldScratch: [number, number] = [0, 0];
 
@@ -446,52 +456,78 @@ export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
   return { gx: gx.slice(0, ponder), gy: gy.slice(0, ponder), gz: gz.slice(0, ponder), gval: gval.slice(0, ponder), ponder, deviation, halted };
 }
 
-// --- The AUTOREGRESSIVE WRITER (the clean self-loop) ------------------------
+// --- The STRUCTURAL WRITER (von Neumann self-reproduction of the genome graph) ---
 //
-// After the READ, the brain WRITES its DNA element by element FROM ITS OWN OUTPUT NEURONS:
-// each step fed its own previous output (autoregressive, WRITE mode), it steps once and reads
-// `value = σ(emitVal neuron)` (the next gene) + accrues `end` (ACT) off the emitEnd neuron.
-// When `end` crosses threshold the creature has DECIDED its own length. No CPPN re-projection,
-// no per-gene coordinate lookup, no length given. Off at birth ⇒ a constant write that never
-// halts ⇒ predict-the-mean ⇒ skill 0.
+// After the READ, the brain WRITES its DNA as a GRAPH, from its own OUTPUT NEURONS, in two
+// autoregressive phases. NODE phase: it emits node genes — a CATEGORICAL activation type
+// (argmax of the logit bank) + a real bias — until its node-end signal (ACT) fires (deciding
+// #nodes). CONN phase: it emits connection genes — from/to node-slot pointers (the TOPOLOGY)
+// + a real weight + an enabled bit — until its conn-end fires (deciding #connections). Each
+// step is fed its own previous real output (autoregressive). No CPPN re-projection, no length
+// or structure given. Off at birth (the writer neurons unwired) ⇒ a constant graph that never
+// halts ⇒ predict-the-mean ⇒ skill 0. DNA′ is then scored against DNA gene-for-gene (structural.ts).
 
-export interface WriteResult {
-  readonly values: Float32Array;
-  readonly runLen: number;
-  readonly selfLen: number;
-  readonly halted: boolean;
-  readonly ponder: number;
-  readonly deviation: number;
-}
-
-/** The brain READS its self-portrait then AUTOREGRESSIVELY WRITES its DNA, deciding its own
- *  length. `G` is the genome's gene count. `noDeviation` clamps the read to the pure scan. */
-export function selfWrite(p: Phenotype, G: number, noDeviation = false): WriteResult {
+/** The brain READS its self-portrait then AUTOREGRESSIVELY WRITES its DNA GRAPH, deciding its
+ *  own structure size. `noDeviation` clamps the read to the pure spherical scan (ablation). */
+export function selfWriteStructural(p: Phenotype, noDeviation = false): EmittedGenome {
   const r = readPonderEmit(p, noDeviation); // READ — leaves the recurrent state in `val`
   const N = p.inFrom.length;
   const outStart = N - SUB_OUTPUTS;
   const runPlastic = p.hasPlastic;
   const runNeuromod = runPlastic && p.hasNeuromod;
-  const cap = Math.max(1, Math.round(HYPER.emitMaxLen));
-  const runLen = Math.min(cap, Math.max(1, 2 * G));
-  if (emitBuf.length < runLen) emitBuf = new Float32Array(runLen);
-  const invLen = 1 / Math.max(1, runLen);
-  let prevVal = 0;
-  let cumEnd = 0;
-  let selfLen = runLen, halted = false;
-  for (let t = 0; t < runLen; t++) {
-    val[0] = 0; val[1] = 0; val[2] = t * invLen; val[3] = prevVal; val[4] = 1; val[5] = 1;
+  const nodeCap = Math.max(1, Math.round(HYPER.nodeMaxLen));
+  const connCap = Math.max(1, Math.round(HYPER.emitMaxLen));
+  if (emActBuf.length < nodeCap) { emActBuf = new Uint8Array(nodeCap); emBiasBuf = new Float32Array(nodeCap); }
+  if (emFromBuf.length < connCap) { emFromBuf = new Int32Array(connCap); emToBuf = new Int32Array(connCap); emWeightBuf = new Float32Array(connCap); emEnBuf = new Uint8Array(connCap); }
+
+  // NODE PHASE — emit (activation type, bias) until node-end fires.
+  const invN = 1 / nodeCap;
+  let prevReal = 0, cumNodeEnd = 0, nodeLen = nodeCap, nodeHalted = false;
+  for (let t = 0; t < nodeCap; t++) {
+    val[0] = 0; val[1] = t * invN; val[2] = 0; val[3] = prevReal; val[4] = 1; val[5] = 1; // phase 0 = NODE
     stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
-    const value = sig(val[outStart + O_EMITVAL]! * p.outScale[O_EMITVAL]!);
-    emitBuf[t] = value;
-    prevVal = value;
-    if (!halted) {
-      const endSig = Math.tanh(val[outStart + O_EMITEND]! * p.outScale[O_EMITEND]!);
-      if (endSig > 0) cumEnd += endSig;
-      if (cumEnd >= 1) { selfLen = t + 1; halted = true; }
+    let bestA = 0, bestV = -Infinity; // categorical activation: argmax of the (fan-in-scaled) logits
+    for (let k = 0; k < ACTIVATION_COUNT; k++) {
+      const off = O_ACT0 + k;
+      const v = val[outStart + off]! * p.outScale[off]!;
+      if (v > bestV) { bestV = v; bestA = k; }
+    }
+    emActBuf[t] = bestA;
+    const bv = sig(val[outStart + O_BIAS]! * p.outScale[O_BIAS]!);
+    emBiasBuf[t] = bv; prevReal = bv;
+    if (!nodeHalted) {
+      const ne = Math.tanh(val[outStart + O_NODE_END]! * p.outScale[O_NODE_END]!);
+      if (ne > 0) cumNodeEnd += ne;
+      if (cumNodeEnd >= 1) { nodeLen = t + 1; nodeHalted = true; }
     }
   }
-  return { values: emitBuf.slice(0, runLen), runLen, selfLen, halted, ponder: r.ponder, deviation: r.deviation };
+
+  // CONN PHASE — slots index the full node list: inputs (CPPN_INPUTS) + the emitted nodes.
+  const slotSpan = Math.max(1, CPPN_INPUTS + nodeLen - 1);
+  const invC = 1 / connCap;
+  prevReal = 0;
+  let cumConnEnd = 0, connLen = connCap, connHalted = false;
+  for (let t = 0; t < connCap; t++) {
+    val[0] = 0; val[1] = t * invC; val[2] = 1; val[3] = prevReal; val[4] = 1; val[5] = 1; // phase 1 = CONN
+    stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
+    emFromBuf[t] = Math.round(sig(val[outStart + O_FROM]! * p.outScale[O_FROM]!) * slotSpan);
+    emToBuf[t] = Math.round(sig(val[outStart + O_TO]! * p.outScale[O_TO]!) * slotSpan);
+    const wv = sig(val[outStart + O_WEIGHT]! * p.outScale[O_WEIGHT]!);
+    emWeightBuf[t] = wv; prevReal = wv;
+    emEnBuf[t] = sig(val[outStart + O_ENABLED]! * p.outScale[O_ENABLED]!) > 0.5 ? 1 : 0;
+    if (!connHalted) {
+      const ce = Math.tanh(val[outStart + O_CONN_END]! * p.outScale[O_CONN_END]!);
+      if (ce > 0) cumConnEnd += ce;
+      if (cumConnEnd >= 1) { connLen = t + 1; connHalted = true; }
+    }
+  }
+
+  return {
+    act: emActBuf.slice(0, nodeCap), bias: emBiasBuf.slice(0, nodeCap),
+    from: emFromBuf.slice(0, connCap), to: emToBuf.slice(0, connCap),
+    weight: emWeightBuf.slice(0, connCap), enabled: emEnBuf.slice(0, connCap),
+    nodeLen, connLen, nodeRun: nodeCap, connRun: connCap, ponder: r.ponder, deviation: r.deviation,
+  };
 }
 
 // --- Accessors for visualisation --------------------------------------------
