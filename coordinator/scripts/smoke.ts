@@ -88,7 +88,7 @@ class Harness implements RoomTransport {
 
 let synthN = 0;
 function synth(bd: [number, number], fidelity: number, hash?: string, vitality = 0.5): WireElite {
-  const genome: Genome = { nodes: [{ id: 0, kind: 0, act: 0, bias: 0 }], conns: [] };
+  const genome: Genome = { nodes: [{ id: 0, kind: 0, act: 0, bias: 0 }], conns: [], reader: [] };
   const evaluation: Evaluation = { bd, fidelity, vitality, liveConns: 1 };
   const genomeHash = hash ?? `hash-${synthN++}`;
   const lineage = { genomeHash, fidelity } as unknown as LineageEntry;

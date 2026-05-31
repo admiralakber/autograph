@@ -11,8 +11,10 @@
 // │ test/fixtures/genuine-elite.json — drift is caught by a test, not silently. │
 // └───────────────────────────────────────────────────────────────────────────┘
 
-/** Bumped when the wire format changes incompatibly. */
-export const PROTOCOL_VERSION = 1 as const;
+/** Bumped when the wire format changes incompatibly. v2: the genome gained a
+ *  per-creature read-back network (`reader` weights) — the genuine other half of
+ *  the strange loop — which changes `genomeBytes`, so v1 elites no longer verify. */
+export const PROTOCOL_VERSION = 2 as const;
 
 // ── Domain types (mirror of web/src/engine) ─────────────────────────────────
 
@@ -37,10 +39,14 @@ export interface ConnGene {
   readonly gater?: number;
 }
 
-/** The DNA: a connective CPPN graph (mirrors cppn.ts Genome). */
+/** The DNA: a connective CPPN graph + the per-creature read-back network's
+ *  weights (mirrors cppn.ts Genome). `reader` is the genuine decode half of the
+ *  strange loop (self-portrait → DNA′); it is part of `genomeBytes`, so it is
+ *  signed and integrity-checked like the rest of the genome. */
 export interface Genome {
   readonly nodes: NodeGene[];
   readonly conns: ConnGene[];
+  readonly reader: number[];
 }
 
 /** Measured behaviour + fidelity (mirrors fitness.ts Evaluation). */

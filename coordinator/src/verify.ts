@@ -49,6 +49,7 @@ const enc = new TextEncoder();
 const MAX_NODES = 4096;
 const MAX_CONNS = 16384;
 const MAX_PARENTS = 64;
+const MAX_READER = 65536; // read-back-network weights (fixed-topology MLP; ~hundreds)
 
 const HEX_64 = /^[0-9a-f]{64}$/; // SHA-256 hex (id, genomeHash)
 const HEX_128 = /^[0-9a-f]{128}$/; // ECDSA P-256 signature (r||s), raw
@@ -81,24 +82,28 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 // Genome serialisation format version — MIRRORS web/src/engine/cppn.ts:genomeBytes.
-// v2 added a per-connection `gater` int32 (conn stride 16 → 20). If the engine's
-// genome encoding changes again, `npm run make-fixture && npm run smoke` trips —
-// that is the drift gate. Bump this and re-sync genomeBytes when it does.
-const GENOME_FORMAT_VERSION = 2;
+// v2 added a per-connection `gater` int32 (conn stride 16 → 20). v3 added the
+// per-creature read-back network: a uint16 reader-length in the header (offset 8,
+// header 8 → 10) and `reader.length` float32 weights appended after the conns. If
+// the engine's genome encoding changes again, `npm run make-fixture && npm run
+// smoke` trips — that is the drift gate. Bump this and re-sync when it does.
+const GENOME_FORMAT_VERSION = 3;
 
-/** Stable little-endian serialisation — EXACT mirror of cppn.ts:genomeBytes (v2). */
+/** Stable little-endian serialisation — EXACT mirror of cppn.ts:genomeBytes (v3). */
 export function genomeBytes(g: Genome): Uint8Array {
   void GENOME_FORMAT_VERSION;
   const nodes = g.nodes.slice().sort((a, b) => a.id - b.id);
   const conns = g.conns.slice().sort((a, b) => a.innov - b.innov);
-  const header = 8;
-  const buf = new ArrayBuffer(header + nodes.length * 12 + conns.length * 20);
+  const reader = g.reader ?? [];
+  const header = 10;
+  const buf = new ArrayBuffer(header + nodes.length * 12 + conns.length * 20 + reader.length * 4);
   const bytes = new Uint8Array(buf);
   const dv = new DataView(buf);
   dv.setUint16(0, CPPN_INPUTS, true);
   dv.setUint16(2, CPPN_OUTPUTS, true);
   dv.setUint16(4, nodes.length, true);
   dv.setUint16(6, conns.length, true);
+  dv.setUint16(8, reader.length, true);
   let o = header;
   for (const n of nodes) {
     dv.setInt32(o, n.id, true);
@@ -114,6 +119,10 @@ export function genomeBytes(g: Genome): Uint8Array {
     dv.setFloat32(o + 12, c.enabled ? c.weight : 0, true);
     dv.setInt32(o + 16, c.gater ?? -1, true); // gater node id (-1 = ungated)
     o += 20;
+  }
+  for (const w of reader) {
+    dv.setFloat32(o, w, true);
+    o += 4;
   }
   return bytes;
 }
@@ -155,6 +164,8 @@ function validateShape(elite: WireElite): VerifyOutcome {
     if (!isFiniteNum(c.weight) || typeof c.enabled !== 'boolean') return fail('bad-conn');
     if (c.gater !== undefined && !isInt(c.gater)) return fail('bad-conn');
   }
+  if (!Array.isArray(genome.reader) || genome.reader.length > MAX_READER) return fail('bad-reader');
+  for (const w of genome.reader) if (!isFiniteNum(w)) return fail('bad-reader');
 
   if (!evaluation || !Array.isArray(evaluation.bd) || evaluation.bd.length !== 2) return fail('malformed-eval');
   if (!isFiniteNum(evaluation.bd[0]) || !isFiniteNum(evaluation.bd[1])) return fail('bad-bd');
