@@ -4,71 +4,35 @@ import { SUB_INPUTS } from './arch.ts';
 import { activate } from './activations.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
-import { substrateForward } from './substrate.ts';
+import { readPonderEmit } from './substrate.ts';
 
-// THE READ-BACK — the loop's decode half, flowing THROUGH THE PICTURE.
-//
-// The earlier "self-quine" bypassed the phenotype: it had the CPPN echo its own
-// genes at abstract coordinates, so the rendered image was never in the read
-// path. That is not a loop through the image. The owner was right.
+// THE READ → PONDER → EMIT LOOP — the decode half, flowing THROUGH THE IMAGE.
 //
 // The loop (Escher's Drawing Hands, literally):
-//   DNA (CPPN) PAINTS AN IMAGE across space, and the BRAIN (ES-HyperNEAT
-//     substrate) EMERGES WITHIN it — neurons placed where the pattern has structure
-//             → the brain, queried over space, renders the IMAGE (density field)
-//             → the brain reads back THE IMAGE IT'S BORN IN, via its own neurons
-//             → it outputs DNA′, trying to find its own beginning
+//   DNA (CPPN) PAINTS AN IMAGE across space, and the BRAIN (ES-HyperNEAT substrate)
+//     EMERGES WITHIN it — neurons placed where the pattern has structure
+//             → the brain READS the IMAGE IT'S BORN IN over a plastic, attentional,
+//               ponder-gated lifetime (readPonderEmit, substrate.ts): it takes
+//               foveated GLIMPSES where it chooses to look (Phase 4), its weights
+//               self-modify (Phase 2) under its own neuromodulation (Phase 3), it
+//               PONDERS a variable number of steps then HALTS (ACT, Phase 5), and
+//               EMITS — zero-fed — the recurrent state that now encodes what it saw
+//             → DNA′ is read OUT of that state at the canonical genome coordinates,
+//               trying to find its own beginning
 //             → skill = how well DNA′ matches DNA (R², baseline-corrected,
-//               complexity-weighted, read through a bounded per-gene view)
+//               complexity-weighted, ponder-penalised)
 //
-// The read pass is a *read-mode substrate* painted by the SAME CPPN and routed
-// through the SAME hidden neurons the brain already evolved (same positions,
-// activations, biases). Only the harness differs: the inputs are PICTURE SAMPLES
-// (placed at the probe coordinates they were sampled from) and the outputs are
-// DNA GENES (placed at canonical genome coordinates). The connection weights are
-// the CPPN's own — queried at those coordinate pairs, exactly as HyperNEAT paints
-// the forward brain. So the reader is the creature's OWN network reading its OWN
-// picture; there is NO separate regressor and NO genome-wire change (the read
-// weights are derived from the existing CPPN — genesis-v3 persists).
+// v6 Phase 5 — the culmination. The read is genuinely TEMPORAL, so the temporal
+// channels (α, neuromod, attention, halt) all SHAPE the decode → they are load-bearing
+// and reconstructable → fork (B) ends and they rejoin the target (DEFERRED_OUTPUT_IDS
+// is now empty; the loop reconstructs the FULL temporal genome). This is the genuinely
+// harder, more honest task v6 was built to be — the skill it earns is humbler than
+// v5's, and that is the point.
 //
-// Honesty holds by construction: a blank image (≈constant density) drives the
-// hidden layer to a near-constant, so DNA′ ≈ a constant ≈ the mean → R² ≈ 0; and
-// such a creature is volumetrically empty → vitality-gated. Only a creature whose
-// image genuinely carries its DNA, read back by its own brain, scores above 0 —
-// and that is a strictly harder, more honest loop than echoing genes directly.
-
-/** Read-back bandwidth floor/ceiling: the brain may sample between MIN_PROBES and
- *  MAX_PROBES points of its own image, at HYPER.readbackBandwidth points per gene.
- *  Bounding the resolution PER GENE (not as a flat count) keeps reconstruction
- *  honestly hard at every scale — a richer genome gets proportionally more probes
- *  but has proportionally more to reconstruct, so it is no easier to close — which
- *  lets the complexity weight (below) genuinely reward richer self-knowers instead
- *  of a flat bottleneck collapsing them to R²≈0. Closure must be earned. */
-const MIN_PROBES = 6;
-const MAX_PROBES = 18;
-const probeCount = (genes: number): number => {
-  const n = Math.round(genes * HYPER.readbackBandwidth);
-  return n < MIN_PROBES ? MIN_PROBES : n > MAX_PROBES ? MAX_PROBES : n;
-};
-
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-const probeCache = new Map<number, Float32Array>();
-/** `n` probe points on a Fibonacci sphere (radius 0.85) — where the picture is read. */
-function probesFor(n: number): Float32Array {
-  const hit = probeCache.get(n);
-  if (hit) return hit;
-  const p = new Float32Array(Math.max(1, n) * 3);
-  for (let k = 0; k < n; k++) {
-    const y = n === 1 ? 0 : 1 - (k / (n - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const a = k * GOLDEN_ANGLE;
-    p[k * 3] = Math.cos(a) * r * 0.85;
-    p[k * 3 + 1] = y * 0.85;
-    p[k * 3 + 2] = Math.sin(a) * r * 0.85;
-  }
-  probeCache.set(n, p);
-  return p;
-}
+// Honesty holds by construction: a blank image (≈constant density) drives flat
+// glimpses → a near-constant read-state → DNA′ ≈ the mean → R² ≈ 0, and such a
+// creature is vitality-gated. Only a creature whose image genuinely carries its DNA,
+// read back through its own temporal brain, scores above 0.
 
 const COORD_RADIUS = 0.92;
 const coordCache = new Map<number, [number, number, number]>();
@@ -96,45 +60,42 @@ function nodeCoord(id: number): [number, number, number] {
 const sigmoid = (x: number): number => 1 / (1 + Math.exp(-x));
 const o2: [number, number] = [0, 0];
 
-/** Read the creature's DNA back OUT OF ITS PICTURE, through its own brain.
- *  Returns DNA′ in [0,1] unit space, in TARGET-vector order (target conns by
- *  innovation, then target biases by id) so it aligns with `targetVector`. v6 (B):
- *  the target is only what the static image encodes (weight/bias) — the deferred
- *  α/neuromod channels are out of the loop until Phase 5 (see cppn.ts targetConns). */
+/** The READ/ponder steps the most recent `selfReadback` used (for the ACT ponder cost
+ *  in `selfConsistencySkill`). Set as a side effect each call; read immediately after
+ *  in the same synchronous chain (skill → R² → readback). */
+let lastPonderSteps = 0;
+
+/** Read the creature's DNA back OUT OF ITS IMAGE, through its own TEMPORAL brain
+ *  (v6 Phase 5 — read → ponder → emit). Returns DNA′ in [0,1] unit space, in
+ *  TARGET-vector order; fork (B) has ended, so the target is the FULL temporal genome.
+ *  The decode reads each gene out of the brain's HIDDEN state after it has glimpsed,
+ *  self-modified and pondered over its image — so plasticity, neuromodulation and
+ *  attention all shape DNA′ (they are load-bearing here). */
 export function selfReadback(g: Genome, p: Phenotype): Float32Array {
   const cc = compileCPPN(g);
-  const F = probeCount(targetCount(g));
-  const probes = probesFor(F);
+  const r = readPonderEmit(p); // READ + PONDER (+ halt) — the brain chooses WHERE to glimpse
+  lastPonderSteps = r.ponder;
   const H = p.hiddenCount;
 
-  // 1. The picture: the brain's density field at the F probe points — the STATIC
-  //    initial-state field (the image the creature is born in, what it reconstructs
-  //    FROM). v6 NOTE: sampling this picture via the PLASTIC rollout was tried and
-  //    crashed skill (the runtime weight-change scrambles the picture↔genome
-  //    relationship) — so plasticity stays out of the picture. It self-modifies the
-  //    brain during the DECODE (the lifetime read), which Phase 5 (read-ponder-emit)
-  //    makes temporal; that is where plasticity becomes load-bearing for skill.
-  const pic = new Float32Array(F);
-  for (let i = 0; i < F; i++) pic[i] = substrateForward(p, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, o2)[0];
-
-  // 2. Feed the picture INTO the brain's own hidden neurons (CPPN-painted weights
-  //    from each probe coordinate to each hidden-neuron coordinate).
+  // EMIT — project the chosen glimpses INTO the brain's hidden layer through the SAME
+  // CPPN weights (the self-quine round-trip), then read DNA′ out at the genome coords.
+  // The probes are now ATTENTION-CHOSEN (r.gx/gy) over a ponder-gated read, not fixed,
+  // so attention/plasticity/halt shape DNA′ — load-bearing — while the calibrated
+  // projection keeps the decode closeable (a pure-scan creature reduces to the old loop).
   const hid = new Float32Array(H);
   for (let j = 0; j < H; j++) {
     const hj = SUB_INPUTS + j;
-    const hx = p.pos[hj * 3]!;
-    const hy = p.pos[hj * 3 + 1]!;
-    const hz = p.pos[hj * 3 + 2]!;
+    const hx = p.pos[hj * 3]!, hy = p.pos[hj * 3 + 1]!, hz = p.pos[hj * 3 + 2]!;
     let s = p.bias[hj]!;
-    for (let i = 0; i < F; i++) {
-      s += pic[i]! * evalCompiled(cc, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, hx, hy, hz, o2)[0];
+    for (let t = 0; t < r.ponder; t++) {
+      s += r.gval[t]! * evalCompiled(cc, r.gx[t]!, r.gy[t]!, 0, hx, hy, hz, o2)[0];
     }
     hid[j] = activate(p.act[hj]!, s);
   }
 
-  // 3. Read each gene OUT of the hidden layer at its canonical genome coordinate
-  //    (CPPN-painted weights hidden→gene; gene-output bias from the CPPN's bias
-  //    channel at that coordinate). conn gene ↦ midpoint of its endpoints' homes.
+  // Read each gene OUT of the hidden layer at its canonical genome coordinate (CPPN-
+  // painted weights hidden→gene; gene-output bias from the CPPN bias channel at that
+  // coordinate). conn gene ↦ midpoint of its endpoints' homes.
   const conns = targetConns(g);
   const biases = targetBiasNodes(g);
   const out = new Float32Array(conns.length + biases.length);
@@ -163,8 +124,8 @@ function readGene(cc: ReturnType<typeof compileCPPN>, hid: Float32Array, p: Phen
 }
 
 /** The DNA's own values in unit space — the targets the read-back must match.
- *  v6 (B): only the image-encoded genes (weight/bias); the deferred α/neuromod
- *  channels are excluded until Phase 5. */
+ *  v6 Phase 5: fork (B) has ended — the target is the FULL temporal genome (the
+ *  deferred channels rejoined, see arch.ts DEFERRED_OUTPUT_IDS). */
 export function dnaTargetUnits(g: Genome): Float32Array {
   const v = targetVector(g);
   const out = new Float32Array(v.length);
@@ -179,14 +140,18 @@ const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
  *  win. clamp01(genes / ref): a creature at/above the reference earns full R². */
 const complexityWeight = (genes: number): number => clamp01(genes / Math.max(1, HYPER.skillComplexityRef));
 
-/** Baseline-corrected self-consistency SKILL in [0,1], HARDENED two ways so
- *  closure is genuinely earned: (1) the read-back sees only a bounded, per-gene
- *  view of the image (HYPER.readbackBandwidth), so reconstruction is hard at every
- *  scale; (2) the R² is weighted by genome complexity, so genuinely
- *  reconstructing a richer self scores higher than nailing a dozen easy genes.
- *  A blank/trivial creature still scores ~0; nothing is faked. */
+/** Baseline-corrected self-consistency SKILL in [0,1], HARDENED three ways so closure
+ *  is genuinely earned: (1) DNA′ is read through the bounded, temporal read→ponder→emit
+ *  decode, not a free look; (2) the R² is weighted by genome complexity, so genuinely
+ *  reconstructing a richer self scores higher than nailing a dozen easy genes; (3) a
+ *  gentle ACT PONDER COST penalises dithering (Graves 2016), so the brain is pressured
+ *  to halt once it has seen enough. A blank/trivial creature still scores ~0; nothing
+ *  is faked — and reconstructing the FULL temporal genome is humblingly harder than v5. */
 export function selfConsistencySkill(g: Genome, p: Phenotype): number {
-  return clamp01(selfConsistencyR2(g, p)) * complexityWeight(targetCount(g));
+  const r2 = selfConsistencyR2(g, p); // runs the read; sets lastPonderSteps
+  const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
+  const ponderFactor = clamp01(1 - HYPER.ponderCost * (lastPonderSteps / cap));
+  return clamp01(r2) * complexityWeight(targetCount(g)) * ponderFactor;
 }
 
 /** Unclamped, UN-weighted R² — the raw reconstruction quality (negative when the

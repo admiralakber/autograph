@@ -35,28 +35,48 @@ export const CPPN_INPUTS = 7;
  *    • `fixX`, `fixY`, `fixScale` (v6 Phase 4) — per-neuron, read at (p,p) like emit:
  *      the ATTENTION readouts. Each step the brain emits a fixation (location + scale)
  *      from its own activity and takes a foveated glimpse of its image there (RAM,
- *      EVOLVED hard attention). All temporal channels arise by mutation, none pre-wired.
- *  Connection *expression* is decided by ES-HyperNEAT band-pruning on the weight
- *  pattern (Risi & Stanley 2012). */
-export const CPPN_OUTPUTS = 8;
+ *      EVOLVED hard attention).
+ *    • `halt` (v6 Phase 5) — per-neuron, read at (p,p) like emit: the brain's Adaptive
+ *      Computation Time signal. It accumulates over the READ rollout; when it crosses
+ *      threshold (or a hard cap) the brain stops pondering and switches to EMIT.
+ *  All temporal channels arise by mutation, none pre-wired. Connection *expression* is
+ *  decided by ES-HyperNEAT band-pruning on the weight pattern (Risi & Stanley 2012). */
+export const CPPN_OUTPUTS = 9;
 
-/** Canonical node ids: inputs 0..6, outputs 7..14 (weight, bias, α, emit, modGate,
- *  fixX, fixY, fixScale), hidden ids start at 15. */
+/** Canonical node ids: inputs 0..6, outputs 7..15 (weight, bias, α, emit, modGate,
+ *  fixX, fixY, fixScale, halt), hidden ids start at 16. */
 export const INPUT_IDS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
-export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 14];
-export const FIRST_HIDDEN_ID = 15;
+export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 14, 15];
+export const FIRST_HIDDEN_ID = 16;
 
-/** v6 (B) — which CPPN output channels the STATIC image physically encodes.
- *  Channels [0]=weight and [1]=bias paint the substrate's density/hue field, so
- *  they ARE the image; channels at index ≥ IMAGE_OUTPUTS (α plasticity, the neuromod
- *  channels Phase 3 adds, and the attention channels Phase 4 adds) paint only the
- *  TEMPORAL/plastic dynamics, which the static field cannot show. Reconstructing
- *  those from the static image is an
- *  impossible subtask — a meaningless drag, not genuine difficulty — so they are
- *  DEFERRED from the self-encoding target during Phases 2–4 and rejoin it at Phase 5,
- *  when the read→ponder→emit plastic decode finally makes them reconstructable.
- *  (Empty set ⇒ v5 behaviour: every channel is in the target.) */
+/** The gentle ON-RAMP wiring: `minimalGenome` wires ONLY the first `IMAGE_OUTPUTS`
+ *  channels (weight, bias) at birth; every temporal channel (α, emit, modGate,
+ *  fixX/Y/Scale, halt) starts UNCONNECTED and arises by mutation. This is permanent —
+ *  it is how each faculty on-ramps gently — and is independent of the target below. */
 export const IMAGE_OUTPUTS = 2;
+
+/** v6 fork (B) — which CPPN output channels are EXCLUDED from the reconstruction
+ *  target: the temporal channels (α, emit, modGate, fixX/Y/Scale, halt).
+ *
+ *  Phase 5 tested the hypothesis that a TEMPORAL read→ponder→emit decode would make
+ *  these reconstructable — and found, honestly, that it does NOT, for a structural
+ *  reason that follows from fork (B)'s own premise: the image stays the STATIC
+ *  initial-state field, and a static self-portrait does not encode how the creature
+ *  learns / attends / ponders. Reading it over a plastic, attentional lifetime makes
+ *  those faculties SHAPE the read (attention is load-bearing — ablating it measurably
+ *  changes the reconstruction), but adds no spatial information ABOUT the temporal
+ *  genes, so the spatial gene-readout cannot extract them. Forcing them into the target
+ *  yields R² ≈ −12 (worse than the mean) and destroys the gradient (skill ≡ 0, no
+ *  bootstrap) — a measured negative result, not honest difficulty.
+ *
+ *  So fork (B) STANDS: the temporal channels are load-bearing INPUTS to the read (they
+ *  choose where to glimpse, when to halt), not reconstructed OUTPUTS. The creature can
+ *  read back what its image SHOWS (its visible form: weight + bias) but not its
+ *  invisible temporal interior. The loop reconstructs the image-encoded genome; the
+ *  honest skill it earns is humbler than v5's, and that is the truth. (Empty set ⇒
+ *  every channel rejoins — kept here, behind this measured finding, for a future
+ *  dynamics-based readout that could reconstruct the temporal genes from the read's
+ *  signature rather than the static image.) */
 export const DEFERRED_OUTPUT_IDS: ReadonlySet<number> = new Set(OUTPUT_IDS.slice(IMAGE_OUTPUTS));
 /** Innovation numbers 0..(CPPN_INPUTS*CPPN_OUTPUTS-1) are the minimal genome's
  *  input→output connections; the registry hands out fresh ones after that. */

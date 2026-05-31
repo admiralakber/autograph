@@ -74,6 +74,10 @@ export interface Phenotype {
   readonly fixX: Float32Array;
   readonly fixY: Float32Array;
   readonly fixScale: Float32Array;
+  /** v6 Phase 5: per-node halt readout (Adaptive Computation Time). The brain's halt
+   *  signal each READ step is the rectified mean of halt·activity; accumulated, it
+   *  decides "I've seen enough" → switch to EMIT. Off at birth (ponders to the cap). */
+  readonly halt: Float32Array;
   /** v6: per-node cumulative incoming-edge offset into the flat plastic trace,
    *  and the total edge count (the trace scratch size). */
   readonly edgeBase: Int32Array;
@@ -87,8 +91,11 @@ export interface Phenotype {
   readonly hasNeuromod: boolean;
   /** v6 Phase 4: true if any attention readout is nonzero — i.e. the brain genuinely
    *  CHOOSES its fixation. Off at birth (a fixed centred glimpse, no roam); arises by
-   *  mutation. NOT load-bearing for skill yet (fork (B) defers it until Phase 5). */
+   *  mutation. */
   readonly hasAttention: boolean;
+  /** v6 Phase 5: true if any halt readout is nonzero — i.e. the brain can choose to
+   *  stop pondering early. Off at birth (ponders to the hard cap); arises by mutation. */
+  readonly hasHalt: boolean;
   /** Flat expressed-edge list (for the network visualisation). */
   readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
   /** Count of expressed connections — the phenotype's edge count for readouts. */
@@ -121,6 +128,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   const fixX = new Float32Array(N); // v6 Phase 4: per-node attention readouts (inputs stay 0)
   const fixY = new Float32Array(N);
   const fixScale = new Float32Array(N);
+  const halt = new Float32Array(N); // v6 Phase 5: per-node halt (ACT) readout (inputs stay 0)
   const idOf = new Map<string, number>();
 
   const place = (c: Vec3, idx: number): void => {
@@ -148,6 +156,7 @@ export function buildPhenotype(g: Genome): Phenotype {
     fixX[idx] = Math.tanh(r[5]!); // v6 Phase 4: attention readouts (where + zoom to glimpse)
     fixY[idx] = Math.tanh(r[6]!);
     fixScale[idx] = Math.tanh(r[7]!);
+    halt[idx] = Math.tanh(r[8]!); // v6 Phase 5: halt (ACT) readout
     idx++;
   }
   for (const c of outputs) {
@@ -159,6 +168,7 @@ export function buildPhenotype(g: Genome): Phenotype {
     fixX[idx] = Math.tanh(r[5]!);
     fixY[idx] = Math.tanh(r[6]!);
     fixScale[idx] = Math.tanh(r[7]!);
+    halt[idx] = Math.tanh(r[8]!);
     idx++;
   }
 
@@ -215,7 +225,9 @@ export function buildPhenotype(g: Genome): Phenotype {
   for (let i = SUB_INPUTS; i < N && !hasAttention; i++) {
     if (Math.abs(fixX[i]!) > 1e-3 || Math.abs(fixY[i]!) > 1e-3 || Math.abs(fixScale[i]!) > 1e-3) hasAttention = true;
   }
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, fixX, fixY, fixScale, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod, hasAttention };
+  let hasHalt = false;
+  for (let i = SUB_INPUTS; i < N && !hasHalt; i++) if (Math.abs(halt[i]!) > 1e-3) hasHalt = true;
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, fixX, fixY, fixScale, halt, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod, hasAttention, hasHalt };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
@@ -398,20 +410,53 @@ function glimpse(grid: Float32Array, res: number, fx: number, fy: number, scale:
   out[1] = per / GLIMPSE_RING.length;
 }
 
-export interface GlimpsePath {
-  /** T × 3 fixation trajectory the brain chose: (fx, fy, scale) per step. */
-  readonly fixations: Float32Array;
-  /** The brain's hidden+output activations after attending — the "read" state Phase 5 decodes. */
-  readonly readState: Float32Array;
-  /** Largest distance the fixation roamed from centre (0 ⇒ attention off / forced-centred). */
-  readonly roam: number;
+export interface ReadResult {
+  /** The fixation coordinates (z=0) the brain actually GLIMPSED, one per READ step
+   *  (scan + the brain's chosen deviation). These are the attention-chosen "probes"
+   *  the decode projects the image through — so attention is load-bearing. */
+  readonly gx: Float32Array;
+  readonly gy: Float32Array;
+  /** The foveal density the brain saw at each fixation — what it projects to decode. */
+  readonly gval: Float32Array;
+  /** READ/ponder steps actually used (1..ponderMaxSteps) — variable, halt-controlled. */
+  readonly ponder: number;
+  /** Largest CHOSEN deviation from the default scan (0 ⇒ attention off — pure scan). */
+  readonly deviation: number;
+  /** True if the brain chose to halt before the hard cap (vs ran out the cap). */
+  readonly halted: boolean;
 }
 
-/** v6 Phase 4 — run the ATTENTION READ: T foveated glimpses of the creature's own
- *  static image, each fixation chosen from the brain's activity. `forceCentre` clamps
- *  every fixation to the centre (the ablation control: fixed vs evolved fixation).
- *  Composes with plasticity / neuromodulation if the creature evolved them. */
-export function attentionRead(p: Phenotype, forceCentre = false): GlimpsePath {
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+/** The DEFAULT scan fixation for read step t of T — a Fibonacci sweep of the image
+ *  disc. With attention OFF this is what the brain reads (an informative default, so
+ *  the loop bootstraps); attention adds a learned DEVIATION on top (Phase 4). */
+function scanFixation(t: number, T: number, out: [number, number]): void {
+  const r = Math.sqrt((t + 0.5) / T) * 0.72;
+  const a = t * GOLDEN;
+  out[0] = Math.cos(a) * r;
+  out[1] = Math.sin(a) * r;
+}
+const clampUnit = (x: number): number => (x < -1 ? -1 : x > 1 ? 1 : x);
+
+/** v6 Phase 5 — the READ → PONDER → EMIT decode (the seq2seq culmination): the brain
+ *  reads its own image, choosing WHERE to look, to reconstruct its DNA.
+ *    • READ + PONDER: up to `ponderMaxSteps` foveated glimpses. Each step's fixation
+ *      is the default SCAN position PLUS a learned DEVIATION the brain emits from its
+ *      own activity (Phase 4 attention — off at birth ⇒ a pure informative scan that
+ *      bootstraps the loop). Plasticity (Phase 2) + neuromodulation (Phase 3) are
+ *      ACTIVE in the rollout that chooses the gaze. Each step it accumulates a halt
+ *      (ACT) signal; when that crosses 1.0 it has "seen enough" and stops (else cap).
+ *    • EMIT: the chosen glimpses (their coordinates + foveal densities) are returned;
+ *      readback.ts projects them through the SAME CPPN weights into the hidden layer
+ *      and reads DNA′ out at the genome coordinates — the self-quine round-trip the
+ *      old loop relied on, now driven by an attention-chosen, ponder-gated read. (A
+ *      measured negative result: decoding the raw recurrent state instead does NOT
+ *      close — the rollout state is miscalibrated for the gene readout; the calibrated
+ *      projection of the chosen glimpses is what closes the loop.)
+ *  Everything is intrinsic to the ONE evolved brain. `noDeviation` clamps the gaze to
+ *  the pure scan (the ablation control: scan-only vs the brain's chosen deviation).
+ *  The static image is rendered ONCE (fork (B)'s initial-state field); glimpses sample THAT. */
+export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
   const N = p.inFrom.length;
   if (val.length < N) { val = new Float32Array(N); prev = new Float32Array(N); }
   const res = Math.max(2, Math.round(HYPER.glimpseRes));
@@ -424,26 +469,31 @@ export function attentionRead(p: Phenotype, forceCentre = false): GlimpsePath {
     hebb.fill(0, 0, p.edgeTotal);
   }
   val.fill(0, 0, N); // a fresh recurrent state for the read
-  const T = rolloutSteps();
-  const fixations = new Float32Array(T * 3);
+  const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
   const invD = 1 / Math.max(1, N - SUB_INPUTS);
+  const gx = new Float32Array(cap), gy = new Float32Array(cap), gval = new Float32Array(cap);
   const gv: [number, number] = [0, 0];
-  let fx = 0, fy = 0, scale = 0; // centred default (attention off)
-  let roam = 0;
-  for (let t = 0; t < T; t++) {
-    glimpse(grid, res, fx, fy, scale, gv);
+  const sc: [number, number] = [0, 0];
+  let devX = 0, devY = 0, devScale = 0; // chosen deviation from the scan (0 ⇒ attention off)
+  let deviation = 0, cumHalt = 0, ponder = 0, halted = false;
+  for (let t = 0; t < cap; t++) {
+    scanFixation(t, cap, sc);
+    const fx = clampUnit(sc[0]! + devX), fy = clampUnit(sc[1]! + devY);
+    glimpse(grid, res, fx, fy, devScale, gv);
+    gx[t] = fx; gy[t] = fy; gval[t] = gv[0]!; // collect the chosen glimpse (coord + foveal density)
     val[0] = fx; val[1] = fy; val[2] = gv[0]!; val[3] = gv[1]!; val[4] = 1; // the glimpse IS the input
     stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
-    if (!forceCentre) { // the brain emits the NEXT fixation from its own activity
-      let ax = 0, ay = 0, as = 0;
-      for (let i = SUB_INPUTS; i < N; i++) { const a = val[i]!; ax += p.fixX[i]! * a; ay += p.fixY[i]! * a; as += p.fixScale[i]! * a; }
-      fx = Math.tanh(ax * invD); fy = Math.tanh(ay * invD); scale = Math.tanh(as * invD);
-    }
-    fixations[t * 3] = fx; fixations[t * 3 + 1] = fy; fixations[t * 3 + 2] = scale;
-    const dist = Math.sqrt(fx * fx + fy * fy);
-    if (dist > roam) roam = dist;
+    let ax = 0, ay = 0, as = 0, hs = 0;
+    for (let i = SUB_INPUTS; i < N; i++) { const a = val[i]!; ax += p.fixX[i]! * a; ay += p.fixY[i]! * a; as += p.fixScale[i]! * a; hs += p.halt[i]! * a; }
+    if (!noDeviation) { devX = Math.tanh(ax * invD); devY = Math.tanh(ay * invD); devScale = Math.tanh(as * invD); }
+    const d = Math.sqrt(devX * devX + devY * devY);
+    if (d > deviation) deviation = d;
+    ponder = t + 1;
+    const haltSig = Math.tanh(hs * invD); // rectified ⇒ 0 when the halt channel is off
+    if (haltSig > 0) cumHalt += haltSig;
+    if (cumHalt >= 1) { halted = true; break; }
   }
-  return { fixations, readState: val.slice(SUB_INPUTS, N), roam };
+  return { gx: gx.slice(0, ponder), gy: gy.slice(0, ponder), gval: gval.slice(0, ponder), ponder, deviation, halted };
 }
 
 // --- Accessors for visualisation --------------------------------------------

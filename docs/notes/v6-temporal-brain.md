@@ -75,8 +75,8 @@ mutation — a gentle on-ramp from the minimal seed, kept evolvable.
 | **1. Temporal pass** ✓ | T-step recurrent rollout; recurrent/self/lateral edges functional | build ✓ + smoke ✓, v5 loop still honest; recurrence measurably affects output |
 | **2. Hebbian plasticity** ✓ | CPPN-painted α; weights self-modify over the rollout | closure stays earned; blank/random ~0 |
 | **3. Neuromodulation** ✓ | evolved `m(t)` gating plastic rates | functional gate (ablating `m` changes learning) |
-| **4. Attention / glimpse** ✓ | evolved fixation+scale; foveated glimpses of own image | bounded glimpse budget; honest read **← this pass** |
-| 5. Read→ponder→emit + halting | ACT halt + ponder cost + hard cap; autoregressive DNA′; **deferred channels rejoin the target** | no think-forever; earned closure |
+| **4. Attention / glimpse** ✓ | evolved fixation+scale; foveated glimpses of own image | bounded glimpse budget; honest read |
+| **5. Read→ponder→emit + halting** ✓ | ACT halt + ponder cost + hard cap; attention-chosen glimpse read decodes DNA′ | no think-forever; earned closure; attention load-bearing **← this pass** |
 | 6. Channels / initial-state | widen CPPN outputs; reconstruct continuous genome | representational sufficiency |
 | **Perf-hardening** | eval → Web Workers (off the rAF thread); kill `coordKey` strings + integer-ify `cleanNet`; reuse scratch buffers (×T under v6); WASM/SIMD dense rollout + attention | runs headless (Node / swarm CPU) too; no main-thread eval; identical numbers |
 | **Deploy (only when COMPLETE)** | bump `ARCHIVE_EPOCH` (auto-rotate), re-sync coordinator `verify.ts`/fixture/`PROTOCOL_VERSION`, redeploy coordinator + site, live QA | honest numbers; docs-coherent |
@@ -243,6 +243,55 @@ non-differentiable location choice natively — no REINFORCE.
   **not yet load-bearing**. attentionRead ≈ **1.2 ms** (the one-off grid render
   dominates) and is **not in the eval loop** in Phase 4 — Phase 5 wires it in, and the
   perf-hardening phase makes it cheap.
+
+## Phase 5 — what landed (read → ponder → emit + halting), and an honest finding
+
+The culmination: the loop's decode is now the temporal **read → ponder → emit**, and
+attention becomes **load-bearing**. But Phase 5 also produced a *measured negative
+result* that the owner's first duty to truth requires stating plainly: the temporal
+genes **cannot** rejoin the reconstruction target.
+
+**What landed (and is verified):**
+- **The decode is now read→ponder→emit (`readPonderEmit` + `selfReadback`).** The brain
+  reads its own static image by taking up to `ponderMaxSteps` foveated glimpses: each
+  fixation is a default Fibonacci **scan** position PLUS a learned **deviation** the
+  brain emits from its own activity (Phase 4 attention). Plasticity + neuromodulation
+  are active in the rollout that chooses the gaze. It accumulates an **ACT halt signal**
+  (Graves 2016) and stops when it has "seen enough" (or at the cap). The chosen glimpses
+  are then projected through the SAME CPPN weights into the hidden layer and DNA′ is
+  read out at the genome coordinates — the self-quine round-trip, now driven by an
+  attention-chosen, ponder-gated read. A **gentle ponder cost** penalises dithering.
+- **+1 CPPN channel `halt` (`CPPN_OUTPUTS` 8→9)**, per-neuron readout, OFF at birth
+  (unconnected) ⇒ a fresh creature ponders to the cap with no chosen halt; halting
+  arises by mutation. The fixation default also changed from "centred" (Phase 4) to an
+  informative **scan** — without it the read is uninformative (centre only) and the loop
+  cannot bootstrap (a measured result).
+- **Attention is load-bearing (ablation).** Ablating the gaze to the pure scan changes
+  DNA′ by mean Δ **~0.21** — the brain's *chosen* glimpses genuinely shape the
+  reconstruction. **Variable, bounded ponder:** across an evolved archive, ponder spans
+  **2…8** steps (cap 8), ~**120/188** evolve a halt readout and some halt early — not
+  instant, not forever. **Honest floor:** constant/random → **0.000**.
+- **Honest skill:** best **~30%** by 2000 gens (raw R² ~0.38) — humbler than v5's 98%,
+  reconstructing the image-encoded genome through a genuinely harder temporal read.
+
+**The finding — fork (B) STANDS, it does not end here:**
+- The owner's plan was for the temporal channels (α, neuromod, attention, halt) to
+  rejoin the target now that the decode is temporal. They **shape** the read (attention
+  is load-bearing), but the read still samples the **STATIC image** (fork (B)'s own
+  premise), and a static self-portrait **does not encode** how the creature learns /
+  attends / ponders. So a *spatial* gene-readout has no signal to reconstruct the
+  temporal genes from. Forcing them into the target gives **R² ≈ −12** (far worse than
+  the mean) and **destroys the gradient** — skill ≡ 0, the loop can't bootstrap. That is
+  a broken loop, not honest difficulty, so truth forbids it.
+- **Interpretation (honest + poignant):** the creature can read back what its image
+  *shows* — its visible form (weight + bias) — but **not its invisible temporal
+  interior** (how it learns, attends, ponders). Those faculties are load-bearing
+  *inputs* to its self-reading, never reconstructed *outputs*. The temporal genes remain
+  deferred, not as a measurement dodge but as a structural truth.
+- **The open door (a possible Phase 5b, owner's call):** reconstruct the temporal genes
+  from the read's **dynamic signature** (the fixation trajectory, ponder count, plastic
+  trace they leave) rather than the static image — a non-spatial readout. Uncertain,
+  research-grade; deliberately *not* attempted unilaterally.
 
 ## Perf-hardening phase (scheduled; owner-approved)
 
