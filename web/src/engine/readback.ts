@@ -101,7 +101,8 @@ function r2Over(target: Float32Array, mean: number, varr: number, values: Float3
     const d = pred - target[i]!;
     mse += d * d;
   }
-  return 1 - mse / G / varr;
+  const r = 1 - mse / G / varr;
+  return Number.isFinite(r) ? r : 0; // defensive: a diverged write can never poison the metric → honest 0
 }
 
 export interface WriteSkill {
@@ -159,7 +160,9 @@ export function writeSkill(g: Genome, p: Phenotype): WriteSkill {
   const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
   const ponderFactor = clamp01(1 - HYPER.ponderCost * (w.ponder / cap)); // read-dithering cost (ACT)
   const skill = complexityWeight(G) * veff * lenFactor * ponderFactor;
-  return { skill, r2self, r2teacher, lenSim, selfLen: w.selfLen, geneCount: G, anneal: a };
+  // Defensive (honesty): a non-finite skill is never honest — clamp to the floor 0.
+  const fin = (x: number): number => (Number.isFinite(x) ? x : 0);
+  return { skill: clamp01(fin(skill)), r2self: fin(r2self), r2teacher: fin(r2teacher), lenSim, selfLen: w.selfLen, geneCount: G, anneal: a };
 }
 
 /** Self-encoding SKILL in [0,1] — the v7 curriculum selection fitness (drives evolution).

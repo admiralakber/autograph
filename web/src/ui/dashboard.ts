@@ -736,11 +736,13 @@ export class AutographDashboard {
       ctx.fillStyle = `rgb(${pg},${pg},${pg})`;
       ctx.fillRect(k * sw, Hd - rh, Math.ceil(sw), rh);
     }
-    const pct = (this.focused?.evaluation.fidelity ?? 0) * 100;
+    const fid = this.focused?.evaluation.fidelity;
+    const pct = (Number.isFinite(fid) ? (fid as number) : 0) * 100; // a NaN skill is never honest → floor to 0
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
     this.setText('#ag-fid-label', `${pct.toFixed(1)}%`);
-    // v7 THINKING + LENGTH readout — how much it pondered to read, and the length it DECIDED
-    this.setText('#ag-ponder', `GLIMPSED · PONDERED ${w.ponder} · WROTE ${L}/${G} genes`);
+    // v7 READ→WRITE readout — N foveated glimpses (each a halt-gated "look + think", no emit),
+    // then L genes written autoregressively. Glimpses ARE the ponder steps (one per step).
+    this.setText('#ag-ponder', `GLIMPSED ×${w.ponder} → WROTE ${L}/${G} genes`);
   }
 
   private async updateFingerprint(genome: Genome): Promise<void> {

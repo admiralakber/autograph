@@ -249,6 +249,17 @@ let val = new Float32Array(64);
 let prev = new Float32Array(64);
 /** v6 per-edge Hebbian trace scratch (one rollout's worth; reset per query). */
 let hebb = new Float32Array(256);
+/** v7 stability fix — BOUND the recurrent state to a finite range each step. The brain
+ *  has unbounded activations (relu/identity/abs/bent) + LINEAR outputs, recurrent/self
+ *  edges, and a Hebbian term (w + α·trace) that can amplify; over the long autoregressive
+ *  WRITE (up to `emitMaxLen` steps) this can diverge to ±Infinity, and `emitVal·Infinity`
+ *  (or Infinity−Infinity) then yields NaN — which propagated through the read-out into a
+ *  NaN skill. Bounding the state is the ROOT fix: it makes the dynamical system BIBO-stable
+ *  so no Infinity/NaN can ever arise. The clamp is generous (it only bites genuine
+ *  divergence — healthy creatures never approach it, so their numbers are unchanged); any
+ *  NaN that somehow appears collapses to 0. The skill metric + UI also guard defensively. */
+const STATE_BOUND = 1e6;
+const bounded = (x: number): number => (x > STATE_BOUND ? STATE_BOUND : x < -STATE_BOUND ? -STATE_BOUND : x === x ? x : 0);
 /** v5 settle depth — also the feed-forward fast path (a feed-forward-only network
  *  reaches its fixed point in one step; a second confirms it), kept identical so
  *  such creatures are byte-for-byte unchanged from v5. */
@@ -299,21 +310,21 @@ function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boole
         const pre = src >= i ? prev[src]! : val[src]!;
         s += pre * (w[k]! + al[k]! * hebb[base + k]!);
       }
-      const post = i >= outStart ? s : activate(p.act[i]!, s);
+      const post = bounded(i >= outStart ? s : activate(p.act[i]!, s));
       val[i] = post;
       for (let k = 0; k < from.length; k++) {
         const src = from[k]!;
         const pre = src >= i ? prev[src]! : val[src]!;
         const t = base + k;
         // Neuromodulated learning rate: (1 + g·m). g=0 or m=0 ⇒ the Phase 2 update.
-        hebb[t] = (1 - eta) * hebb[t]! + eta * (1 + mg[k]! * m) * pre * post;
+        hebb[t] = bounded((1 - eta) * hebb[t]! + eta * (1 + mg[k]! * m) * pre * post);
       }
     } else {
       for (let k = 0; k < from.length; k++) {
         const src = from[k]!;
         s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
       }
-      val[i] = i >= outStart ? s : activate(p.act[i]!, s);
+      val[i] = bounded(i >= outStart ? s : activate(p.act[i]!, s));
     }
   }
 }
@@ -370,12 +381,12 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
 // REINFORCE); attention is INTRINSIC (no separate net) and OFF at birth (readouts 0
 // ⇒ a fixed centred glimpse, no roam), arising by mutation like α / neuromod.
 //
-// The image is rendered to a grid ONCE (the static initial-state field, fork (B));
-// the glimpses then only interpolate it — so the brain reads a FIXED image, never a
-// moving target. NOT load-bearing for skill yet; Phase 5 turns these glimpses into
-// the loop's "read" sensors and the channels rejoin the reconstruction target.
-// (The one-off grid render is the heavy part — the perf-hardening phase caches /
-// parallelises it; see docs/notes/v6-temporal-brain.md.)
+// The image is rendered to a grid ONCE (the static initial-state field); the glimpses
+// then only interpolate it — so the brain reads a FIXED image, never a moving target.
+// These glimpses ARE the v7 read sensors: the recurrent state they build is what the
+// autoregressive writer (selfWrite) writes the DNA from — so attention is load-bearing
+// (a fixed-scan ablation measurably changes the result). (The one-off grid render is the
+// heavy part — a future perf pass can cache / parallelise it.)
 
 /** A foveated glimpse's unit offsets: centre + an 8-point ring, scaled by radius. */
 const GLIMPSE_RING: ReadonlyArray<readonly [number, number]> = [
@@ -458,24 +469,22 @@ function scanFixation(t: number, T: number, out: [number, number]): void {
 }
 const clampUnit = (x: number): number => (x < -1 ? -1 : x > 1 ? 1 : x);
 
-/** v6 Phase 5 — the READ → PONDER → EMIT decode (the seq2seq culmination): the brain
- *  reads its own image, choosing WHERE to look, to reconstruct its DNA.
- *    • READ + PONDER: up to `ponderMaxSteps` foveated glimpses. Each step's fixation
- *      is the default SCAN position PLUS a learned DEVIATION the brain emits from its
- *      own activity (Phase 4 attention — off at birth ⇒ a pure informative scan that
- *      bootstraps the loop). Plasticity (Phase 2) + neuromodulation (Phase 3) are
- *      ACTIVE in the rollout that chooses the gaze. Each step it accumulates a halt
- *      (ACT) signal; when that crosses 1.0 it has "seen enough" and stops (else cap).
- *    • EMIT: the chosen glimpses (their coordinates + foveal densities) are returned;
- *      readback.ts projects them through the SAME CPPN weights into the hidden layer
- *      and reads DNA′ out at the genome coordinates — the self-quine round-trip the
- *      old loop relied on, now driven by an attention-chosen, ponder-gated read. (A
- *      measured negative result: decoding the raw recurrent state instead does NOT
- *      close — the rollout state is miscalibrated for the gene readout; the calibrated
- *      projection of the chosen glimpses is what closes the loop.)
- *  Everything is intrinsic to the ONE evolved brain. `noDeviation` clamps the gaze to
- *  the pure scan (the ablation control: scan-only vs the brain's chosen deviation).
- *  The static image is rendered ONCE (fork (B)'s initial-state field); glimpses sample THAT. */
+/** v7 — the READ / PONDER phase (RAM-style evolved attention). The brain reads its own
+ *  image by taking up to `ponderMaxSteps` foveated GLIMPSES, building its recurrent +
+ *  Hebbian state WITHOUT emitting — the WRITE is `selfWrite`'s separate, decoupled phase.
+ *  Each step:
+ *    • fixation = a default Fibonacci SCAN position + a learned DEVIATION the brain emits
+ *      from its own activity (attention — off at birth ⇒ a pure informative scan);
+ *    • a FOVEATED glimpse (a fine fovea ring + a coarse periphery ring, not one pixel and
+ *      not the whole image) of the static image at that fixation is fed in as the input;
+ *    • one recurrent step runs (plasticity + neuromodulation active);
+ *    • it reads WHERE to look next (fixX/fixY/fixScale) and accumulates a HALT signal —
+ *      when that crosses 1.0 it has "seen enough" and stops, else the hard cap (ACT).
+ *  So `ponder` = the number of glimpse steps (1..cap): in this architecture a glimpse step
+ *  IS a ponder step — each is a look AND a think (ingest, never emit). `noDeviation` clamps
+ *  the gaze to the pure scan (the attention ablation control). The glimpse coords/densities
+ *  are returned for diagnostics; the recurrent state the read built (left in `val`) is what
+ *  `selfWrite` then writes its DNA from. NO CPPN re-projection — v6's quine is gone. */
 export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
   const N = p.inFrom.length;
   if (val.length < N) { val = new Float32Array(N); prev = new Float32Array(N); }
