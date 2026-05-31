@@ -19,7 +19,7 @@ import { lifeRgb } from '../engine/palette.ts';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const W = 360;
-const H = 268;
+const H = 286;
 const PAD_X = 46;
 const PAD_Y = 28;
 const LEGEND_Y = 250; // legend band below the graph
@@ -86,23 +86,40 @@ export interface NetLayout {
 }
 
 const CPPN_IN = ['x₁', 'y₁', 'z₁', 'x₂', 'y₂', 'z₂', 'b'];
-const CPPN_OUT = ['weight', 'bias'];
-const SUB_IN = ['x', 'y', 'z', 'r', 'b'];
+// The CPPN (DNA) paints 11 channels: the IMAGE (weight, bias) + the v6 temporal faculties
+// (α, emit, modGate, fixX/fixY/fixScale, halt) + the v7 WRITER (emitVal, emitEnd).
+const CPPN_OUT = ['weight', 'bias', 'α', 'emit', 'modGate', 'fixX', 'fixY', 'fixScale', 'halt', 'emitVal', 'emitEnd'];
+// v7 — the phenotype is READ and WRITTEN, not just painted. Its 5 input ports are
+// TIME-MULTIPLEXED across the substrate's uses; we label them by the READ glimpse (the
+// headline) and the titles carry the full truth (painter coord · write feedback). The 2
+// output neurons are the PAINTER's density/hue; the read/write OUTPUTS (the DNA token, the
+// end-signal, the next glimpse) are CPPN-painted READOUTS distributed across the neurons,
+// NOT these two nodes — surfaced in the legend + the graph note, not as fake output ports.
+const SUB_IN = ['fix x', 'fix y', 'fovea', 'periph', 'b'];
 const SUB_OUT = ['density', 'hue'];
 const SUB_IN_DESC: Record<string, string> = {
-  x: 'x — sample coordinate (left↔right)',
-  y: 'y — sample coordinate (down↔up)',
-  z: 'z — sample coordinate (back↔front)',
-  r: 'r — radius: distance from centre (radial symmetry)',
-  b: 'b — bias: a constant 1 (lets neurons shift)',
+  'fix x': 'fix x — WHERE the brain looks (glimpse fixation x, the READ). Same port: the painter’s x-coord; in the WRITE it carries the brain’s previous DNA token (autoregressive feedback).',
+  'fix y': 'fix y — WHERE the brain looks (glimpse fixation y, the READ). Same port: the painter’s y-coord; in the WRITE it carries the emit-mode flag.',
+  fovea: 'fovea — the FINE central density the brain sees at its fixation (the READ glimpse). Same port: the painter’s z-coord; in the WRITE it carries the emit position.',
+  periph: 'periph — the COARSE surrounding density at its fixation (the READ glimpse). Same port: the painter’s r = radius.',
+  b: 'b — bias: a constant 1 (lets neurons shift), in every phase.',
 };
 const SUB_OUT_DESC: Record<string, string> = {
-  density: 'density — “is there substance here?” (the glow / alpha)',
-  hue: 'hue — the colour painted at this point',
+  density: 'density — the PAINTER output: “is there substance here?” (the glow that makes the image the brain reads). NOT a read/write output.',
+  hue: 'hue — the PAINTER output: the colour painted at this point. The DNA the brain WRITES is read out across its neurons (token · halt · next-glimpse), not from this node.',
 };
 const CPPN_OUT_DESC: Record<string, string> = {
-  weight: 'weight — the connection strength painted between two coordinates',
-  bias: 'bias — a neuron’s bias, read at its own coordinate (p,p)',
+  weight: 'weight — the connection strength painted between two coordinates (paints the image)',
+  bias: 'bias — a neuron’s bias, read at its own coordinate (p,p) (paints the image)',
+  'α': 'α — per-connection Hebbian plasticity coefficient (the synapse self-modifies as the brain reads)',
+  emit: 'emit — per-neuron neuromodulator emission (the brain’s own signal m(t) gates its plasticity)',
+  modGate: 'modGate — how much m(t) gates each synapse’s learning rate (Backpropamine form)',
+  fixX: 'fixX — attention readout: where to look next, x (the brain chooses its glimpse)',
+  fixY: 'fixY — attention readout: where to look next, y',
+  fixScale: 'fixScale — attention readout: glimpse zoom',
+  halt: 'halt — the READ’s halt signal (Adaptive Computation Time): “I’ve seen enough”',
+  emitVal: 'emitVal — the WRITER readout: the next DNA element the brain emits (autoregressive)',
+  emitEnd: 'emitEnd — the WRITER readout: the end-of-sequence signal — the brain DECIDES its own length',
 };
 
 function colX(layer: number, layers: number): number {
@@ -120,7 +137,7 @@ function quad(t: number, p0: number, c: number, p2: number): number {
 
 /** A compact legend so a non-specialist can read the diagram: role shapes + the
  *  fact that hidden colour = activation, plus swatches for the activations present. */
-function drawLegend(svg: SVGSVGElement, acts: number[]): void {
+function drawLegend(svg: SVGSVGElement, acts: number[], spatial = false): void {
   const g = el('g');
   g.setAttribute('class', 'ag-legend');
   const item = (x: number, y: number, draw: (cx: number, cy: number) => void, text: string): number => {
@@ -191,6 +208,17 @@ function drawLegend(svg: SVGSVGElement, acts: number[]): void {
     g.appendChild(lab);
     ax += 11 + ((ACTIVATIONS[a] ?? '').slice(0, 4).length) * 4.3;
   }
+
+  // third row: the v7 pathway note — the brain (substrate) reads + writes; the DNA paints.
+  const path = el('text');
+  path.setAttribute('x', String(PAD_X - 1));
+  path.setAttribute('y', String(LEGEND_Y + 24));
+  path.setAttribute('class', 'ag-legend-t');
+  path.textContent = spatial
+    ? 'loop: reads its image (glimpses) → writes its DNA — token · halt · next-glimpse, across the neurons'
+    : 'outputs: weight·bias paint the image · the rest paint the faculties (plasticity, attention, halt, writer)';
+  g.appendChild(path);
+
   svg.appendChild(g);
 }
 
@@ -202,13 +230,17 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
   svg.replaceChildren();
 
   if (spatial) {
-    const note = el('text');
-    note.setAttribute('x', String(W / 2));
-    note.setAttribute('y', '13');
-    note.setAttribute('class', 'ag-axis ag-axis-dim');
-    note.setAttribute('text-anchor', 'middle');
-    note.textContent = 'neurons sit where the image has structure';
-    svg.append(note);
+    const mk = (y: number, txt: string): void => {
+      const note = el('text');
+      note.setAttribute('x', String(W / 2));
+      note.setAttribute('y', String(y));
+      note.setAttribute('class', 'ag-axis ag-axis-dim');
+      note.setAttribute('text-anchor', 'middle');
+      note.textContent = txt;
+      svg.append(note);
+    };
+    mk(11, 'the brain READS its image (glimpses, left) → WRITES its DNA across its neurons');
+    mk(21, 'density · hue = the painter that makes the image · neurons sit where it has structure');
   } else {
     const headIn = el('text');
     headIn.setAttribute('x', String(PAD_X));
@@ -366,7 +398,7 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
     }
   }
 
-  drawLegend(svg, layout.acts);
+  drawLegend(svg, layout.acts, spatial);
 }
 
 /** The DNA — the NEAT CPPN graph — laid out left→right by longest-path depth, so
