@@ -14,7 +14,7 @@ The whole project lives or dies on not over-claiming, so here is the honest spli
 |---|---|---|
 | **CPPN genotype with real NEAT** — augmenting topologies (add-node / add-connection, innovation numbers, recurrent + optional gated links), heterogeneous activations, textbook innovation-aligned crossover, speciation | ✅ **Real, on device** | [`web/src/engine/cppn.ts`](../../web/src/engine), `mutate.ts`, `evolution.ts` |
 | **Genuine ES-HyperNEAT substrate** — quadtree division + initialization (variance) and pruning + extraction (band-pruning), discovering hidden **placement, density and connectivity** (Risi & Stanley 2012); iterated + dead-node-pruned | ✅ **Real, on device** *(quadtree depth bounded for browser real time; 2-D placement sheet, 3-D swept render; heterogeneous activations + CPPN biases are extensions — all flagged)* | `eshyperneat.ts`, `substrate.ts` |
-| **Read-back loop through the picture + honest skill** — the rendered self-portrait is fed back through the creature's own brain (CPPN-painted substrate) → DNA′; skill = R² above the mean (`1−MSE/Var`): blank ~0, compact creatures close it tightly, richer genomes face a harder loop; **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `readback.ts`, `fitness.ts` |
+| **Read-back loop through the image + honest skill** — the brain reads back the image it's born in (a bounded, per-gene view) through its own hidden neurons → DNA′; skill = R² above the mean (`1−MSE/Var`), complexity-weighted: blank/trivial ~0, a compact creature no longer wins for free (the old ~0.93 drops substantially), closing more of yourself counts for more; **vitality gate** against the trivial zero-quine | ✅ **Real, on device** | `readback.ts`, `fitness.ts` |
 | **MAP-Elites** quality-diversity archive (complexity × symmetry), speciation, optional **Novelty Search** | ✅ **Real, on device** | `mapelites.ts`, `evolution.ts` |
 | **3-D volumetric render** (Three.js) with a **Canvas 2D fallback**; sunrise HSLuv palette (colour for life only) | ✅ **Real, on device** | `render/` |
 | **Signed, content-addressed Merkle-DAG lineage** (ECDSA P-256, Web Crypto), **persisted in IndexedDB**, round-trip verifiable | ✅ **Real, on device** | `lineage.ts` |
@@ -36,11 +36,10 @@ A creature is **two networks that make each other**, closed into a loop:
 
 ```mermaid
 flowchart LR
-  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>ES-HyperNEAT places neurons"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
-  PHENO -->|"draws — queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  ART -->|"read back IN to the SAME brain"| PHENO
-  PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
-  DNA2 -. "loop skill = R² above the mean (measured live; blank ~0)" .-> DNA
+  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints an image across space ·<br/>grows the brain within it (ES-HyperNEAT)"| ART["✨ the image<br/>(volumetric sunrise cloud)"]
+  ART -->|"a brain emerges within it"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
+  PHENO -->|"reads the image it's born in →<br/>names its beginning, DNA′"| DNA2["🧬 DNA′"]
+  DNA2 -. "loop skill = R² above the mean, complexity-weighted, bounded read (measured live; blank ~0)" .-> DNA
 ```
 
 The maths of that loop is the subject of the [whitepaper](../WHITEPAPER.md); this note is about the *system* the loop lives inside.
@@ -111,11 +110,11 @@ The full runbook (sandboxed config, no secrets) is the [deploy note](../DEPLOY-c
 
 Autograph could have been many things. The chosen core — **a connective-CPPN quine, coupled to a quality-diversity world, recorded in a signed Merkle-DAG lineage** — was picked because it is at once the most *beautiful* and the most *buildable* combination:
 
-- **It is the soul, made literal.** A CPPN that learns to draw a self-portrait that re-encodes its own DNA is a [neural quine](https://arxiv.org/abs/1803.05859) on the project's exact substrate — Escher's *Drawing Hands*, alive.
+- **It is the soul, made literal.** A CPPN that paints an image a brain emerges within — an image that re-encodes its own DNA when read back — is a [neural quine](https://arxiv.org/abs/1803.05859) on the project's exact substrate — Escher's *Drawing Hands*, alive.
 - **Quality-diversity keeps the loop honest.** Pure self-replication collapses to the trivial *zero quine* (a blank creature "encodes itself" perfectly and says nothing). Coupling self-encoding to a [MAP-Elites](https://arxiv.org/abs/1504.04909) world — plus a vitality gate — keeps the strange loop *load-bearing*, exactly as a self-replicator coupled to a task must be.
 - **The crypto is real, useful and grift-free today.** A signed, content-addressed lineage is *Git for genomes*: tamper-evident provenance, attribution and anti-fraud, a few hundred lines on the Web Crypto API — **no chain, no token**. It is also the principled fix for an untrusted swarm.
 
-Every layer is a different face of one idea: self-portrait → self-description → self-commitment → (one day) self-verifying history. The whole project is a strange loop you can watch, share and audit.
+Every layer is a different face of one idea: self-image → self-description → self-commitment → (one day) self-verifying history. The whole project is a strange loop you can watch, share and audit.
 
 ---
 
@@ -123,7 +122,7 @@ Every layer is a different face of one idea: self-portrait → self-description 
 
 For anyone forking or rebuilding, the shape that ships and still scales:
 
-- **Client.** TypeScript + Vite. The engine (CPPN, genuine ES-HyperNEAT substrate, the picture→brain read-back loop, MAP-Elites, the render, the Web-Crypto lineage) is written from scratch and dependency-light. The render uses Three.js with a Canvas 2D fallback so no device is excluded.
+- **Client.** TypeScript + Vite. The engine (CPPN, genuine ES-HyperNEAT substrate, the image→brain read-back loop, MAP-Elites, the render, the Web-Crypto lineage) is written from scratch and dependency-light. The render uses Three.js with a Canvas 2D fallback so no device is excluded.
 - **The seam.** Everything talks to the `Archive` interface; `LocalArchive` ships, `SharedArchive` adds the network without touching the engine.
 - **Coordinator.** A small PartyServer Durable Object: dispatch, the global archive, keep-best merge, signature verification, replication policy. WebSocket + persistence.
 - **Why it scales.** The evaluation kernels and the job protocol are identical from a budget phone to a server GPU — only batch size, precision and replication policy change. That portability is the subject of the [runtime & GPU note](./runtime-and-gpu.md).

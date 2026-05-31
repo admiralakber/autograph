@@ -13,8 +13,8 @@
 //   density-chosen, and wired* by genuine ES-HyperNEAT (Risi & Stanley 2012):
 //   a quadtree decomposition of the CPPN-encoded weight pattern, with variance-
 //   based division and band-pruning. Queried over 3D space, the resulting
-//   network outputs a density and a hue — the volumetric self-portrait. See
-//   eshyperneat.ts for the algorithm.
+//   network outputs a density and a hue — the volumetric image the brain emerges
+//   within. See eshyperneat.ts for the algorithm.
 
 // --- CPPN genotype (DNA) — NEAT graph ---------------------------------------
 
@@ -34,11 +34,11 @@ export const FIRST_HIDDEN_ID = 9;
  *  input→output connections; the registry hands out fresh ones after that. */
 export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;
 
-// --- Substrate phenotype (the brain that draws) -----------------------------
+// --- Substrate phenotype (the brain that emerges within the image) ----------
 
 /** Substrate input features per queried point: x, y, z, r=|p|, bias. These are
  *  the 5 fixed *sensor* neurons; the network's response, swept over 3-D space,
- *  is the volumetric self-portrait. */
+ *  is the volumetric image the creature is born in. */
 export const SUB_INPUTS = 5;
 /** Substrate outputs: [density (alpha), hue]. */
 export const SUB_OUTPUTS = 2;

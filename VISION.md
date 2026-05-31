@@ -17,20 +17,19 @@ And yet.... 🦕 a trace.... ✨ of.. the true self... 🐣 exists.... 🐥 with
 A creature is **two networks that make each other**:
 
 - 🧬 **DNA — the genotype.** A small *connective* CPPN. Hand it two coordinates in space and it answers with `[weight, bias]` — the connection strength painted between them, and (read at a single point) a neuron's bias. It is the recipe, and we draw it as a small graph of nodes and edges.
-- 🧠 **The brain — the phenotype.** An ES-HyperNEAT *substrate*. Its wiring is **painted** by the DNA, and its hidden neurons are **placed, made dense, and wired** by a genuine quadtree of the DNA's weight pattern (Risi & Stanley 2012). Queried across three-dimensional space, it answers with a field of *density* and *hue* — and that field, rendered, is the creature's **self-portrait**.
+- 🧠 **The brain — the phenotype.** An ES-HyperNEAT *substrate* that **emerges within** the DNA's image: its hidden neurons are **placed, made dense, and wired** by a genuine quadtree of the DNA's weight pattern (Risi & Stanley 2012), settling where the pattern carries information. Queried across three-dimensional space, it answers with a field of *density* and *hue* — and that field, rendered, is the **image** the creature is born in.
 
 The loop is literal — and it is the *same function*, read two ways:
 
 ```mermaid
 flowchart LR
-  DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints the weights ·<br/>ES-HyperNEAT places the neurons"| PHENO["🧠 brain · phenotype<br/>(an ES-HyperNEAT substrate)"]
-  PHENO -->|"draws — queried over 3-D space →<br/>density + hue field"| ART["✨ self-portrait<br/>(volumetric, sunrise-coloured)"]
-  ART -->|"read back IN to the SAME brain"| PHENO
-  PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
-  DNA2 -. "skill = how much of DNA it reconstructs<br/>above the mean (R²) — watched live" .-> DNA
+  DNA["🧬 DNA · genotype<br/>(a connective CPPN graph)"] -->|"paints an image across space ·<br/>grows the brain within it (ES-HyperNEAT)"| ART["✨ the image<br/>(volumetric, sunrise-coloured)"]
+  ART -->|"a brain emerges within it"| PHENO["🧠 brain · phenotype<br/>(an ES-HyperNEAT substrate)"]
+  PHENO -->|"reads the image it's born in →<br/>names its beginning, DNA′"| DNA2["🧬 DNA′"]
+  DNA2 -. "skill = how much of itself it recovers<br/>above the mean (R²), bounded read — watched live" .-> DNA
 ```
 
-The creature draws a picture of itself; then that **picture is fed back through the creature's own brain** — the same CPPN-painted substrate, its own hidden neurons — which outputs a **DNA′**, a reconstruction of its connection vector. The reader is the creature's own evolved network (the picture is genuinely in the path; it is **not** a separate regressor, and **not** the CPPN merely echoing itself) — a continuous cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859). **Loop skill** measures how much of its own DNA the brain reconstructs *from its own picture*, above just predicting the mean (R² = 1 − MSE/Var) — measured live, never faked: a blank or trivial picture scores **~0** (the old free-regressor's flat ~0.97 artefact is gone), and a genuinely self-consistent creature scores higher — how high depends on complexity (a compact creature can close the loop tightly; a richer-genome creature faces a strictly harder one). Then comes the honest, humbling part. If you *fully iterate* the self-map — replace each gene with the CPPN's readout of it, again and again — it does **not** settle into a richer likeness. It drifts toward the only effortless fixed point: a flat, silent creature whose genes have lost all variance and which "encodes itself" by saying nothing (the *zero quine*, vitality → 0 — we measured the drift). A living creature can only ever *approach* closure, never rest there. So **perfect self-knowledge is emptiness; life is the imperfect, unfinished kind** — and the vitality gate + quality-diversity (see §3) hold the search on the living side.
+The DNA paints an image; a brain **emerges within that image**; then the brain **reads the image it's born in** — through its own hidden neurons — and outputs a **DNA′**, a reconstruction of its connection vector: it tries to *find its own beginning*. The reader is the creature's own evolved network (the image is genuinely in the path; it is **not** a separate regressor, and **not** the CPPN merely echoing itself) — a continuous cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859). **Loop skill** measures how much of its own DNA the brain recovers *from the image it's born in*, above just predicting the mean (R² = 1 − MSE/Var), **weighted by how much of itself it closes** and read through a deliberately **bounded, per-gene view** — measured live, never faked: a blank or trivial image scores **~0** (the old free-regressor's flat ~0.97 artefact is gone), a *compact* creature **no longer wins for free** (the old ~0.93 drops substantially), and closing *more* of yourself counts for more — so the headline is humbling, earned, and always climbing but never "solved". Then comes the honest, humbling part. If you *fully iterate* the self-map — replace each gene with the CPPN's readout of it, again and again — it does **not** settle into a richer likeness. It drifts toward the only effortless fixed point: a flat, silent creature whose genes have lost all variance and which "encodes itself" by saying nothing (the *zero quine*, vitality → 0 — we measured the drift). A living creature can only ever *approach* closure, never rest there. So **perfect self-knowledge is emptiness; life is the imperfect, unfinished kind** — and the vitality gate + quality-diversity (see §3) hold the search on the living side.
 
 ---
 
@@ -44,7 +43,7 @@ The deepest comprehension goal: **a beautiful render *is* a neural network, and 
 
 ```mermaid
 flowchart LR
-  V1["🧬 (c) its DNA<br/>(the CPPN graph)"] --- V2["🧠 (b) its brain<br/>(the phenotype network)"] --- V3["✨ (a) its self-portrait<br/>(the 3-D render)"]
+  V1["🧬 (c) its DNA<br/>(the CPPN graph)"] --- V2["🧠 (b) its brain<br/>(the phenotype network)"] --- V3["✨ (a) its image<br/>(the 3-D render)"]
   V3 -. "same individual, three faces" .-> V1
 ```
 
@@ -90,7 +89,7 @@ flowchart TB
 ```
 
 - **The chrome is monochrome.** Every panel, rule, label, readout and the fitness borders on the population grid are greyscale and monospace. Value, not hue, carries meaning.
-- **Colour means life, and nothing else.** The only colour anywhere is the **sunrise** palette — the [HSLuv](https://www.hsluv.org/) colour space (MIT), at Lightness 72, Saturation 100, with hue swept the full 0→360 and an alpha around 0.7. It colours *living things only*: the creatures' self-portraits and the accents that stand for life. HSLuv gives a perceptually even sweep, so the cycle glows like a sunrise with no muddy or blown-out arcs.
+- **Colour means life, and nothing else.** The only colour anywhere is the **sunrise** palette — the [HSLuv](https://www.hsluv.org/) colour space (MIT), at Lightness 72, Saturation 100, with hue swept the full 0→360 and an alpha around 0.7. It colours *living things only*: the creatures' images and the accents that stand for life. HSLuv gives a perceptually even sweep, so the cycle glows like a sunrise with no muddy or blown-out arcs.
 
 When you are unsure whether something should have colour, the answer is almost always no. Colour is reserved for the life inside the machine.
 

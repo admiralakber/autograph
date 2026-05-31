@@ -5,7 +5,7 @@ import { eliteQuality } from './fitness.ts';
 import type { Archive, ArchiveBest, Cell } from './archive.ts';
 import { HYPER } from './hyperparams.ts';
 
-/** Reject near-flat creatures: a self-portrait of nothing is the trivial
+/** Reject near-flat creatures: an image of nothing is the trivial
  *  *zero-quine* fixed point. We keep self-reference load-bearing. */
 const MIN_VITALITY = HYPER.minVitality;
 

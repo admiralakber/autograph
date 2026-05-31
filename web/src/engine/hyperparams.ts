@@ -57,6 +57,8 @@ export const PARAMS: readonly ParamSpec[] = [
 
   { key: 'loopRelaxAlpha', label: 'loop relaxation α', value: 0.55, group: 'The loop', note: 'under-relaxation for the fixed-point iteration g←g+α(T(g)−g)' },
   { key: 'loopTol', label: 'loop tolerance', value: 0.012, group: 'The loop', note: 'drift below this counts the iteration as converged' },
+  { key: 'readbackBandwidth', label: 'read-back bandwidth', value: 0.7, group: 'The loop', note: 'points-per-gene the brain may sample of its own image when reconstructing DNA′ — a bounded resolution (floored + capped), so closure is honestly hard at EVERY scale and a richer self is no easier to read than a compact one (lower = harder)' },
+  { key: 'skillComplexityRef', label: 'skill complexity ref', value: 24, group: 'The loop', note: 'genome size at which a creature earns full credit for its reconstruction; skill = R² × min(1, genes/ref), so closing MORE of yourself is rewarded and a few easy genes is never a free win' },
 
   { key: 'baseBudget', label: 'offspring / frame', value: 20, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame normally' },
   { key: 'turboBudget', label: 'TURBO offspring / frame', value: 60, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame with TURBO on' },

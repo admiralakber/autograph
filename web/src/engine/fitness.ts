@@ -5,19 +5,21 @@ import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
 import { selfReadback, dnaTargetUnits, selfConsistencySkill } from './readback.ts';
 
-// THE STRANGE LOOP — read back THROUGH THE PICTURE, not around it.
+// THE STRANGE LOOP — read back THROUGH THE IMAGE, not around it.
 //
-//   write:  DNA (CPPN) → brain (ES-HyperNEAT substrate) → self-portrait (density
-//           field) — the picture the creature actually draws.
-//   read :  that PICTURE is fed back through the creature's OWN brain (its hidden
-//           neurons, weights painted by the same CPPN) → DNA′ (readback.ts).
+//   write:  DNA (CPPN) paints an IMAGE across space; the brain (ES-HyperNEAT
+//           substrate) EMERGES WITHIN it and, queried over space, renders it.
+//   read :  that IMAGE — the image the creature is born in — is fed back through
+//           the creature's OWN brain (its hidden neurons, weights painted by the
+//           same CPPN) → DNA′ (readback.ts): it tries to find its own beginning.
 //   close:  fidelity = how well DNA′ matches DNA — baseline-corrected SKILL (R²),
-//           so a blank picture / "predict the mean" scores ~0, never ~97%.
+//           complexity-weighted, read through a bounded per-gene view of the image,
+//           so a blank / "predict the mean" / trivial creature scores ~0, never ~97%.
 //
 //   The phenotype is genuinely IN the read path: DNA′ is produced by processing
-//   the rendered picture, not by re-querying the CPPN at abstract coordinates.
+//   the rendered image, not by re-querying the CPPN at abstract coordinates.
 //   The reader is the creature's own painted network; nothing external. The only
-//   effortless fixed point is the empty creature (blank picture → ~mean DNA → ~0
+//   effortless fixed point is the empty creature (blank image → ~mean DNA → ~0
 //   skill AND ~0 vitality), which the vitality gate refuses.
 
 const o2: [number, number] = [0, 0];

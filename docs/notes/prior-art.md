@@ -26,7 +26,7 @@
 - **MAP-Elites** — [Mouret & Clune, 2015](https://arxiv.org/abs/1504.04909) — keep the best solution per cell of a behaviour-descriptor grid, yielding a *map* of diverse high performers ("illumination"). The illuminated archive *is* Autograph's exhibited artwork.
 - **POET** — [Wang et al., 2019](https://arxiv.org/abs/1901.01753) — co-evolves problems and their solutions. **ELM** — [Lehman et al., 2022](https://arxiv.org/abs/2206.08896) — uses learned operators inside MAP-Elites.
 - **Open-endedness as essential** — [Hughes et al., 2024](https://arxiv.org/abs/2406.04268) — argues open-endedness is essential for the next era of capable AI.
-- **FER/UFR** — [Kumar, Clune, Lehman & Stanley, 2025](https://arxiv.org/abs/2505.11581) — open-endedly evolved CPPNs approach a *unified factored representation*, whereas conventional gradient descent tends toward a *fractured entangled representation*. This is directly *why* an evolved self-portrait might be legible — and it is one of Autograph's falsifiable predictions.
+- **FER/UFR** — [Kumar, Clune, Lehman & Stanley, 2025](https://arxiv.org/abs/2505.11581) — open-endedly evolved CPPNs approach a *unified factored representation*, whereas conventional gradient descent tends toward a *fractured entangled representation*. This is directly *why* an evolved image might be legible — and it is one of Autograph's falsifiable predictions.
 
 ## Crowd and volunteer compute
 

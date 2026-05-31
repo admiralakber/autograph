@@ -351,7 +351,14 @@ code {
   font-size: 10.5px;
   line-height: 1.45;
   color: var(--dim);
+  /* wrap to the panel width instead of clipping: flexible + shrinkable, and
+     break long words/coordinates rather than overflowing the (narrow) panel */
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 64ch;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 .viewstat {
   white-space: nowrap;
@@ -373,6 +380,12 @@ code {
   font-family: var(--mono);
   font-size: 7px;
   letter-spacing: 0.03em;
+}
+.ag-legend-t {
+  fill: var(--dim);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.02em;
 }
 .ag-pulse circle {
   pointer-events: none;

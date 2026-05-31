@@ -28,7 +28,7 @@ The deep word is **fixed point**. A quine is a fixed point of the "run the progr
 
 | Idea | The maths | In Autograph |
 |---|---|---|
-| **Kleene SRT / quines** | A computable map always has a self-referential fixed point. | A CPPN whose self-portrait re-encodes its own DNA — a [neural quine](https://arxiv.org/abs/1803.05859). |
+| **Kleene SRT / quines** | A computable map always has a self-referential fixed point. | A CPPN whose image re-encodes its own DNA — a [neural quine](https://arxiv.org/abs/1803.05859). |
 | **von Neumann's universal constructor** | Self-replication needs a description used **twice**: *decoded* (built) and *copied* (inherited). This dissolves the infinite-regress paradox. | The genotype/phenotype split: a CPPN genome is expressed *and* inherited. Indirect encoding **is** von Neumann's insight. |
 | **Gödel machine** | A solver rewrites itself only once it has *proved* the rewrite helps. | Proof-gated evolution: accept a genome only if it carries a proof its claimed fitness is real — the seed of the whole crypto layer. |
 | **Strange loops** | Meaning emerging from a system that refers to itself across levels (Hofstadter). | A population that watches itself evolve, signs its own ancestry, and (one day) proves its own history. |
@@ -92,7 +92,7 @@ Why it is the literal mirror of the soul: PCD on a path graph is IVC; PCD on a *
 
 ### 5 · Key → generative art — *the artefact is a witness to the key* 🎨
 
-A public key (or any seed) is a high-entropy string; feed it through a **deterministic** generator and the same key always grows the same artefact — so the artefact is a publicly checkable witness to the key. This is the on-chain generative-art pattern (Art Blocks' "the algorithm is the artwork"; fxhash even seeds evolved editions from their ancestors' hashes). For Autograph: a visitor's key → a deterministic CPPN → a creature that is a self-portrait of their identity, whose descendants are seeded by the chain of ancestor hashes. **Maturity:** ✅ trivial and beautiful — it is the existing render kernel. Borrow the *determinism*, never the order book.
+A public key (or any seed) is a high-entropy string; feed it through a **deterministic** generator and the same key always grows the same artefact — so the artefact is a publicly checkable witness to the key. This is the on-chain generative-art pattern (Art Blocks' "the algorithm is the artwork"; fxhash even seeds evolved editions from their ancestors' hashes). For Autograph: a visitor's key → a deterministic CPPN → a creature that is an image of their identity, whose descendants are seeded by the chain of ancestor hashes. **Maturity:** ✅ trivial and beautiful — it is the existing render kernel. Borrow the *determinism*, never the order book.
 
 ---
 
@@ -110,7 +110,7 @@ Three honest gotchas: **quantisation** (zk circuits use fixed-point — minor fo
 flowchart LR
   subgraph BUILT["✅ Built / buildable"]
     W1["Signed, content-addressed<br/>Merkle-DAG lineage"]
-    W2["Key → deterministic CPPN<br/>self-portrait"]
+    W2["Key → deterministic CPPN<br/>image"]
     W3["Carried self-commitment:<br/>signed H(weights)"]
   end
   subgraph MEDIUM["🟡 Ambitious-but-reachable"]

@@ -3,7 +3,7 @@ import { substrateForward, ablateHidden } from '../substrate.ts';
 import { SUB_INPUTS, SUB_OUTPUTS } from '../arch.ts';
 import { lifeRgb, lifeRgbF } from '../palette.ts';
 
-// Sampling the phenotype's volumetric self-portrait. The substrate's density
+// Sampling the phenotype's volumetric image. The substrate's density
 // field becomes alpha; its hue field is mapped through the sunrise (HSLuv)
 // palette. Used by the 3D point cloud and the 2D fallback / thumbnails.
 
@@ -91,7 +91,7 @@ export function paintProjection(p: Phenotype, canvas: HTMLCanvasElement, size: n
   ctx.putImageData(img, 0, 0);
 }
 
-/** Overlay the substrate NETWORK onto an already-painted 2-D portrait so the
+/** Overlay the substrate NETWORK onto an already-painted 2-D image so the
  *  picture is visibly a neural network ("render = network = code", made literal):
  *  the neurons at their real substrate (x,y) — the same frame the field is painted
  *  in — plus the strongest connections. Greyscale chrome (with a dark halo for
@@ -166,6 +166,41 @@ export function substrateNodeMarkers(p: Phenotype): { pos: Float32Array; sizes: 
   return { pos, sizes };
 }
 
+/** The strongest substrate connections as 3-D pipe segments for the glowing
+ *  overlay (CreatureScene.setPipes): endpoint coords + a sunrise colour sampled at
+ *  each wire's midpoint (so the energy glows the colour the picture is there) +
+ *  normalised strength. Only the strongest `maxEdges` — tasteful, not cluttered. */
+export function substratePipeSegments(p: Phenotype, maxEdges = 40): { a: Float32Array; b: Float32Array; col: Float32Array; mag: Float32Array } {
+  let maxAbs = 1e-4;
+  for (const e of p.edges) maxAbs = Math.max(maxAbs, Math.abs(e.weight));
+  const edges = p.edges
+    .filter((e) => e.from !== e.to)
+    .slice()
+    .sort((x, y) => Math.abs(y.weight) - Math.abs(x.weight))
+    .slice(0, maxEdges);
+  const n = edges.length;
+  const a = new Float32Array(n * 3);
+  const b = new Float32Array(n * 3);
+  const col = new Float32Array(n * 3);
+  const mag = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const e = edges[i]!;
+    const ax = p.pos[e.from * 3]!;
+    const ay = p.pos[e.from * 3 + 1]!;
+    const az = p.pos[e.from * 3 + 2]!;
+    const bx = p.pos[e.to * 3]!;
+    const by = p.pos[e.to * 3 + 1]!;
+    const bz = p.pos[e.to * 3 + 2]!;
+    a[i * 3] = ax; a[i * 3 + 1] = ay; a[i * 3 + 2] = az;
+    b[i * 3] = bx; b[i * 3 + 1] = by; b[i * 3 + 2] = bz;
+    const hue = substrateForward(p, (ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, o2)[1];
+    const [cr, cg, cb] = lifeRgbF(hue);
+    col[i * 3] = cr; col[i * 3 + 1] = cg; col[i * 3 + 2] = cb;
+    mag[i] = Math.min(1, Math.abs(e.weight) / maxAbs);
+  }
+  return { a, b, col, mag };
+}
+
 const smooth = (e0: number, e1: number, x: number): number => {
   const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
@@ -200,7 +235,7 @@ export function paintSlice(p: Phenotype, canvas: HTMLCanvasElement, size: number
 
 const o3: [number, number] = [0, 0];
 
-/** A hidden neuron's receptive field: where silencing it changes the self-portrait
+/** A hidden neuron's receptive field: where silencing it changes the image
  *  most (ablation diff over the z-slice), drawn as a white heat — the
  *  genotype→brain→image link a neuroscientist can read. */
 export function paintReceptiveField(base: Phenotype, j: number, canvas: HTMLCanvasElement, size: number, z = 0): void {

@@ -3,9 +3,9 @@ import type { PointCloud } from './volume.ts';
 
 const clamp = (x: number, a: number, b: number): number => (x < a ? a : x > b ? b : x);
 
-// The 3-D self-portrait: the substrate's density/hue field as a slowly-rotating
-// sunrise point cloud. (The phenotype and DNA are drawn as legible 2-D SVG
-// networks; this view is the volumetric "what the brain draws".) ok=false if
+// The 3-D image: the substrate's density/hue field as a slowly-rotating
+// sunrise point cloud — the image the brain emerges within. (The phenotype and DNA
+// are drawn as legible 2-D SVG networks; this view is the volumetric image.) ok=false if
 // WebGL is unavailable, in which case the dashboard uses the 2-D slice instead.
 
 // Denser points, sized by density, with a soft gaussian falloff and ADDITIVE
@@ -59,6 +59,41 @@ const NODE_FRAG = /* glsl */ `
   }
 `;
 
+// Glowing connection PIPES: thin sunrise-coloured tubes between connected neurons
+// with a bright "energy" pulse travelling along each (additively blended, so the
+// energy glows over the greyscale chrome). aAlong = 0..1 along the pipe; aMag =
+// connection strength; color = sunrise hue sampled where the wire runs.
+const PIPE_VERT = /* glsl */ `
+  attribute float aAlong;
+  attribute float aMag;
+  varying vec3 vCol;
+  varying float vAlong;
+  varying float vMag;
+  void main() {
+    vCol = color;
+    vAlong = aAlong;
+    vMag = aMag;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const PIPE_FRAG = /* glsl */ `
+  precision mediump float;
+  varying vec3 vCol;
+  varying float vAlong;
+  varying float vMag;
+  uniform float uTime;
+  void main() {
+    // a bright band sweeps source→target; soft base glow the rest of the time
+    float head = fract(vAlong * 1.0 - uTime);
+    float band = smoothstep(0.5, 0.0, head) + smoothstep(0.5, 0.0, 1.0 - head);
+    band = pow(clamp(band - 1.0, 0.0, 1.0), 1.5);
+    float base = 0.14 + 0.18 * vMag;
+    float energy = base + band * (0.9 + 0.6 * vMag);
+    vec3 col = vCol * (0.6 + 0.7 * band) + vec3(band * 0.25);
+    gl_FragColor = vec4(col * energy, energy * (0.5 + 0.5 * vMag));
+  }
+`;
+
 export class CreatureScene {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
@@ -66,6 +101,8 @@ export class CreatureScene {
   private group: THREE.Group | null = null;
   private cloud: THREE.Points | null = null;
   private nodes: THREE.Points | null = null;
+  private pipes: THREE.Mesh | null = null;
+  private pipeMat: THREE.ShaderMaterial | null = null;
   private raf = 0;
   readonly ok: boolean;
 
@@ -232,6 +269,92 @@ export class CreatureScene {
     this.group.add(this.nodes);
   }
 
+  /** Glowing connection PIPES between neurons — `a`/`b` are n*3 endpoint coords,
+   *  `col` n*3 sunrise rgb (0..1) sampled where each wire runs, `mag` n strengths
+   *  in [0,1]. Built as a single merged tube mesh; an energy pulse travels each
+   *  pipe (animated by uTime). Pass empty arrays to clear. The "wow", kept tasteful
+   *  by only feeding the strongest connections. */
+  setPipes(a: Float32Array, b: Float32Array, col: Float32Array, mag: Float32Array): void {
+    if (!this.group) return;
+    if (this.pipes) {
+      this.group.remove(this.pipes);
+      this.pipes.geometry.dispose();
+      this.pipes = null;
+    }
+    const count = Math.floor(a.length / 3);
+    if (count === 0) return;
+    const R = 6; // radial segments
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const along: number[] = [];
+    const mags: number[] = [];
+    const index: number[] = [];
+    const ax = new THREE.Vector3();
+    const bx = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const up = new THREE.Vector3();
+    const u = new THREE.Vector3();
+    const v = new THREE.Vector3();
+    let base = 0;
+    for (let s = 0; s < count; s++) {
+      ax.set(a[s * 3]!, a[s * 3 + 1]!, a[s * 3 + 2]!);
+      bx.set(b[s * 3]!, b[s * 3 + 1]!, b[s * 3 + 2]!);
+      dir.subVectors(bx, ax);
+      const len = dir.length();
+      if (len < 1e-4) continue;
+      dir.multiplyScalar(1 / len);
+      up.set(Math.abs(dir.y) < 0.95 ? 0 : 1, Math.abs(dir.y) < 0.95 ? 1 : 0, 0);
+      u.crossVectors(dir, up).normalize();
+      v.crossVectors(dir, u).normalize();
+      const rad = 0.008 + 0.018 * mag[s]!;
+      const cr = col[s * 3]!;
+      const cg = col[s * 3 + 1]!;
+      const cb = col[s * 3 + 2]!;
+      for (let ring = 0; ring < 2; ring++) {
+        const c = ring === 0 ? ax : bx;
+        for (let k = 0; k < R; k++) {
+          const ang = (k / R) * Math.PI * 2;
+          const ox = Math.cos(ang) * rad;
+          const oy = Math.sin(ang) * rad;
+          positions.push(c.x + u.x * ox + v.x * oy, c.y + u.y * ox + v.y * oy, c.z + u.z * ox + v.z * oy);
+          colors.push(cr, cg, cb);
+          along.push(ring); // 0 at source ring, 1 at target ring
+          mags.push(mag[s]!);
+        }
+      }
+      for (let k = 0; k < R; k++) {
+        const k2 = (k + 1) % R;
+        const a0 = base + k;
+        const a1 = base + k2;
+        const b0 = base + R + k;
+        const b1 = base + R + k2;
+        index.push(a0, b0, a1, a1, b0, b1);
+      }
+      base += R * 2;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+    geo.setAttribute('aAlong', new THREE.BufferAttribute(new Float32Array(along), 1));
+    geo.setAttribute('aMag', new THREE.BufferAttribute(new Float32Array(mags), 1));
+    geo.setIndex(index);
+    if (!this.pipeMat) {
+      this.pipeMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 } },
+        vertexShader: PIPE_VERT,
+        fragmentShader: PIPE_FRAG,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending,
+        vertexColors: true,
+        side: THREE.DoubleSide,
+      });
+    }
+    this.pipes = new THREE.Mesh(geo, this.pipeMat);
+    this.group.add(this.pipes);
+  }
+
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.renderer || !this.scene || !this.camera || !this.group) return;
@@ -240,11 +363,14 @@ export class CreatureScene {
     this.group.rotation.y = this.yaw;
     this.group.rotation.x = this.userPitched ? this.pitch : Math.sin(performance.now() * 0.0002) * 0.25;
     this.camera.position.z += (this.targetDist - this.camera.position.z) * 0.12; // smooth zoom
+    if (this.pipeMat) this.pipeMat.uniforms.uTime!.value = (performance.now() * 0.0004) % 1; // energy travels the pipes
     this.renderer.render(this.scene, this.camera);
   };
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
+    this.pipes?.geometry.dispose();
+    this.pipeMat?.dispose();
     this.renderer?.dispose();
     if (this.renderer?.domElement.parentElement === this.container) this.container.removeChild(this.renderer.domElement);
   }

@@ -7,7 +7,7 @@
     <title>AUTOGRAPH — an instrument for a network drawing its true self</title>
     <meta
       name="description"
-      content="A full-screen instrument for a live (ES-)HyperNEAT experiment: tiny neural networks evolving in 3D until their self-portrait re-encodes their own DNA. Escher's Drawing Hands, alive. You are part of the swarm."
+      content="A full-screen instrument for a live (ES-)HyperNEAT experiment: a DNA paints an image, a brain emerges within it, then reads the image it's born in back into its own DNA. Escher's Drawing Hands, alive. You are part of the swarm."
     />
     <meta property="og:title" content="AUTOGRAPH" />
     <meta property="og:description" content="A network drawing its true self out of the false — live, in your browser. (ES-)HyperNEAT, a signed tree of life, you in the swarm." />
@@ -29,7 +29,7 @@
           <div><dt>POP</dt><dd id="ag-pop" title="niches filled — distinct creature ‘kinds’ alive now, of 196 (the 14×14 behaviour map: structural complexity × mirror symmetry)">0/196</dd></div>
           <div><dt>COVERAGE</dt><dd id="ag-cov" title="share of the 196 niches filled — how much of behaviour space has been explored">0%</dd></div>
           <div><dt>SPECIES</dt><dd id="ag-species" title="NEAT species (Stanley &amp; Miikkulainen) — creatures grouped by genetic compatibility, so newly-evolved structure is protected until it matures">1</dd></div>
-          <div><dt>LOOP SKILL</dt><dd id="ag-fid" title="self-consistency SKILL: how much of its own DNA the creature's CPPN reconstructs when read at its genome coordinates, ABOVE just predicting the mean (R²-style, 1−MSE/Var). 0% = no better than the mean; a trivial/constant creature scores ~0, never inflated. Measured live, never faked.">—</dd></div>
+          <div><dt>LOOP SKILL</dt><dd id="ag-fid" title="self-consistency SKILL: the brain reads the image it's born in back into its DNA, scored as R² above the mean (1−MSE/Var) and weighted by how much of itself it closes. The brain gets only a bounded, per-gene view of its image, so closure is honestly HARD — a trivial/compact creature no longer reads high, and a blank/constant creature scores ~0. Measured live, never faked.">—</dd></div>
           <div><dt>DNA</dt><dd id="ag-dna-size" title="the genotype — a CPPN (Stanley) that complexifies via NEAT; shows nodes · connections, growing as topology evolves (distinct from the brain it paints)">9·14</dd></div>
           <div><dt>BRAIN</dt><dd id="ag-edges" title="the phenotype — the ES-HyperNEAT substrate the DNA grows: hidden neurons are PLACED + wired by a quadtree of the CPPN pattern, so this count of expressed connections varies per creature">—</dd></div>
           <div><dt>RENDER</dt><dd id="ag-backend">…</dd></div>
@@ -68,25 +68,25 @@
           <div class="panel-head">
             <span class="panel-title">THE INDIVIDUAL</span>
             <div class="head-right">
-              <div id="ag-dim" class="dim" role="group" aria-label="self-portrait dimension">
+              <div id="ag-dim" class="dim" role="group" aria-label="image dimension">
                 <button id="ag-dim-3d" class="dim-btn active" type="button" title="volumetric 3-D point cloud">3D</button>
                 <button id="ag-dim-2d" class="dim-btn" type="button" title="flat 2-D slice — crisper patterns">2D</button>
               </div>
               <div class="modes" role="tablist">
                 <button id="ag-mode-stacked" class="mode active" type="button" title="all three stacked — tap any panel to open it full-screen">STACKED</button>
-                <button id="ag-mode-render" class="mode" type="button" title="the volumetric picture the brain draws">SELF-PORTRAIT</button>
+                <button id="ag-mode-render" class="mode" type="button" title="the volumetric image the DNA paints, and the brain emerges within">IMAGE</button>
                 <button id="ag-mode-net" class="mode" type="button" title="the brain — nodes + weighted connections">PHENOTYPE</button>
-                <button id="ag-mode-dna" class="mode" type="button" title="the genotype — the CPPN that paints the brain">DNA</button>
+                <button id="ag-mode-dna" class="mode" type="button" title="the genotype — the CPPN that paints the image and grows the brain">DNA</button>
               </div>
             </div>
           </div>
           <div class="mode-bar">
-            <p id="ag-mode-caption" class="mode-caption">SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.</p>
+            <p id="ag-mode-caption" class="mode-caption">THE IMAGE · the field the DNA paints across 3-D space — the image the brain emerges within. These glowing points are the image, not the wiring.</p>
             <span id="ag-viewstat" class="mono-dim viewstat">—</span>
           </div>
           <div id="ag-stage" class="stage">
             <span id="ag-sel-badge" class="sel-badge" aria-hidden="true">● FOLLOWING · most enlightened</span>
-            <div class="stack-titles" aria-hidden="true"><span>✨ SELF-PORTRAIT</span><span>🧠 PHENOTYPE</span><span>🧬 DNA</span></div>
+            <div class="stack-titles" aria-hidden="true"><span>✨ THE IMAGE</span><span>🧠 PHENOTYPE</span><span>🧬 DNA</span></div>
             <canvas id="ag-stage-2d" class="layer hidden"></canvas>
             <svg id="ag-net-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
             <svg id="ag-dna-svg" class="layer hidden" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -111,29 +111,30 @@
 
         <!-- THE LOOP -->
         <section class="panel p-loop" aria-label="The strange loop">
-          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the brain draws its portrait, then reads it back in to name its own DNA</span></div>
-          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 116" xmlns="http://www.w3.org/2000/svg" aria-label="DNA grows the brain; the brain draws its self-portrait, then reads its own portrait back in and outputs DNA-prime, which is compared to the DNA">
-            <!-- token circulates the brain↔portrait exchange: draw out (top), read back (bottom) -->
-            <path id="ag-loop-path" class="lc-path" d="M138,30 C176,16 214,16 240,30 C214,46 176,46 138,30 Z" />
-            <!-- DNA → BRAIN -->
-            <line class="lc-wire" x1="34" y1="34" x2="118" y2="34" /><text class="lc-arr" x="78" y="37">›</text>
-            <!-- BRAIN → DNA′ (names) -->
-            <line class="lc-wire" x1="130" y1="46" x2="130" y2="84" /><text class="lc-arr" x="133" y="68" transform="rotate(90 133 68)">›</text>
+          <div class="panel-head"><span class="panel-title">THE LOOP</span><span class="mono-dim">the DNA paints an image; a brain emerges within it; the brain reads it back to find its beginning</span></div>
+          <svg id="ag-loop-cycle" class="loopcycle" viewBox="0 0 300 120" xmlns="http://www.w3.org/2000/svg" aria-label="The DNA paints an image; a brain emerges within that image; the brain reads the image it was born in and outputs DNA-prime, which is compared back to the DNA to measure how close the loop came to closing.">
+            <!-- token circulates the whole loop: DNA → image → (read) → DNA′ → compare → DNA -->
+            <path id="ag-loop-path" class="lc-path" d="M26,42 L236,42 L130,98 Z" />
+            <!-- DNA → IMAGE (paints) -->
+            <line class="lc-wire" x1="40" y1="42" x2="218" y2="42" /><text class="lc-arr" x="130" y="45">›</text>
+            <!-- the brain emerges WITHIN the image: a faint envelope holding image + brain -->
+            <ellipse class="lc-compare" cx="236" cy="52" rx="15" ry="22" />
+            <!-- IMAGE/BRAIN → DNA′ (reads it, finds its beginning) -->
+            <path class="lc-wire" d="M226,66 C196,90 162,94 142,95" />
             <!-- DNA′ ⇠ compare ⇠ DNA -->
-            <path class="lc-compare" d="M122,90 C70,84 34,64 30,44" />
-            <circle class="lc-node" cx="22" cy="34" r="2.6" /><text class="lc-st" x="22" y="22">DNA</text>
-            <circle class="lc-node lc-brain" cx="130" cy="34" r="3.4" /><text class="lc-st" x="130" y="22">BRAIN</text>
-            <circle class="lc-node lc-out" cx="244" cy="34" r="3" /><text class="lc-st" x="244" y="22">PORTRAIT</text>
-            <circle class="lc-node" cx="130" cy="92" r="2.6" /><text class="lc-st" x="130" y="104">DNA′</text>
-            <text class="lc-edge" x="189" y="14" text-anchor="middle">draws ›</text>
-            <text class="lc-edge" x="189" y="58" text-anchor="middle">‹ reads back in</text>
-            <text class="lc-edge" x="150" y="68" text-anchor="start">names</text>
-            <text class="lc-edge" x="70" y="92" text-anchor="middle">compare DNA′ ↔ DNA</text>
+            <path class="lc-compare" d="M118,96 C64,92 32,68 28,52" />
+            <circle class="lc-node" cx="26" cy="42" r="2.8" /><text class="lc-st" x="26" y="30">DNA</text>
+            <circle class="lc-node lc-out" cx="236" cy="42" r="3.4" /><text class="lc-st" x="236" y="30">IMAGE</text>
+            <circle class="lc-node lc-brain" cx="236" cy="62" r="3" /><text class="lc-back" x="236" y="84" text-anchor="middle">a brain emerges within</text>
+            <circle class="lc-node" cx="130" cy="98" r="2.8" /><text class="lc-st" x="130" y="112">DNA′</text>
+            <text class="lc-edge" x="130" y="34" text-anchor="middle">paints ›</text>
+            <text class="lc-edge" x="196" y="76" text-anchor="start">reads it · finds its beginning</text>
+            <text class="lc-edge" x="66" y="98" text-anchor="middle">compare DNA′ ↔ DNA</text>
             <circle class="lc-token" r="3">
-              <animateMotion dur="4.4s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
+              <animateMotion dur="4.8s" repeatCount="indefinite" rotate="auto"><mpath href="#ag-loop-path" /></animateMotion>
             </circle>
           </svg>
-          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · the brain's read-back of its own picture</span></div>
+          <div class="loop-legend"><span>DNA gₖ · its real genes</span><span>DNA′ₖ · the brain's read-back of the image it's born in</span></div>
           <canvas id="ag-loop" class="loopcanvas"></canvas>
           <div class="fid"><div class="fid-track"><div id="ag-fid-bar" class="fid-bar"></div></div><span>SKILL <strong id="ag-fid-label">—</strong></span></div>
           <p class="loop-thesis mono-dim">↺ never quite 1 — a living thing only reaches for its true self, never seizes it. perfect closure is the empty creature; the reaching is the life.</p>
@@ -223,13 +224,13 @@
       <div class="overlay-inner help-inner">
         <button id="ag-help-close" class="btn overlay-close" type="button">CLOSE ✕</button>
         <h1 id="help-title">What am I looking at?</h1>
-        <p class="ov-lead">Tiny neural creatures evolving, live, to draw a picture of themselves. Here are the parts:</p>
+        <p class="ov-lead">Tiny neural creatures evolving, live: a DNA paints an image, a brain grows within it, and reads that image back to find its own beginning. Here are the parts:</p>
         <dl class="glossary">
           <dt>🧬 DNA</dt><dd>The genotype — a small <em><a href="https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf" rel="noopener">CPPN</a></em> network (Stanley). It grows by real <strong><a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" rel="noopener">NEAT</a></strong> (Stanley &amp; Miikkulainen): starts minimal, then evolution adds nodes &amp; connections (watch the <em>DNA</em> readout climb).</dd>
-          <dt>🧠 BRAIN <span class="mono-dim">(phenotype)</span></dt><dd>A second network the DNA grows by genuine <a href="https://en.wikipedia.org/wiki/HyperNEAT" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley): a quadtree of the CPPN's weight pattern <em>places</em> the hidden neurons, sets their density and wires them — no fixed grid. Queried over space it produces the picture.</dd>
-          <dt>✨ SELF-PORTRAIT</dt><dd>The actual output — the density &amp; colour the brain draws across 3-D space. The glowing volume <em>is</em> the network.</dd>
-          <dt>↺ THE LOOP</dt><dd>The creature's <em>picture</em> is fed back through its <em>own brain</em> (the CPPN-painted substrate), which outputs a DNA′ — Escher's <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Drawing Hands</a>: the hand it drew redraws the hand. <strong>Loop skill</strong> is how much of its DNA the brain reconstructs from its own picture, <em>above predicting the mean</em> (R²); a blank picture scores ~0. Measured live, never faked.</dd>
-          <dt>▦ DIVERSITY MAP</dt><dd>A <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> grid (Mouret &amp; Clune) of <strong>best-bet self-encoders</strong> — the finest creature found for each <em>niche</em> (complexity → across, symmetry ↑ up), each reading its own picture back to its DNA. Brightness = loop skill. The bold white border is the creature you're watching.</dd>
+          <dt>🧠 BRAIN <span class="mono-dim">(phenotype)</span></dt><dd>A second network that <em>emerges within</em> the DNA's image by genuine <a href="https://en.wikipedia.org/wiki/HyperNEAT" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley): a quadtree of the CPPN's weight pattern <em>places</em> the hidden neurons where the pattern has structure, sets their density and wires them — no fixed grid. Queried over space it renders the image.</dd>
+          <dt>✨ THE IMAGE</dt><dd>The actual output — the density &amp; colour field the DNA paints across 3-D space, the image the brain emerges within. The glowing volume <em>is</em> the network.</dd>
+          <dt>↺ THE LOOP</dt><dd>The brain reads back <em>the image it's born in</em> — fed through its <em>own</em> hidden neurons — and tries to name its own beginning, a DNA′. Escher's <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Drawing Hands</a>: the hand it drew redraws the hand. <strong>Loop skill</strong> is how much of its DNA the brain recovers, <em>above predicting the mean</em> (R²), weighted by how much of itself it closes — and the brain gets only a bounded, per-gene view, so closure is honestly hard; a blank image scores ~0. Measured live, never faked.</dd>
+          <dt>▦ DIVERSITY MAP</dt><dd>A <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> grid (Mouret &amp; Clune) of <strong>best-bet self-encoders</strong> — the finest creature found for each <em>niche</em> (complexity → across, symmetry ↑ up), each reading the image it's born in back to its DNA. Brightness = loop skill. The bold white border is the creature you're watching.</dd>
           <dt>🌳 TREE OF LIFE</dt><dd>Every champion is signed &amp; hash-chained into a genealogy that grows on its own and persists across visits.</dd>
           <dt>⚙ CONTROLS</dt><dd><strong>STACKED</strong> shows all three at once (tap one to open). <strong>FOLLOW BEST</strong> tracks the finest self-encoder. <strong>TURBO</strong> evolves faster. <strong>NOVELTY</strong> rewards being <em>different</em>, not just faithful (Lehman &amp; Stanley). <strong>KEEP</strong> signs a creature into your tree.</dd>
         </dl>
@@ -245,18 +246,18 @@
         <p class="ov-lead">These are lifeforms trying to draw their true self out of the false. You're lending compute to the search. What you're watching is real evolution; where something is illustrative rather than proven, we say so.</p>
 
         <h2>The strange loop</h2>
-        <p>Each creature is a tiny neural network. Its <strong>DNA</strong> is a compositional pattern-producing network (a <a href="https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf" rel="noopener">CPPN</a>, Stanley) evolved by real <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" rel="noopener">NEAT</a> (Stanley &amp; Miikkulainen) — it <em>starts minimal</em> and <strong>augments its own topology</strong> over generations (add-node, add-connection, recurrent links), with <em>speciation</em> protecting newly-evolved structure. The brain — the <strong>phenotype</strong> — is grown by genuine <a href="https://doi.org/10.1162/EVCO_a_00071" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley 2012): a <em>quadtree decomposition</em> of the CPPN's weight pattern decides <strong>where the hidden neurons sit, how dense they are, and which connections express</strong> (variance-based division + band-pruning) — an evolvable substrate, not a fixed grid. Read over 3-D space, that brain draws the volumetric <strong>self-portrait</strong>.</p>
-        <p>Then the loop closes the honest way — <strong>through the picture</strong>. That rendered self-portrait is sampled and fed <em>back through the creature's own brain</em> — the same CPPN-painted substrate, its own hidden neurons — which outputs a <strong>DNA′</strong>, a reconstruction of the creature's connection vector. The reader is the creature's own evolved network (not a separate regressor, and not the CPPN merely echoing itself — the picture is genuinely in the path), a continuous, evolutionary cousin of Chang &amp; Lipson's <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a>. The closer DNA′ is to the DNA, the more the loop has closed — Escher's <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Drawing Hands</a>, alive: the hand it drew redraws the hand. We report <strong>loop skill</strong> honestly as R² above the mean (1 − MSE/Var): a blank or trivial picture scores <strong>~0</strong> (the old free-regressor scored a flat ~0.97 there — that artefact is gone). A genuinely self-consistent creature scores higher, and the figure depends on complexity: a <em>compact</em> creature can close the loop tightly (reconstructing its few genes from its own picture), while a <em>richer-genome</em> creature faces a strictly harder loop. Whatever it reads is the honest, live value — and the only effortless fixed point is the empty creature, which the vitality gate refuses.</p>
+        <p>Each creature is a tiny neural network. Its <strong>DNA</strong> is a compositional pattern-producing network (a <a href="https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf" rel="noopener">CPPN</a>, Stanley) evolved by real <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" rel="noopener">NEAT</a> (Stanley &amp; Miikkulainen) — it <em>starts minimal</em> and <strong>augments its own topology</strong> over generations (add-node, add-connection, recurrent links), with <em>speciation</em> protecting newly-evolved structure. The brain — the <strong>phenotype</strong> — is grown by genuine <a href="https://doi.org/10.1162/EVCO_a_00071" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley 2012): a <em>quadtree decomposition</em> of the CPPN's weight pattern decides <strong>where the hidden neurons sit, how dense they are, and which connections express</strong> (variance-based division + band-pruning) — an evolvable substrate, not a fixed grid. The CPPN paints a pattern across space and the brain <strong>emerges within it</strong>; queried over 3-D space, that brain renders the volumetric <strong>image</strong> — the image it was born in.</p>
+        <p>Then the loop closes the honest way — <strong>through the image</strong>. The brain reads back the image it's born in — sampled and fed <em>through its own hidden neurons</em> — and outputs a <strong>DNA′</strong>, a reconstruction of the creature's connection vector: it tries to <em>find its own beginning</em>. The reader is the creature's own evolved network (not a separate regressor, and not the CPPN merely echoing itself — the image is genuinely in the path), a continuous, evolutionary cousin of Chang &amp; Lipson's <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a>. The closer DNA′ is to the DNA, the more the loop has closed — Escher's <a href="https://en.wikipedia.org/wiki/Drawing_Hands" rel="noopener">Drawing Hands</a>, alive: the hand it drew redraws the hand. We report <strong>loop skill</strong> honestly as R² above the mean (1 − MSE/Var), <em>weighted by how much of itself it closes</em>: a blank or trivial image scores <strong>~0</strong> (the old free-regressor scored a flat ~0.97 there — that artefact is gone). Crucially the brain gets only a <strong>bounded, per-gene view</strong> of its image, so reconstruction is honestly hard <em>at every scale</em> — a compact creature no longer wins for free, and closing <em>more</em> of yourself counts for more. Whatever it reads is the honest, live value — and the only effortless fixed point is the empty creature, which the vitality gate refuses.</p>
 
         <h2>Render = network = code</h2>
-        <p>The single most misunderstood thing: a beautiful render <em>is</em> a neural network, and that network has a DNA. Toggle <em>SELF-PORTRAIT / PHENOTYPE / DNA</em> on the same individual to see one thing three ways. That is genotype → phenotype → render, shown rather than lectured.</p>
+        <p>The single most misunderstood thing: a beautiful render <em>is</em> a neural network, and that network has a DNA. Toggle <em>IMAGE / PHENOTYPE / DNA</em> on the same individual to see one thing three ways. That is genotype → phenotype → render, shown rather than lectured.</p>
 
         <h2>You, and the swarm</h2>
         <p>You're part of a live shared world right now. Many machines grow <em>one</em> genealogy together through a <a href="https://github.com/admiralakber/autograph/blob/main/docs/DEPLOY-coordinator.md" rel="noopener">PartyServer coordinator</a>: the <strong>peer count</strong> and the <strong>collective gen/s</strong> at the top are real, best-per-niche creatures <strong>migrate</strong> between machines as they're discovered, and the signed tree of life — already everyone's — persists in your browser and grows across visits. Prefer solitude? <code>?swarm=off</code> keeps you fully local. The coordinator verifies every shared creature's signature and keeps the best per niche; <em>full replication and a zero-knowledge "proof of becoming" for untrusted machines are still to come</em>.</p>
 
         <h2>What's real vs illustrative</h2>
         <ul>
-          <li><strong>Real:</strong> the CPPN evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation + textbook innovation-aligned crossover; genuine <a href="https://doi.org/10.1162/EVCO_a_00071" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley) — a quadtree of the CPPN pattern with variance-based division and band-pruning that evolves the <em>placement, density and connectivity</em> of the hidden neurons; an optional <a href="https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf" rel="noopener">Novelty Search</a> mode (Lehman &amp; Stanley); the 3D volumetric render; <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> quality-diversity (Mouret &amp; Clune); the read-back loop — the rendered picture fed back through the creature's own brain to reconstruct its DNA (a continuous cousin of the <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a>, Chang &amp; Lipson) — and its honest, baseline-corrected <strong>skill</strong> (R²); a signed, hash-chained lineage that auto-records the champion line and persists in IndexedDB; and the <strong>live swarm</strong> — peer count, collective gen/s, and best-per-niche migration through the coordinator.</li>
+          <li><strong>Real:</strong> the CPPN evolved by NEAT augmenting topologies (add-node / add-connection with innovation numbers, recurrent links) + speciation + textbook innovation-aligned crossover; genuine <a href="https://doi.org/10.1162/EVCO_a_00071" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley) — a quadtree of the CPPN pattern with variance-based division and band-pruning that evolves the <em>placement, density and connectivity</em> of the hidden neurons; an optional <a href="https://www.cs.swarthmore.edu/~meeden/DevelopmentalRobotics/lehman_ecj11.pdf" rel="noopener">Novelty Search</a> mode (Lehman &amp; Stanley); the 3D volumetric render; <a href="https://arxiv.org/abs/1504.04909" rel="noopener">MAP-Elites</a> quality-diversity (Mouret &amp; Clune); the read-back loop — the brain reads the image it's born in (a bounded, per-gene view) back through its own hidden neurons to reconstruct its DNA (a continuous cousin of the <a href="https://arxiv.org/abs/1803.05859" rel="noopener">neural-network quine</a>, Chang &amp; Lipson) — and its honest, baseline-corrected, complexity-weighted <strong>skill</strong> (R²); a signed, hash-chained lineage that auto-records the champion line and persists in IndexedDB; and the <strong>live swarm</strong> — peer count, collective gen/s, and best-per-niche migration through the coordinator.</li>
           <li><strong>Honest approximations (flagged):</strong> the ES-HyperNEAT quadtree resolution is <em>bounded</em> (a max depth) for browser real time — the paper sets a max resolution too, ours is just lower; placement runs on the algorithm's native 2-D sheet while the <em>picture</em> is the network's response swept over 3-D space; and per-neuron heterogeneous activations + CPPN-painted biases are Autograph <em>extensions</em> beyond standard ES-HyperNEAT (which uses one activation). All of these are real code, named here so nothing is over-narrated.</li>
           <li><strong>Illustrative / roadmap:</strong> the zk "proof of becoming" and full verification of untrusted machines (today the swarm's trust is signed-lineage + rate-limiting + keep-best merge), and the quantum framing — metaphor and lineage only. <strong>There are no qubits here.</strong></li>
         </ul>

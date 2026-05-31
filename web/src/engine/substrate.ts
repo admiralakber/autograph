@@ -13,8 +13,8 @@ import { HYPER } from './hyperparams.ts';
 // at (p,p)) and each hidden neuron's activation (heterogeneous — an Autograph
 // extension beyond standard ES-HyperNEAT, which keeps the fields beautiful).
 // Queried over 3-D space the network outputs a density and a hue: the volumetric
-// self-portrait. (Placement is the algorithm's native 2-D sheet at z = 0; the
-// PICTURE is 3-D because the query coordinate sweeps the volume.)
+// image the creature is born in. (Placement is the algorithm's native 2-D sheet at
+// z = 0; the IMAGE is 3-D because the query coordinate sweeps the volume.)
 
 // 5 fixed input *sensor* neurons (x, y, z, r, bias) on a ring at the z = −1 layer.
 const INPUT_POS: Vec3[] = (() => {

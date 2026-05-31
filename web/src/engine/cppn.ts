@@ -216,7 +216,7 @@ export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: numb
   return evalCompiled(compileCPPN(g), x1, y1, z1, x2, y2, z2, out);
 }
 
-// --- The real vector the self-portrait must re-encode (variable length) -----
+// --- The real vector the image must re-encode (variable length) -----
 
 /** Non-input nodes in canonical (id-sorted) order — they carry biases. The ONE
  *  ordering used by `genomeVector`, `applyParams`, and the self-quine readout, so

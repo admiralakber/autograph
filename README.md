@@ -1,7 +1,7 @@
 # 🤲 Autograph
 
 > **A network that learns to draw its true self.**
-> Autograph is a full-screen, greyscale instrument for a live evolutionary experiment you join the moment it loads. Inside it, tiny neural networks evolve toward a strange loop — a creature whose glowing self-portrait can be read back to recover the very DNA that drew it. *A precise greyscale instrument framing vivid, sunrise-coloured life.*
+> Autograph is a full-screen, greyscale instrument for a live evolutionary experiment you join the moment it loads. Inside it, tiny neural networks evolve toward a strange loop — a DNA paints a glowing image, a brain emerges within it, and reads the image it's born in back to recover the very DNA it began as. *A precise greyscale instrument framing vivid, sunrise-coloured life.*
 
 [![status: weekend build](https://img.shields.io/badge/status-weekend%20build-9cf)](https://github.com/admiralakber/autograph)
 [![live demo](https://img.shields.io/badge/live-admiralakber.github.io%2Fautograph-blueviolet)](https://admiralakber.github.io/autograph/)
@@ -25,26 +25,25 @@ It reads like poetry. It is, independently, a result in three different subjects
 
 ## What it actually is 🖼️
 
-Autograph is an **instrument**, not a slideshow: a greyscale, monospace mission-control panel wrapped around one living population. A creature in it is **two networks that make each other** — and a 3-D self-portrait that closes the loop between them.
+Autograph is an **instrument**, not a slideshow: a greyscale, monospace mission-control panel wrapped around one living population. A creature in it is **two networks that make each other** — and a 3-D image that closes the loop between them.
 
 - 🧬 **DNA — the genotype.** A small *connective* [CPPN](https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf). Given two 3-D coordinates (`x₁,y₁,z₁, x₂,y₂,z₂`, plus a bias) it returns `[weight, bias]` — the connection strength painted between two points, and (read at a single point `(p,p)`) that neuron's bias. We draw it as a small node-and-edge **graph**.
 - 🧠 **The brain — the phenotype.** An **ES-HyperNEAT substrate**. Its inputs are a point in space (`x, y, z, r, bias`); its outputs are `density` and `hue`. The CPPN paints its connection weights, and a genuine **quadtree of the CPPN weight pattern** (variance-based division + band-pruning, [Risi & Stanley 2012](https://doi.org/10.1162/EVCO_a_00071)) decides where the hidden neurons sit, how dense they are, and which connections express — an evolvable substrate, not a fixed grid. We draw it as a node-and-connection network too.
-- ✨ **The self-portrait.** Query that substrate across 3-D space and it answers with a field of density and hue, rendered as a volumetric **point cloud** coloured by the sunrise palette (density → alpha, hue → colour). This is the creature you see.
+- ✨ **The image.** Query that substrate across 3-D space and it answers with a field of density and hue, rendered as a volumetric **point cloud** coloured by the sunrise palette (density → alpha, hue → colour). This is the creature you see — the image the brain emerged within.
 
 When that loop closes, the creature has written its own signature — hence the name. **Autograph**: *auto-* (self) + *-graph* (writing / drawing / network). Self-**writing** is the quine; self-**signature** is the crypto; the two **graphs** are the DNA and the brain.
 
 ```mermaid
 flowchart LR
-  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>ES-HyperNEAT places neurons"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
-  PHENO -->|"draws — queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  ART -->|"read back IN to the SAME brain"| PHENO
-  PHENO -->|"→ names its DNA′"| DNA2["🧬 DNA′"]
-  DNA2 -. "closer DNA′ ↔ DNA ⇒ loop closes (measured skill, R²)" .-> DNA
+  DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints an image across space ·<br/>grows the brain within it (ES-HyperNEAT)"| ART["✨ the image<br/>(volumetric sunrise cloud)"]
+  ART -->|"a brain emerges within it"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
+  PHENO -->|"reads the image it's born in →<br/>names its beginning, DNA′"| DNA2["🧬 DNA′"]
+  DNA2 -. "closer DNA′ ↔ DNA ⇒ loop closes (skill: R², bounded per-gene read, complexity-weighted)" .-> DNA
 ```
 
 ### The equivalence you can toggle 🔁
 
-The core comprehension goal: **a cool-looking render *is* a neural network, and that network *has* a DNA.** You can view the *same* individual three ways and flip between them — (a) the rendered 3-D self-portrait, (b) its phenotype network, (c) its DNA (the CPPN graph). Three faces of one creature. The full soul and teaching goals live in **[VISION.md](./VISION.md)**.
+The core comprehension goal: **a cool-looking render *is* a neural network, and that network *has* a DNA.** You can view the *same* individual three ways and flip between them — (a) the rendered 3-D image, (b) its phenotype network, (c) its DNA (the CPPN graph). Three faces of one creature. The full soul and teaching goals live in **[VISION.md](./VISION.md)**.
 
 ---
 
@@ -54,8 +53,8 @@ Borrowed, with love, from Hofstadter's [*Gödel, Escher, Bach*](https://en.wikip
 
 | | The braid | In Autograph |
 |---|---|---|
-| 🔢 **Gödel** | a formula that talks about itself (self-reference via a [fixed point](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem)) | a DNA whose self-portrait re-states the DNA |
-| 🎨 **Escher** | [*Drawing Hands*](https://en.wikipedia.org/wiki/Drawing_Hands) — each hand draws the other into being | a CPPN that paints a brain that paints a picture of the CPPN |
+| 🔢 **Gödel** | a formula that talks about itself (self-reference via a [fixed point](https://en.wikipedia.org/wiki/Kleene%27s_recursion_theorem)) | a DNA whose image re-states the DNA |
+| 🎨 **Escher** | [*Drawing Hands*](https://en.wikipedia.org/wiki/Drawing_Hands) — each hand draws the other into being | a CPPN that paints an image a brain emerges within — which reads the image back into the CPPN |
 | 🎵 **Bach** | the [endlessly rising canon](https://en.wikipedia.org/wiki/Musical_Offering) — climbs forever, returns home | an evolutionary search that never stops climbing |
 
 Everything in the world descends from one canonical **Genesis** seed, preserved byte-for-byte:
@@ -75,10 +74,10 @@ It runs **entirely on your device** — no backend, no telemetry. Here is the ho
 **Real, and running in your browser:**
 
 - 🧬 **A genuinely-evolving DNA + brain.** A heterogeneous-activation CPPN (the genotype) paints + *grows* an ES-HyperNEAT substrate (the phenotype); both evolve by gradient-free mutation + textbook innovation-aligned crossover.
-- 🧠 **Genuine ES-HyperNEAT neuron placement.** A real [quadtree decomposition](https://doi.org/10.1162/EVCO_a_00071) of the CPPN weight pattern — variance-based **division & initialization** then **pruning & extraction** with band-pruning (Risi & Stanley 2012) — discovers *where* the hidden neurons sit, *how dense* they are, and *which* connections express, iterated from inputs→hidden→outputs and pruned to functional topology. *Honest bound:* the quadtree's max depth is capped for browser real time (the paper sets a max resolution too); placement runs on the algorithm's native 2-D sheet while the picture is the network's response swept over 3-D space; per-neuron heterogeneous activations + CPPN-painted biases are Autograph extensions. All real code — see [`web/src/engine/eshyperneat.ts`](./web/src/engine/eshyperneat.ts).
-- ✨ **A 3-D volumetric self-portrait.** The substrate's density → hue field rendered as a point cloud via [Three.js](https://threejs.org/), with a graceful **Canvas 2D** fallback (and the same field drives the grid thumbnails).
-- 🔁 **A self-encoding loop *through the picture*, measured honestly.** The rendered self-portrait is fed back **through the creature's own brain** (the CPPN-painted substrate, its own hidden neurons) which outputs a DNA′ — the picture is genuinely in the read path. The reader is the creature's own evolved network (**not** a separate regressor — that bolt-on collapsed to "predict the mean" — and not the CPPN merely echoing itself), a continuous cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859). We report **loop skill** as baseline-corrected R² (`1 − MSE/Var`): a blank or trivial picture scores **~0** (the old free-regressor's flat ~0.97 artefact is gone), and a genuinely self-consistent creature scores higher. How high depends on **complexity**: a *compact* creature can close the loop tightly (reconstructing its few genes from its own picture), while a *richer-genome* creature faces a strictly harder loop. You watch the real, live value; nothing is faked.
-- 🗺️ **Real [MAP-Elites](https://arxiv.org/abs/1504.04909) quality-diversity.** A grid keyed by (structural complexity, mirror symmetry); each cell keeps the best self-encoder of its kind, fitness shown by a greyscale border value (no colour). You watch the wall of diverse self-portraits fill.
+- 🧠 **Genuine ES-HyperNEAT neuron placement.** A real [quadtree decomposition](https://doi.org/10.1162/EVCO_a_00071) of the CPPN weight pattern — variance-based **division & initialization** then **pruning & extraction** with band-pruning (Risi & Stanley 2012) — discovers *where* the hidden neurons sit, *how dense* they are, and *which* connections express, iterated from inputs→hidden→outputs and pruned to functional topology. *Honest bound:* the quadtree's max depth is capped for browser real time (the paper sets a max resolution too); placement runs on the algorithm's native 2-D sheet while the image is the network's response swept over 3-D space; per-neuron heterogeneous activations + CPPN-painted biases are Autograph extensions. All real code — see [`web/src/engine/eshyperneat.ts`](./web/src/engine/eshyperneat.ts).
+- ✨ **A 3-D volumetric image.** The substrate's density → hue field rendered as a point cloud via [Three.js](https://threejs.org/), with a graceful **Canvas 2D** fallback (and the same field drives the grid thumbnails). The neurons are overlaid at their real positions and the strongest connections glow as sunrise **energy pipes**, so the picture visibly *is* a network.
+- 🔁 **A self-encoding loop *through the image*, measured honestly.** The brain reads back **the image it's born in** — fed through its own hidden neurons — and outputs a DNA′, trying to *find its own beginning*. The reader is the creature's own evolved network (**not** a separate regressor — that bolt-on collapsed to "predict the mean" — and not the CPPN merely echoing itself), a continuous cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859). We report **loop skill** as baseline-corrected R² (`1 − MSE/Var`), **weighted by how much of itself it closes**, and the brain gets only a **bounded, per-gene view** of its image — so closure is honestly hard *at every scale*. A blank or trivial image scores **~0** (the old free-regressor's flat ~0.97 artefact is gone), a *compact* creature **no longer wins for free** (the old ~0.93 drops substantially), and closing *more* of yourself counts for more — a humbling, earned headline that climbs but is never "solved". You watch the real, live value; nothing is faked.
+- 🗺️ **Real [MAP-Elites](https://arxiv.org/abs/1504.04909) quality-diversity.** A grid keyed by (structural complexity, mirror symmetry); each cell keeps the best self-encoder of its kind, fitness shown by a greyscale border value (no colour). You watch the wall of diverse images fill.
 - 🌳 **A real signed, hash-chained tree of life — and it persists.** Keep a creature and it becomes a node in a content-addressed [Merkle-DAG](https://en.wikipedia.org/wiki/Merkle_tree); its id is `SHA-256` of its content *including its parents' ids*, signed with an [ECDSA P-256](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) key. The lineage is rendered as a navigable greyscale tree and **persisted across sessions in IndexedDB**, so it grows over time. Everything descends from the Genesis seed. **No chain. No token.**
 
 **Real, but deliberately bounded:**
@@ -142,7 +141,7 @@ npm run build      # type-check (strict) + production build
 npm run smoke      # headless sanity check: evolution + loop + lineage verification
 ```
 
-The CPPN, the genuine ES-HyperNEAT substrate, the picture→brain read-back loop, MAP-Elites, the render and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
+The CPPN, the genuine ES-HyperNEAT substrate, the image→brain read-back loop, MAP-Elites, the render and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
 
 ### Repository layout
 
@@ -155,7 +154,7 @@ autograph/
 │   │   ├── cppn.ts          # the DNA (connective CPPN) + genome serialisation
 │   │   ├── eshyperneat.ts   # genuine ES-HyperNEAT: quadtree placement + band-pruning
 │   │   ├── substrate.ts     # the brain ES-HyperNEAT grows, + its evaluator
-│   │   ├── readback.ts      # the read-back: the picture fed through the brain → DNA′
+│   │   ├── readback.ts      # the read-back: the image fed through the brain → DNA′
 │   │   ├── fitness.ts       # the strange loop: skill (R²), vitality, descriptors
 │   │   ├── mapelites.ts     # MAP-Elites quality-diversity archive
 │   │   ├── lineage.ts       # signed, content-addressed Merkle-DAG (Web Crypto)

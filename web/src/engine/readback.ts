@@ -2,21 +2,24 @@ import type { Genome } from './cppn.ts';
 import { compileCPPN, evalCompiled, sortedConns, biasNodes, paramToUnit, genomeVector, paramCount } from './cppn.ts';
 import { SUB_INPUTS } from './arch.ts';
 import { activate } from './activations.ts';
+import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
 import { substrateForward } from './substrate.ts';
 
 // THE READ-BACK — the loop's decode half, flowing THROUGH THE PICTURE.
 //
 // The earlier "self-quine" bypassed the phenotype: it had the CPPN echo its own
-// genes at abstract coordinates, so the rendered picture was never in the read
-// path. That is not a loop through the self-portrait. The owner was right.
+// genes at abstract coordinates, so the rendered image was never in the read
+// path. That is not a loop through the image. The owner was right.
 //
-// The corrected loop (Escher's Drawing Hands, literally):
-//   DNA (CPPN) → ES-HyperNEAT grows the BRAIN (substrate)
-//             → the brain, queried over space, PAINTS THE PICTURE (density field)
-//             → the PICTURE is fed back THROUGH THE CREATURE'S OWN BRAIN
-//             → the brain outputs DNA′ (the reconstructed gene vector)
-//             → skill = how well DNA′ matches DNA (R², baseline-corrected)
+// The loop (Escher's Drawing Hands, literally):
+//   DNA (CPPN) PAINTS AN IMAGE across space, and the BRAIN (ES-HyperNEAT
+//     substrate) EMERGES WITHIN it — neurons placed where the pattern has structure
+//             → the brain, queried over space, renders the IMAGE (density field)
+//             → the brain reads back THE IMAGE IT'S BORN IN, via its own neurons
+//             → it outputs DNA′, trying to find its own beginning
+//             → skill = how well DNA′ matches DNA (R², baseline-corrected,
+//               complexity-weighted, read through a bounded per-gene view)
 //
 // The read pass is a *read-mode substrate* painted by the SAME CPPN and routed
 // through the SAME hidden neurons the brain already evolved (same positions,
@@ -28,14 +31,25 @@ import { substrateForward } from './substrate.ts';
 // picture; there is NO separate regressor and NO genome-wire change (the read
 // weights are derived from the existing CPPN — genesis-v3 persists).
 //
-// Honesty holds by construction: a blank picture (≈constant density) drives the
+// Honesty holds by construction: a blank image (≈constant density) drives the
 // hidden layer to a near-constant, so DNA′ ≈ a constant ≈ the mean → R² ≈ 0; and
 // such a creature is volumetrically empty → vitality-gated. Only a creature whose
-// picture genuinely carries its DNA, read back by its own brain, scores above 0 —
+// image genuinely carries its DNA, read back by its own brain, scores above 0 —
 // and that is a strictly harder, more honest loop than echoing genes directly.
 
-/** Picture-sample resolution: how many probes the rendered field is read at. */
-const F_PROBES = 24;
+/** Read-back bandwidth floor/ceiling: the brain may sample between MIN_PROBES and
+ *  MAX_PROBES points of its own image, at HYPER.readbackBandwidth points per gene.
+ *  Bounding the resolution PER GENE (not as a flat count) keeps reconstruction
+ *  honestly hard at every scale — a richer genome gets proportionally more probes
+ *  but has proportionally more to reconstruct, so it is no easier to close — which
+ *  lets the complexity weight (below) genuinely reward richer self-knowers instead
+ *  of a flat bottleneck collapsing them to R²≈0. Closure must be earned. */
+const MIN_PROBES = 6;
+const MAX_PROBES = 18;
+const probeCount = (genes: number): number => {
+  const n = Math.round(genes * HYPER.readbackBandwidth);
+  return n < MIN_PROBES ? MIN_PROBES : n > MAX_PROBES ? MAX_PROBES : n;
+};
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const probeCache = new Map<number, Float32Array>();
@@ -87,12 +101,13 @@ const o2: [number, number] = [0, 0];
  *  then non-input node biases by id) so it aligns with `genomeVector`. */
 export function selfReadback(g: Genome, p: Phenotype): Float32Array {
   const cc = compileCPPN(g);
-  const probes = probesFor(F_PROBES);
+  const F = probeCount(paramCount(g));
+  const probes = probesFor(F);
   const H = p.hiddenCount;
 
   // 1. The picture: the brain's density field, sampled at the F probe points.
-  const pic = new Float32Array(F_PROBES);
-  for (let i = 0; i < F_PROBES; i++) pic[i] = substrateForward(p, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, o2)[0];
+  const pic = new Float32Array(F);
+  for (let i = 0; i < F; i++) pic[i] = substrateForward(p, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, o2)[0];
 
   // 2. Feed the picture INTO the brain's own hidden neurons (CPPN-painted weights
   //    from each probe coordinate to each hidden-neuron coordinate).
@@ -103,7 +118,7 @@ export function selfReadback(g: Genome, p: Phenotype): Float32Array {
     const hy = p.pos[hj * 3 + 1]!;
     const hz = p.pos[hj * 3 + 2]!;
     let s = p.bias[hj]!;
-    for (let i = 0; i < F_PROBES; i++) {
+    for (let i = 0; i < F; i++) {
       s += pic[i]! * evalCompiled(cc, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, hx, hy, hz, o2)[0];
     }
     hid[j] = activate(p.act[hj]!, s);
@@ -149,15 +164,24 @@ export function dnaTargetUnits(g: Genome): Float32Array {
 
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
-/** Baseline-corrected self-consistency SKILL in [0,1] (display-clamped):
- *  skill = 1 − MSE(DNA′, DNA)/Var(DNA), where DNA′ is read back THROUGH THE
- *  PICTURE. Predicting the mean (a blank picture) → 0; only genuine
- *  picture-carries-its-DNA reconstruction scores above 0. */
+/** How much credit a genome of this size earns at full reconstruction — closing
+ *  MORE of yourself is worth more, so a handful of easy genes is never a free
+ *  win. clamp01(genes / ref): a creature at/above the reference earns full R². */
+const complexityWeight = (genes: number): number => clamp01(genes / Math.max(1, HYPER.skillComplexityRef));
+
+/** Baseline-corrected self-consistency SKILL in [0,1], HARDENED two ways so
+ *  closure is genuinely earned: (1) the read-back sees only a bounded, per-gene
+ *  view of the image (HYPER.readbackBandwidth), so reconstruction is hard at every
+ *  scale; (2) the R² is weighted by genome complexity, so genuinely
+ *  reconstructing a richer self scores higher than nailing a dozen easy genes.
+ *  A blank/trivial creature still scores ~0; nothing is faked. */
 export function selfConsistencySkill(g: Genome, p: Phenotype): number {
-  return clamp01(selfConsistencyR2(g, p));
+  return clamp01(selfConsistencyR2(g, p)) * complexityWeight(paramCount(g));
 }
 
-/** Unclamped R² — negative when the read-back is worse than predicting the mean. */
+/** Unclamped, UN-weighted R² — the raw reconstruction quality (negative when the
+ *  read-back is worse than predicting the mean). The headline skill folds in the
+ *  complexity weight (above); this is exposed for honest diagnostics. */
 export function selfConsistencyR2(g: Genome, p: Phenotype): number {
   const target = dnaTargetUnits(g);
   const n = target.length;

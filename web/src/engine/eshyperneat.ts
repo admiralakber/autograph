@@ -25,7 +25,7 @@ import { evalCompiled } from './cppn.ts';
 //
 // Faithfulness + honest approximations (see hyperparams.ts):
 //   • The quadtree explores a 2-D substrate sheet (the algorithm's native form);
-//     the volumetric self-portrait is the resulting network's response swept over
+//     the volumetric image is the resulting network's response swept over
 //     3-D query space, so the picture is 3-D while placement is the real 2-D ES.
 //   • A z "layer" coordinate (input −1, hidden 0, output +1) is fed to the CPPN
 //     so it can distinguish layers — the standard layered-substrate convention.
