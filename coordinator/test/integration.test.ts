@@ -127,4 +127,23 @@ describe('autograph-coordinator (workerd)', () => {
 
     a.close();
   });
+
+  it('aggregates the collective gen/s across peers (sums; falls on leave)', async () => {
+    const room = `gps-${Math.random().toString(36).slice(2)}`;
+    const a = await Client.open(room);
+    await a.waitType('welcome');
+    const b = await Client.open(room);
+    await b.waitType('welcome');
+
+    // Each peer reports its local generations/sec; the room sums them.
+    a.send({ type: 'rate', gps: 120 });
+    b.send({ type: 'rate', gps: 80 });
+    expect((await a.waitFor((m) => m.type === 'swarm' && m.gps === 200)).gps).toBe(200);
+    expect((await b.waitFor((m) => m.type === 'swarm' && m.gps === 200)).gps).toBe(200);
+
+    // B leaves → the collective falls to A's own 120.
+    b.close();
+    expect((await a.waitFor((m) => m.type === 'swarm' && m.gps === 120)).gps).toBe(120);
+    a.close();
+  });
 });

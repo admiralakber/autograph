@@ -87,6 +87,8 @@ export interface SharedArchiveOptions {
   room?: string;
   /** Notified whenever the live peer count changes. */
   onPeers?: (peers: number) => void;
+  /** Notified with the live collective: peer count + summed swarm generations/sec. */
+  onSwarm?: (peers: number, gps: number) => void;
   /** Notified on transport/protocol errors (non-fatal). */
   onError?: (code: string, message: string) => void;
   /** Override the WebSocket constructor (tests / Node). Defaults to global. */
@@ -109,6 +111,7 @@ export class SharedArchive implements Archive {
   private readonly signer: EliteSigner;
   private readonly wsUrl: string;
   private readonly onPeers?: (peers: number) => void;
+  private readonly onSwarm?: (peers: number, gps: number) => void;
   private readonly onError?: (code: string, message: string) => void;
   private readonly WebSocketImpl: (new (url: string) => WebSocketLike) | undefined;
   private readonly flushMs: number;
@@ -126,6 +129,7 @@ export class SharedArchive implements Archive {
     this.mirror = opts.mirror;
     this.signer = opts.signer;
     this.onPeers = opts.onPeers;
+    this.onSwarm = opts.onSwarm;
     this.onError = opts.onError;
     this.WebSocketImpl = opts.WebSocketImpl;
     this.flushMs = opts.flushMs ?? 200;
@@ -187,6 +191,11 @@ export class SharedArchive implements Archive {
   peers(): number {
     return this.peerCount;
   }
+  /** Report this node's local generations/sec; the room sums the swarm total and
+   *  broadcasts it back via a `swarm` message (see `onSwarm`). */
+  reportRate(gps: number): void {
+    if (this.socket?.readyState === WS_OPEN) this.sendRaw({ type: 'rate', gps: Math.max(0, Math.round(gps)) });
+  }
   /** Latest room info from the coordinator (filled/coverage/cursor), or null. */
   roomInfo(): RoomInfo | null {
     return this.room;
@@ -247,6 +256,10 @@ export class SharedArchive implements Archive {
         break;
       case 'peers':
         this.setPeers(msg.peers);
+        break;
+      case 'swarm':
+        this.setPeers(msg.peers);
+        this.onSwarm?.(msg.peers, msg.gps);
         break;
       case 'delta':
       case 'elites':

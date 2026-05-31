@@ -44,6 +44,8 @@ export class RoomCore {
   private readonly hooks: RoomHooks;
   private readonly now: () => number;
   private readonly buckets = new Map<string, TokenBucket>();
+  /** Per-connection last-reported generations/sec; summed for the swarm total. */
+  private readonly gpsByConn = new Map<string, number>();
 
   constructor(o: RoomOptions) {
     this.archive = o.archive;
@@ -53,7 +55,8 @@ export class RoomCore {
     this.now = o.now ?? (() => Date.now());
   }
 
-  /** A peer joined: greet it and tell everyone the new count. */
+  /** A peer joined: greet it, tell everyone the new count, and hand the newcomer
+   *  the current collective gen/s so the swarm feels alive immediately. */
   onConnect(id: string): void {
     this.transport.send(id, {
       type: 'welcome',
@@ -62,12 +65,16 @@ export class RoomCore {
       you: id,
     });
     this.transport.broadcast({ type: 'peers', peers: this.transport.peerCount() });
+    this.transport.send(id, { type: 'swarm', peers: this.transport.peerCount(), gps: this.totalGps() });
   }
 
-  /** A peer left: drop its bucket and tell everyone the new count. */
+  /** A peer left: drop its bucket + rate, and tell everyone the new count and the
+   *  reduced collective gen/s. */
   onClose(id: string): void {
     this.buckets.delete(id);
+    this.gpsByConn.delete(id);
     this.transport.broadcast({ type: 'peers', peers: this.transport.peerCount() });
+    this.transport.broadcast({ type: 'swarm', peers: this.transport.peerCount(), gps: this.totalGps() });
   }
 
   async onMessage(id: string, raw: string | ArrayBuffer): Promise<void> {
@@ -113,10 +120,28 @@ export class RoomCore {
       case 'push':
         await this.handlePush(id, msg);
         return;
+      case 'rate':
+        this.handleRate(id, msg);
+        return;
       default:
         this.transport.send(id, errorMsg('unknown-type', `unknown message type`));
         return;
     }
+  }
+
+  /** Record a peer's local gen/s (clamped) and broadcast the new swarm total. */
+  private handleRate(id: string, msg: { gps?: unknown }): void {
+    const gps =
+      typeof msg.gps === 'number' && Number.isFinite(msg.gps) && msg.gps >= 0 ? Math.min(msg.gps, LIMITS.maxGpsPerPeer) : 0;
+    this.gpsByConn.set(id, gps);
+    this.transport.broadcast({ type: 'swarm', peers: this.transport.peerCount(), gps: this.totalGps() });
+  }
+
+  /** Collective generations/second across all connected peers (rounded). */
+  private totalGps(): number {
+    let sum = 0;
+    for (const v of this.gpsByConn.values()) sum += v;
+    return Math.round(sum);
   }
 
   private bucketFor(id: string): TokenBucket {

@@ -250,6 +250,22 @@ async function main(): Promise<void> {
     assert.ok(h.last('A', 'error')!.code === 'rate-limited');
   });
 
+  console.log('\nswarm gen/s aggregation (the collective pulse):');
+  await test('sums local gen/s across peers; updates on join + leave; clamps inflation', async () => {
+    const h = new Harness();
+    const core = new RoomCore({ archive: new ServerArchive(), transport: h, verify: verifyElite });
+    h.connect(core, 'A');
+    h.connect(core, 'B');
+    await core.onMessage('A', JSON.stringify({ type: 'rate', gps: 100 }));
+    await core.onMessage('B', JSON.stringify({ type: 'rate', gps: 250 }));
+    assert.equal(h.last('A', 'swarm')!.gps, 350); // collective = 100 + 250
+    assert.equal(h.last('B', 'swarm')!.gps, 350);
+    h.disconnect(core, 'B'); // B leaves → total falls to A's 100
+    assert.equal(h.last('A', 'swarm')!.gps, 100);
+    await core.onMessage('A', JSON.stringify({ type: 'rate', gps: 1e12 })); // anti-inflation clamp
+    assert.equal(h.last('A', 'swarm')!.gps, LIMITS.maxGpsPerPeer);
+  });
+
   console.log('');
   if (failures > 0) {
     console.log(`FAIL — ${failures} check(s) failed`);

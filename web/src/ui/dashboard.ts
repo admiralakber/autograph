@@ -62,11 +62,15 @@ export class AutographDashboard {
   private follow = true;
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
   private coordinatorUrl = ''; // resolved in start() — defaults to the live swarm; '' = offline
+  private shared: SharedArchive | null = null; // the live SharedArchive while joined to the swarm
   private readonly options = { recurrent: true, selfConn: false, gating: false };
   private budget = HYPER.baseBudget;
   private frame = 0;
   private lastGenAt = 0;
   private lastGenValue = 0;
+  private localGps = 0; // this node's generations/sec
+  private swarmActive = false; // showing the collective swarm rate (vs the local one)
+  private lastRateAt = 0; // throttle for reporting local gen/s upstream
   private treeRecording = false;
   private lastTreeAt = 0;
   private genesisId = '';
@@ -191,19 +195,43 @@ export class AutographDashboard {
   /** Build a swarm-backed archive: a local MapElites mirror (UI-unchanged) that
    *  pushes best-per-niche elites + pulls others' (migration) via the coordinator. */
   private makeShared(): SharedArchive {
-    return new SharedArchive({
+    this.shared = new SharedArchive({
       url: this.coordinatorUrl,
       mirror: new MapElites(COLS, ROWS),
       signer: { sign: async (g, e) => createEntry({ genome: g, parents: [], seed: null, fidelity: e.fidelity, identity: await this.ensureIdentity() }) },
       onPeers: (n) => this.setPeers(n),
-      onError: (code) => this.setText('#ag-swarm-label', `offline · ${code}`),
+      onSwarm: (_peers, gps) => this.setSwarmRate(gps),
+      // Ignore 'unknown-type' so a not-yet-updated coordinator (additive messages)
+      // never flips the UI to offline — it just falls back to the local rate.
+      onError: (code) => {
+        if (code !== 'unknown-type') this.setText('#ag-swarm-label', `offline · ${code}`);
+      },
     });
+    return this.shared;
   }
 
-  /** Reflect the live peer count in the swarm readout. */
+  /** Reflect the live peer count in the swarm readout (present tense — it's live). */
   private setPeers(n: number): void {
     this.setText('#ag-swarm-nodes', String(Math.max(1, n)));
-    this.setText('#ag-swarm-label', n > 1 ? 'nodes · live' : 'node · you (live)');
+    if (n === 0) {
+      // Dropped — fall back to this node's own rate until we reconnect.
+      this.swarmActive = false;
+      this.setText('#ag-swarm-label', 'reconnecting…');
+      this.setText('#ag-gens', this.formatGps(this.localGps));
+    } else {
+      this.setText('#ag-swarm-label', n > 1 ? 'live' : 'live · you');
+    }
+  }
+
+  /** The collective gen/s from the coordinator — the whole swarm's pulse, which
+   *  overrides this node's local rate in the GEN/S readout. */
+  private setSwarmRate(gps: number): void {
+    this.swarmActive = true;
+    this.setText('#ag-gens', this.formatGps(gps));
+  }
+
+  private formatGps(gps: number): string {
+    return gps >= 10 ? Math.round(gps).toLocaleString('en-GB') : gps.toFixed(1);
   }
 
   /** Re-root the gid→signed map on the canonical Genesis (gids reset per world). */
@@ -344,11 +372,15 @@ export class AutographDashboard {
     // GENESIS auto-joins the shared swarm; a custom seed is your own offline world.
     // The signer mints an ephemeral key on first push, so no identity is required up-front.
     const joinSwarm = this.coordinatorUrl !== '' && seedStr === GENESIS_SEED;
+    // Tear down any previous swarm connection so a custom seed doesn't keep a socket.
+    this.shared?.close();
+    this.shared = null;
+    this.swarmActive = false;
     this.garden = new Garden(seedStr, COLS, ROWS, joinSwarm ? this.makeShared() : undefined);
     if (joinSwarm) this.setText('#ag-swarm-label', 'connecting…');
     else {
       this.setText('#ag-swarm-nodes', '1');
-      this.setText('#ag-swarm-label', 'node (you)');
+      this.setText('#ag-swarm-label', 'your world (offline)');
     }
     this.garden.setNovelty(this.novelty);
     this.garden.setOptions(this.options);
@@ -405,7 +437,14 @@ export class AutographDashboard {
       this.lastGenValue = s.generation;
     } else if (now - this.lastGenAt > 600) {
       const gps = ((s.generation - this.lastGenValue) * 1000) / (now - this.lastGenAt);
-      this.setText('#ag-gens', gps.toFixed(gps < 10 ? 1 : 0));
+      this.localGps = gps;
+      // GEN/S shows the collective swarm pulse when connected; the local rate otherwise.
+      if (!this.swarmActive) this.setText('#ag-gens', this.formatGps(gps));
+      // Report this node's pulse upstream so the coordinator can sum the swarm total.
+      if (this.shared && now - this.lastRateAt > 2400) {
+        this.lastRateAt = now;
+        this.shared.reportRate(gps);
+      }
       this.lastGenAt = now;
       this.lastGenValue = s.generation;
     }

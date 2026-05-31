@@ -33,14 +33,16 @@ export interface RoomInfo {
 type ClientMessage =
   | { type: 'hello'; client?: string }
   | { type: 'push'; elites: WireElite[] }
-  | { type: 'pull'; since?: number; limit?: number };
+  | { type: 'pull'; since?: number; limit?: number }
+  | { type: 'rate'; gps: number };
 type ServerMessage =
   | { type: 'welcome'; peers: number; room: RoomInfo; you: string }
   | { type: 'peers'; peers: number }
   | { type: 'delta'; elites: WireElite[]; room: RoomInfo }
   | { type: 'elites'; elites: WireElite[]; room: RoomInfo }
   | { type: 'ack'; accepted: number; rejected: number; reasons: string[] }
-  | { type: 'error'; code: string; message: string };
+  | { type: 'error'; code: string; message: string }
+  | { type: 'swarm'; peers: number; gps: number };
 
 /** Produces a signed, content-addressed lineage entry for an outgoing elite
  *  (wraps the engine's `createEntry`). */
@@ -61,6 +63,8 @@ export interface SharedArchiveOptions {
   signer: EliteSigner;
   room?: string;
   onPeers?: (peers: number) => void;
+  /** The live collective: peer count + summed generations/second across the swarm. */
+  onSwarm?: (peers: number, gps: number) => void;
   onError?: (code: string, message: string) => void;
   flushMs?: number;
 }
@@ -85,6 +89,7 @@ export class SharedArchive implements Archive {
   private readonly signer: EliteSigner;
   private readonly wsUrl: string;
   private readonly onPeers?: (peers: number) => void;
+  private readonly onSwarm?: (peers: number, gps: number) => void;
   private readonly onError?: (code: string, message: string) => void;
   private readonly flushMs: number;
   private socket: WebSocketLike | null = null;
@@ -99,6 +104,7 @@ export class SharedArchive implements Archive {
     this.mirror = opts.mirror;
     this.signer = opts.signer;
     this.onPeers = opts.onPeers;
+    this.onSwarm = opts.onSwarm;
     this.onError = opts.onError;
     this.flushMs = opts.flushMs ?? 200;
     const room = opts.room ?? 'archipelago';
@@ -154,6 +160,11 @@ export class SharedArchive implements Archive {
 
   peers(): number {
     return this.peerCount;
+  }
+  /** Report this node's local generations/sec so the coordinator can sum the
+   *  swarm total. No-op when not connected (the UI falls back to the local rate). */
+  reportRate(gps: number): void {
+    if (this.socket?.readyState === WS_OPEN) this.sendRaw({ type: 'rate', gps: Math.max(0, Math.round(gps)) });
   }
   connected(): boolean {
     return this.socket?.readyState === WS_OPEN;
@@ -214,6 +225,10 @@ export class SharedArchive implements Archive {
         break;
       case 'peers':
         this.setPeers(msg.peers);
+        break;
+      case 'swarm':
+        this.setPeers(msg.peers);
+        this.onSwarm?.(msg.peers, msg.gps);
         break;
       case 'delta':
       case 'elites':
