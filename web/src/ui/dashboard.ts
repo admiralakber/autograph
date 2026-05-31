@@ -79,6 +79,12 @@ export class AutographDashboard {
 
   private readonly pulse = new NetworkPulse();
   private readonly lineage: LineageEntry[] = [];
+  /** Cells awaiting a thumbnail redraw — a persistent, frame-budgeted queue.
+   *  `drainDirty()` clears the whole dirty set each frame, but only `budget`
+   *  cells are painted; keeping the overflow here (instead of dropping it) lets
+   *  a large hydrate/swarm-pull burst paint fully over the next few frames
+   *  rather than leaving populated cells black until something re-touches them. */
+  private readonly paintQueue = new Set<number>();
 
   private readonly grid: HTMLCanvasElement;
   private readonly gridCtx: CanvasRenderingContext2D;
@@ -600,9 +606,16 @@ export class AutographDashboard {
   }
 
   private syncDirty(): void {
+    // Fold every freshly-changed cell into the persistent paint queue first, so a
+    // hydrate/swarm-pull burst that marks far more than `budget` cells dirty in one
+    // frame keeps its overflow queued instead of dropping it (drainDirty clears the
+    // whole set). Then redraw a bounded number per frame — the map fills fully over
+    // the next few frames rather than leaving populated cells black until a click.
+    for (const idx of this.garden.archive.drainDirty()) this.paintQueue.add(idx);
     let budget = 8;
-    for (const idx of this.garden.archive.drainDirty()) {
+    for (const idx of this.paintQueue) {
       if (budget-- <= 0) break;
+      this.paintQueue.delete(idx);
       const cell = this.garden.archive.get(idx);
       if (!cell) continue;
       const cx = (idx % COLS) * CELL;
