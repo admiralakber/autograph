@@ -27,6 +27,13 @@ export interface GardenStats {
   /** Distinct behavioural niches ever discovered (Novelty Search archive) — the
    *  open-endedness metric: it keeps climbing long after fidelity flatlines. */
   novelty: number;
+  /** Best loop skill THIS node has personally evolved this session (a creature it
+   *  produced itself, vitality-gated) — "your journey", distinct from a champion
+   *  pulled in from the swarm. Climbs from genesis; the basis for the ✧ pulse. */
+  sessionBest: number;
+  /** How stalled the frontier is, 0→1 (no new champion AND no new niche for up to
+   *  `stallWindow` generations). Drives the auto novelty boost; surfaced honestly. */
+  stall: number;
 }
 
 /** The crowd-of-one Garden: a real MAP-Elites loop over CPPNs evolved with NEAT
@@ -56,6 +63,14 @@ export class Garden {
   private readonly noveltyCap = 1500;
   private readonly noveltyThreshold = 0.05;
   private noveltyFound = 0;
+
+  // ── Diversity / stall tracking (the "your journey" + always-explore levers) ─
+  /** Best lively fidelity this node has itself produced (not migrated in). */
+  private sessionBest = 0;
+  /** Generation of the last genuine progress (new champion quality OR new niche). */
+  private lastProgressGen = 0;
+  private bestQualitySeen = 0;
+  private filledSeen = 0;
 
   setNovelty(on: boolean): void {
     this.noveltyOn = on;
@@ -90,6 +105,8 @@ export class Garden {
     if (this.phylo.size > this.phyloCap) this.phylo.delete(this.phyloLow++);
     this.considerNovelty(behaviourSignature(pheno));
     this.evaluations++;
+    // Your journey: the best LIVELY self-encoder this node has produced itself.
+    if (ev.vitality >= HYPER.minVitality && ev.fidelity > this.sessionBest) this.sessionBest = ev.fidelity;
     return this.archive.tryInsert(g, ev, this.generation, gid, parents);
   }
 
@@ -143,16 +160,50 @@ export class Garden {
       }
     }
     this.generation++;
+
+    // Fresh blood (perturbation): a few random genomes now and then to escape a
+    // saturated basin. Safe by construction — keep-best + the vitality gate mean
+    // a random creature can only fill a gap or be discarded, never degrade a cell.
+    if (HYPER.freshBloodEvery > 0 && this.generation % HYPER.freshBloodEvery === 0) {
+      const n = Math.max(0, Math.round(HYPER.freshBloodCount));
+      for (let i = 0; i < n; i++) this.install(randomGenome(this.rng), []);
+    }
+
+    // Stall tracking (cheap, once/gen): a genuine advance is a better champion OR a
+    // newly-filled niche (counts swarm migrations too — if the WHOLE collective
+    // flatlines, we're stalled and push harder toward novelty).
+    const best = this.archive.best();
+    const q = best ? eliteQuality(best.cell.evaluation.fidelity, best.cell.evaluation.vitality) : 0;
+    const filled = this.archive.count();
+    if (q > this.bestQualitySeen + 1e-6 || filled > this.filledSeen) {
+      if (q > this.bestQualitySeen) this.bestQualitySeen = q;
+      if (filled > this.filledSeen) this.filledSeen = filled;
+      this.lastProgressGen = this.generation;
+    }
+
     if (this.generation % HYPER.respeciateEvery === 0) this.respeciate();
+  }
+
+  /** How stalled the frontier is, in [0,1]: 0 = just advanced, 1 = no new champion
+   *  AND no new niche for `stallWindow` generations. Ramps the auto novelty boost. */
+  private stallLevel(): number {
+    const since = this.generation - this.lastProgressGen;
+    const w = HYPER.stallWindow > 0 ? HYPER.stallWindow : 1;
+    return since <= 0 ? 0 : since >= w ? 1 : since / w;
   }
 
   /** Parent selection — Novelty-dominant when on: mostly pick from the frontier
    *  of behaviour space (push into the unexplored), else a species (protect new
    *  structure), else a random elite. */
   private selectParent(): Cell | null {
-    if (this.noveltyOn && this.rng.next() < HYPER.noveltyBias) {
-      const f = this.frontierElite();
-      if (f) return f;
+    if (this.noveltyOn) {
+      // Novelty-when-stalled: lift the frontier-selection bias as the frontier
+      // flatlines, so a mature/saturated search keeps reaching for "different".
+      const bias = Math.min(0.95, HYPER.noveltyBias + this.stallLevel() * HYPER.noveltyStallBoost);
+      if (this.rng.next() < bias) {
+        const f = this.frontierElite();
+        if (f) return f;
+      }
     }
     if (this.species.length > 0 && this.rng.next() < 0.5) {
       const sp = this.species[this.rng.int(this.species.length)]!;
@@ -241,6 +292,8 @@ export class Garden {
       maxConns,
       qdScore,
       novelty: this.noveltyFound,
+      sessionBest: this.sessionBest,
+      stall: this.stallLevel(),
     };
   }
 }

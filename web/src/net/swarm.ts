@@ -215,6 +215,11 @@ export class SharedArchive implements Archive {
   connected(): boolean {
     return this.socket?.readyState === WS_OPEN;
   }
+  /** True once the shared archive has been pulled into the mirror at least once —
+   *  so the UI knows the world champion is present before judging a "world best". */
+  isSynced(): boolean {
+    return this.synced;
+  }
   close(): void {
     this.closed = true;
     if (this.flushTimer) clearTimeout(this.flushTimer);

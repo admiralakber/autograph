@@ -5,7 +5,7 @@ import type { Evaluation } from '../engine/fitness.ts';
 import { evaluate, targetAtProbes, readBackUnits } from '../engine/fitness.ts';
 import type { Phenotype } from '../engine/substrate.ts';
 import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substrate.ts';
-import { Garden } from '../engine/evolution.ts';
+import { Garden, type GardenStats } from '../engine/evolution.ts';
 import { MapElites } from '../engine/mapelites.ts';
 import { SharedArchive } from '../net/swarm.ts';
 import { volumeCloud, paintProjection, paintSlice, drawSubstrateOverlay, substrateNodeMarkers, substratePipeSegments } from '../engine/render/volume.ts';
@@ -68,9 +68,13 @@ export class AutographDashboard {
   private frame = 0;
   private lastGenAt = 0;
   private lastGenValue = 0;
-  private localGps = 0; // this node's generations/sec
-  private swarmActive = false; // showing the collective swarm rate (vs the local one)
   private lastRateAt = 0; // throttle for reporting local gen/s upstream
+  // The always-alive reframe: foreground YOUR climbing journey vs the (now-saturated)
+  // shared frontier, and celebrate the rare moment a local creature beats the world.
+  private yourBestShown = 0; // last YOUR-BEST skill rendered (drives the ✧ pulse)
+  private peakWorld = 0; // highest WORLD-BEST skill seen this session (world-win gate)
+  private sawWorldBaseline = false; // captured the synced world champion as the baseline yet
+  private celebrateTimer: ReturnType<typeof setTimeout> | null = null;
   private treeRecording = false;
   private lastTreeAt = 0;
   private genesisId = '';
@@ -126,14 +130,27 @@ export class AutographDashboard {
     this.paintEmptyGrid();
 
     this.coordinatorUrl = this.readCoordinatorUrl();
+    // PER-PEER DIVERGENT START: each node explores from its OWN line (tied to its
+    // signing key on the swarm) instead of every tab hugging the one global
+    // champion — this IS "your journey". The canonical Genesis founder is still
+    // seeded below, so the shared world's lineage root is untouched; only the
+    // exploration trajectory (RNG: founders, mutation, selection, novelty) diverges.
+    let line = this.randomLine();
     if (this.coordinatorUrl) {
       try {
-        await this.ensureIdentity(); // ephemeral key so a fresh visitor can join
-        this.garden = new Garden(GENESIS_SEED, COLS, ROWS, this.makeShared());
+        const id = await this.ensureIdentity(); // ephemeral key so a fresh visitor can join
+        line = `peer:${id.publicKeyHex}`;
+        this.garden = new Garden(line, COLS, ROWS, this.makeShared());
         this.setText('#ag-swarm-label', 'connecting…');
       } catch {
-        /* fall back to the offline local garden — the site works perfectly without a coordinator */
+        // couldn't mint a key / open the socket — run solo, but say so honestly.
+        this.garden = new Garden(line, COLS, ROWS);
+        this.indicateSwarmOff(false);
       }
+    } else {
+      // explicit per-visit opt-out (?swarm=off) — loudly flagged + one-click reversible.
+      this.garden = new Garden(line, COLS, ROWS);
+      this.indicateSwarmOff(true);
     }
     this.garden.setNovelty(this.novelty);
     this.garden.seedWith([seededGenome(GENESIS_SEED)]);
@@ -163,26 +180,31 @@ export class AutographDashboard {
     this.setText('#ag-tree-count', String(this.lineage.length));
   }
 
-  /** Resolve the coordinator URL. A first-time visitor joins the live swarm by
-   *  default; every explicit choice is remembered:
-   *  - `?swarm=off|0|false|` (empty) → fully offline, opt-out persisted
-   *  - `?swarm=on|1`            → re-join the default live swarm
-   *  - `?swarm=wss://…`         → a custom coordinator
-   *  - no param                 → stored choice, else the default live swarm */
+  /** Resolve the coordinator URL. The swarm is ON BY DEFAULT and that default is
+   *  sticky to NOTHING — a plain refresh ALWAYS re-joins the live swarm. `?swarm=off`
+   *  is a strictly per-VISIT opt-out: it does not persist (the old behaviour silently
+   *  trapped opted-out visitors → a contribution leak), and whenever it's active the
+   *  UI loudly says "not contributing" with a one-click JOIN. Behaviour:
+   *  - no param                 → the live default (swarm ON)
+   *  - `?swarm=off|0|false|` ('') → off for THIS visit only (not contributing)
+   *  - `?swarm=on|1`            → the live default (explicit)
+   *  - `?swarm=wss://…`         → a custom coordinator, this visit only */
   private readCoordinatorUrl(): string {
+    // One-time cleanup: silently un-trap anyone the OLD sticky opt-out left off, so
+    // a normal refresh brings them back to contributing without any action.
+    try {
+      localStorage.removeItem('ag-coordinator');
+    } catch {
+      /* storage blocked — nothing to clean */
+    }
     try {
       const q = new URLSearchParams(location.search).get('swarm');
-      if (q !== null) {
-        const off = q === '' || q === 'off' || q === '0' || q === 'false';
-        const url = off ? '' : q === 'on' || q === '1' ? DEFAULT_COORDINATOR : q;
-        localStorage.setItem('ag-coordinator', off ? 'off' : url);
-        return url;
-      }
-      const stored = localStorage.getItem('ag-coordinator');
-      if (stored === 'off') return ''; // visitor previously opted out
-      return stored ?? DEFAULT_COORDINATOR; // custom, else live-by-default
+      if (q === null) return DEFAULT_COORDINATOR; // plain visit → join the swarm
+      if (q === '' || q === 'off' || q === '0' || q === 'false') return ''; // per-visit opt-out (not persisted)
+      if (q === 'on' || q === '1') return DEFAULT_COORDINATOR;
+      return q; // a custom coordinator URL, this visit only
     } catch {
-      return DEFAULT_COORDINATOR; // storage blocked — still join the swarm
+      return DEFAULT_COORDINATOR; // can't read the URL — still join the swarm
     }
   }
 
@@ -213,29 +235,131 @@ export class AutographDashboard {
     return this.shared;
   }
 
-  /** Reflect the live peer count in the swarm readout (present tense — it's live). */
+  /** Reflect the live island count in the SWARM line (present tense — it's live).
+   *  GEN/S stays YOUR node's own pulse; the SWARM line carries the collective, so
+   *  the two are no longer the same number (and when they coincide, the "just you"
+   *  label makes plain WHY: you're the only island reporting right now). */
   private setPeers(n: number): void {
     this.setText('#ag-swarm-nodes', String(Math.max(1, n)));
+    const swarm = this.root.querySelector('.swarm');
+    const join = this.root.querySelector<HTMLButtonElement>('#ag-swarm-join');
     if (n === 0) {
-      // Dropped — fall back to this node's own rate until we reconnect.
-      this.swarmActive = false;
+      // Detached — the collective rate is unknown until we reconnect (GEN/S, your
+      // own pulse, keeps running untouched).
       this.setText('#ag-swarm-label', 'reconnecting…');
-      this.setText('#ag-gens', this.formatGps(this.localGps));
+      this.setText('#ag-swarm-gps', '—');
     } else {
-      this.setText('#ag-swarm-label', n > 1 ? 'live' : 'live · you');
+      this.setText('#ag-swarm-label', n > 1 ? 'islands · live' : 'island · just you');
+      if (join) join.hidden = true;
+      swarm?.classList.remove('swarm-off');
     }
   }
 
-  /** The collective gen/s from the coordinator — the whole swarm's pulse, which
-   *  overrides this node's local rate in the GEN/S readout. */
+  /** The collective gen/s from the coordinator — summed across every connected
+   *  island. Shown ONLY on the SWARM line; GEN/S remains this node's own rate. */
   private setSwarmRate(gps: number): void {
-    this.swarmActive = true;
-    this.setText('#ag-gens', this.formatGps(gps));
     this.setText('#ag-swarm-gps', this.formatGps(gps));
   }
 
   private formatGps(gps: number): string {
     return gps >= 10 ? Math.round(gps).toLocaleString('en-GB') : gps.toFixed(1);
+  }
+
+  private formatSkill(x: number): string {
+    return x > 0 ? `${(x * 100).toFixed(1)}%` : '—';
+  }
+
+  /** A fresh, divergent exploration line for this session (when not keyed to an
+   *  identity) — so two tabs don't evolve the identical trajectory. */
+  private randomLine(): string {
+    const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    const tok = c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random()}`;
+    return `peer:${tok}`;
+  }
+
+  /** YOUR journey: render YOUR BEST (your own climb) + WORLD BEST (the global
+   *  champion, via the synced mirror), pulse ✧ on a new personal best, and throw a
+   *  real celebration the rare time YOUR creature becomes the new world champion. */
+  private updateJourney(s: GardenStats): void {
+    const your = s.sessionBest; // the best lively self-encoder THIS node has made
+    const world = s.bestFidelity; // the mirror champion = the global best once synced
+    this.setText('#ag-your-best', this.formatSkill(your));
+    this.setText('#ag-world-best', this.formatSkill(world));
+
+    // ✧ quiet pulse whenever you beat your OWN previous best (skip the first paint).
+    if (your > this.yourBestShown + 1e-4) {
+      if (this.yourBestShown > 0) this.pulsePersonalBest();
+      this.yourBestShown = your;
+    }
+
+    // ✦ the rare global win: a creature YOU evolved becomes the new world champion
+    // (not merely pulling in everyone else's best on connect, and not a migration).
+    if (this.shared?.isSynced()) {
+      if (!this.sawWorldBaseline) {
+        this.peakWorld = world; // baseline = the hydrated world champion; no false fanfare
+        this.sawWorldBaseline = true;
+      } else if (world > this.peakWorld + 1e-4) {
+        const yoursWon = your >= world - 1e-6; // your own creature is the one that did it
+        this.peakWorld = world;
+        if (yoursWon) void this.celebrateWorldWin(world);
+      }
+    }
+  }
+
+  private pulsePersonalBest(): void {
+    const el = this.root.querySelector('.ro-your');
+    if (!el) return;
+    el.classList.remove('pb-pulse');
+    void (el as HTMLElement).offsetWidth; // reflow → restart the one-shot animation
+    el.classList.add('pb-pulse');
+  }
+
+  /** A real, honest celebration: your creature advanced the SHARED frontier. We
+   *  show the new world-best skill and YOUR signature (the key your shared elites
+   *  are signed under) — the finder, on the lineage. */
+  private async celebrateWorldWin(skill: number): Promise<void> {
+    const el = this.root.querySelector('#ag-celebrate');
+    if (!el) return;
+    let sig = '—';
+    try {
+      const id = await this.ensureIdentity();
+      sig = fingerprint(id.publicKeyHex);
+    } catch {
+      /* keep the dash — the win still stands */
+    }
+    el.replaceChildren();
+    const mark = document.createElement('strong');
+    mark.textContent = `✦ NEW WORLD BEST · ${(skill * 100).toFixed(1)}% LOOP SKILL`;
+    const who = document.createElement('span');
+    who.className = 'cel-sig';
+    who.textContent = `you advanced the shared frontier · signed ${sig}`;
+    el.append(mark, who);
+    el.classList.add('show');
+    if (this.celebrateTimer) clearTimeout(this.celebrateTimer);
+    this.celebrateTimer = setTimeout(() => el.classList.remove('show'), 9000);
+  }
+
+  /** Loudly + honestly show that this tab is NOT contributing, with a one-click
+   *  way back in. No silent opt-out: if you're solo, you can see it and undo it. */
+  private indicateSwarmOff(byChoice: boolean): void {
+    this.setText('#ag-swarm-nodes', '0');
+    this.setText('#ag-swarm-label', byChoice ? 'OFF — not contributing' : 'offline — not contributing');
+    this.setText('#ag-swarm-gps', '—');
+    this.setText('#ag-world-best', '—');
+    this.setText('#ag-swarm-explored', '—');
+    this.root.querySelector('.swarm')?.classList.add('swarm-off');
+    const join = this.root.querySelector<HTMLButtonElement>('#ag-swarm-join');
+    if (join) join.hidden = false;
+  }
+
+  /** Re-join the live swarm by reloading at the default (swarm ON) — drops any
+   *  `?swarm=off` from the URL so a refresh contributes again. */
+  private joinSwarm(): void {
+    try {
+      location.search = '';
+    } catch {
+      location.href = location.pathname;
+    }
   }
 
   /** Re-root the gid→signed map on the canonical Genesis (gids reset per world). */
@@ -276,6 +400,9 @@ export class AutographDashboard {
     need(this.root, '#ag-dna-svg').addEventListener('click', () => this.mode === 'stacked' && this.setMode('dna'));
 
     this.grid.addEventListener('click', (e) => this.onGridClick(e));
+
+    // One-click re-join when this tab is opted out (no silent permanent opt-out).
+    this.root.querySelector<HTMLButtonElement>('#ag-swarm-join')?.addEventListener('click', () => this.joinSwarm());
 
     need(this.root, '#ag-keep').addEventListener('click', () => void this.keep());
     need(this.root, '#ag-export').addEventListener('click', () => this.exportLineage());
@@ -387,22 +514,28 @@ export class AutographDashboard {
     this.setText('#ag-pop', `${s.filled}/${s.cells}`);
     this.setText('#ag-cov', `${Math.round(s.coverage * 100)}%`);
     this.setText('#ag-species', String(s.species));
-    // "explored" = the shared, PERSISTED discovery total when on the swarm (so it
-    // doesn't reset on refresh); the local evaluation count when offline.
-    const shared = this.shared?.discovered() ?? null;
-    this.setText('#ag-swarm-explored', this.formatCount(shared ?? s.evaluations));
+
+    // YOUR journey (always moving) — your own climb + your open-ended exploration.
+    this.setText('#ag-your-found', this.formatCount(s.novelty));
+    this.updateJourney(s);
+
+    // "explored" = the SHARED archive's cumulative, persisted best-per-niche
+    // discoveries (monotonic across the whole swarm). It's honest that this nearly
+    // flatlines once the 196-niche map fills with near-optimal champions — that is
+    // convergence of the quality frontier, surfaced here, not a stuck counter. Solo
+    // (or pre-sync) there is no shared frontier to report, so we show "—" rather
+    // than silently swapping in a different (local) number that looks like a reset.
+    const discovered = this.shared?.discovered() ?? null;
+    this.setText('#ag-swarm-explored', discovered === null ? '—' : this.formatCount(discovered));
+
     const now = performance.now();
     if (this.lastGenAt === 0) {
       this.lastGenAt = now;
       this.lastGenValue = s.generation;
     } else if (now - this.lastGenAt > 600) {
       const gps = ((s.generation - this.lastGenValue) * 1000) / (now - this.lastGenAt);
-      this.localGps = gps;
-      // GEN/S + the SWARM line show the collective pulse when connected; the local rate otherwise.
-      if (!this.swarmActive) {
-        this.setText('#ag-gens', this.formatGps(gps));
-        this.setText('#ag-swarm-gps', this.formatGps(gps));
-      }
+      // GEN/S is ALWAYS this node's own pulse; the collective lives on the SWARM line.
+      this.setText('#ag-gens', this.formatGps(gps));
       // Report this node's pulse upstream so the coordinator can sum the swarm total.
       if (this.shared && now - this.lastRateAt > 2400) {
         this.lastRateAt = now;
