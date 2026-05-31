@@ -2,6 +2,7 @@ import { CPPN_INPUTS, CPPN_OUTPUTS, INPUT_IDS, OUTPUT_IDS } from './arch.ts';
 import { activate, ACTIVATION_COUNT, IDENTITY_ACT } from './activations.ts';
 import type { Rng } from './prng.ts';
 import { rngFromSeed } from './prng.ts';
+import { seedReader } from './reader.ts';
 
 // The DNA: a *connective* CPPN evolved with NEAT (augmenting topologies). The
 // genome is a graph — node genes + connection genes with innovation numbers —
@@ -33,6 +34,10 @@ export interface ConnGene {
 export interface Genome {
   nodes: NodeGene[];
   conns: ConnGene[];
+  /** The per-creature read-back network's weights (the genuine other half of the
+   *  loop: self-portrait → DNA′). Fixed topology, evolved + inherited like any
+   *  gene. See reader.ts. Part of `genomeBytes`, so it is signed + verified. */
+  reader: number[];
 }
 
 const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W_SCALE : x);
@@ -50,7 +55,7 @@ export function minimalGenome(rng: Rng): Genome {
       conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight: rng.normal() * 1.4, enabled: true });
     }
   }
-  return { nodes, conns };
+  return { nodes, conns, reader: seedReader(rng) };
 }
 
 export function randomGenome(rng: Rng): Genome {
@@ -66,6 +71,7 @@ export function cloneGenome(g: Genome): Genome {
   return {
     nodes: g.nodes.map((n) => ({ id: n.id, kind: n.kind, act: n.act, bias: n.bias })),
     conns: g.conns.map((c) => ({ innov: c.innov, from: c.from, to: c.to, weight: c.weight, enabled: c.enabled, gater: c.gater })),
+    reader: (g.reader ?? []).slice(),
   };
 }
 
@@ -260,17 +266,21 @@ export function unitToParam(u: number): number {
   return (c - 0.5) * 2 * W_SCALE;
 }
 
-/** Stable little-endian serialisation for content hashing (binds the topology). */
+/** Stable little-endian serialisation for content hashing — binds the topology
+ *  AND the per-creature read-back network (reader weights), so the signed genome
+ *  covers the whole strange loop, both halves. */
 export function genomeBytes(g: Genome): Uint8Array {
   const nodes = g.nodes.slice().sort((a, b) => a.id - b.id);
   const conns = sortedConns(g);
-  const header = 8;
-  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 20);
+  const reader = g.reader ?? [];
+  const header = 10;
+  const bytes = new Uint8Array(header + nodes.length * 12 + conns.length * 20 + reader.length * 4);
   const dv = new DataView(bytes.buffer);
   dv.setUint16(0, CPPN_INPUTS, true);
   dv.setUint16(2, CPPN_OUTPUTS, true);
   dv.setUint16(4, nodes.length, true);
   dv.setUint16(6, conns.length, true);
+  dv.setUint16(8, reader.length, true);
   let o = header;
   for (const n of nodes) {
     dv.setInt32(o, n.id, true);
@@ -286,6 +296,10 @@ export function genomeBytes(g: Genome): Uint8Array {
     dv.setFloat32(o + 12, c.enabled ? c.weight : 0, true);
     dv.setInt32(o + 16, c.gater ?? -1, true); // gater node id (-1 = ungated)
     o += 20;
+  }
+  for (const w of reader) {
+    dv.setFloat32(o, w, true);
+    o += 4;
   }
   return bytes;
 }

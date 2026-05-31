@@ -216,7 +216,7 @@ function mirrorBrainExperiment(): void {
   console.log(
     best > 0.2
       ? '  → a shared mirror network CAN read the portrait back non-trivially across the population.'
-      : '  → a shared mirror network barely beats the mean: the render→DNA inverse is creature-specific, not one learnable map. (Per creature, the analytic read-back still recovers DNA at the loop fidelity above — the portrait DOES encode its own DNA.)',
+      : '  → a shared mirror network barely beats the mean: the render→DNA inverse is creature-specific, not one learnable map — which is exactly why each creature carries its OWN co-evolved read-back network (the loop fidelity above).',
   );
   console.log('  full closure is unchanged either way: iterating decode∘render collapses to the empty fixed point — life = imperfect self-knowledge.');
 }

@@ -1,6 +1,6 @@
 import type { Genome } from './cppn.ts';
 import { randomGenome, compatibility } from './cppn.ts';
-import { evaluate, behaviourSignature } from './fitness.ts';
+import { evaluate, behaviourSignature, eliteQuality } from './fitness.ts';
 import { buildPhenotype } from './substrate.ts';
 import type { Rng } from './prng.ts';
 import { makeRng, cyrb128 } from './prng.ts';
@@ -128,8 +128,13 @@ export class Garden {
       if (this.rng.next() < HYPER.crossoverRate) {
         const parentB = this.selectParent();
         if (parentB) {
-          const child = mutate(crossover(parentA.genome, parentB.genome, this.rng), this.rng, this.innov, this.options);
-          this.install(child, [paGid, parentB.gid ?? 0]); // BOTH crossover parents → a branch
+          // Proper NEAT: pass the FITTER parent first so its disjoint/excess genes
+          // are the inherited ones (crossover() takes them from `a`).
+          const qa = eliteQuality(parentA.evaluation.fidelity, parentA.evaluation.vitality);
+          const qb = eliteQuality(parentB.evaluation.fidelity, parentB.evaluation.vitality);
+          const [hi, lo] = qa >= qb ? [parentA, parentB] : [parentB, parentA];
+          const child = mutate(crossover(hi.genome, lo.genome, this.rng), this.rng, this.innov, this.options);
+          this.install(child, [hi.gid ?? 0, lo.gid ?? 0]); // BOTH crossover parents → a branch
         } else {
           this.install(mutate(parentA.genome, this.rng, this.innov, this.options), [paGid]);
         }
@@ -145,7 +150,7 @@ export class Garden {
    *  of behaviour space (push into the unexplored), else a species (protect new
    *  structure), else a random elite. */
   private selectParent(): Cell | null {
-    if (this.noveltyOn && this.rng.next() < 0.7) {
+    if (this.noveltyOn && this.rng.next() < HYPER.noveltyBias) {
       const f = this.frontierElite();
       if (f) return f;
     }

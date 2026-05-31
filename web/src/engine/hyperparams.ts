@@ -21,6 +21,7 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'gridRows', label: 'grid rows', value: 14, group: 'Population (MAP-Elites)', note: 'behaviour-map rows — the mirror-symmetry axis' },
   { key: 'founders', label: 'random founders', value: 24, group: 'Population (MAP-Elites)', note: 'random minimal genomes seeded when a world starts' },
   { key: 'minVitality', label: 'vitality gate', value: 0.05, group: 'Population (MAP-Elites)', note: 'reject near-flat creatures (the trivial empty fixed point)' },
+  { key: 'noveltyBias', label: 'novelty bias', value: 0.4, group: 'Population (MAP-Elites)', note: 'when Novelty Search is on, fraction of selections drawn from the frontier — novelty INFORMS exploration without dominating fitness/species' },
 
   { key: 'weightMutRate', label: 'weight-mutate rate', value: 0.7, group: 'Mutation (NEAT)', note: 'fraction of connection weights perturbed per mutation' },
   { key: 'weightMutSigma', label: 'weight σ', value: 0.4, group: 'Mutation (NEAT)', note: 'std-dev of the Gaussian weight perturbation' },
@@ -32,15 +33,19 @@ export const PARAMS: readonly ParamSpec[] = [
   { key: 'addNodeRate', label: 'add-node rate', value: 0.08, group: 'Mutation (NEAT)', note: 'NEAT structural: split a connection with a new node' },
   { key: 'toggleRate', label: 'enable-toggle rate', value: 0.02, group: 'Mutation (NEAT)', note: 'flip a connection on/off' },
   { key: 'addGateRate', label: 'add-gate rate', value: 0.05, group: 'Mutation (NEAT)', note: 'neataptic-style: let a neuron gate a connection (option)' },
-  { key: 'recurrentRate', label: 'recurrent chance', value: 0.3, group: 'Mutation (NEAT)', note: 'chance an added connection may be a back/lateral edge (option)' },
+  { key: 'recurrentRate', label: 'recurrent chance', value: 0.3, group: 'Mutation (NEAT)', note: 'chance an added connection may be a back/lateral edge (recurrent — ON by default)' },
   { key: 'selfConnRate', label: 'self-connection chance', value: 0.2, group: 'Mutation (NEAT)', note: 'chance an added connection is a self-loop (option)' },
+  { key: 'readerMutRate', label: 'reader-mutate rate', value: 0.7, group: 'Mutation (NEAT)', note: 'fraction of the read-back network’s weights perturbed per mutation' },
+  { key: 'readerMutSigma', label: 'reader σ', value: 0.3, group: 'Mutation (NEAT)', note: 'std-dev of the Gaussian perturbation on read-back-network weights' },
 
   { key: 'speciesThreshold', label: 'compatibility threshold', value: 0.7, group: 'Speciation', note: 'NEAT compatibility distance above which creatures split species', selfTunes: false },
-  { key: 'crossoverRate', label: 'crossover rate', value: 0.15, group: 'Speciation', note: 'fraction of offspring from crossover (else mutation only)' },
+  { key: 'crossoverRate', label: 'crossover rate', value: 0.3, group: 'Speciation', note: 'fraction of offspring from innovation-aligned crossover (else mutation only) — balanced against novelty' },
   { key: 'respeciateEvery', label: 'respeciate interval', value: 20, unit: 'gen', group: 'Speciation', note: 'recompute species membership every N generations' },
 
   { key: 'loopRelaxAlpha', label: 'loop relaxation α', value: 0.55, group: 'The loop', note: 'under-relaxation for the fixed-point iteration g←g+α(T(g)−g)' },
   { key: 'loopTol', label: 'loop tolerance', value: 0.012, group: 'The loop', note: 'drift below this counts the iteration as converged' },
+  { key: 'readerFeatures', label: 'read-back features', value: 12, group: 'The loop', note: 'self-portrait samples (Fibonacci-sphere densities) the per-creature read-back network sees as input' },
+  { key: 'readerHidden', label: 'read-back hidden units', value: 10, group: 'The loop', note: 'hidden tanh units in the per-creature read-back network that reconstructs the DNA from the self-portrait' },
 
   { key: 'baseBudget', label: 'offspring / frame', value: 20, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame normally' },
   { key: 'turboBudget', label: 'TURBO offspring / frame', value: 60, unit: '/frame', group: 'Tempo', note: 'creatures evaluated per frame with TURBO on' },

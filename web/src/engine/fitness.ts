@@ -1,19 +1,25 @@
 import type { Genome } from './cppn.ts';
 import { genomeVector, paramToUnit, unitToParam, applyParams, paramCount, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
+import { runReader } from './reader.ts';
 import type { Phenotype } from './substrate.ts';
 import { buildPhenotype, substrateForward } from './substrate.ts';
 
-// THE STRANGE LOOP — a genuine fixed point, not just a score.
+// THE STRANGE LOOP — a genuine NEURAL fixed point, not an analytic shortcut.
 //
-//   T(g) = decode( render( g ) ):  DNA → brain → self-portrait → read density
-//          back into a DNA′.  Iterate g → T(g) → T(T(g)) → … and a self-encoding
-//          creature *settles* to a fixed point with T(g*) ≈ g* — a quine
-//          reaching its fixed point. As NEAT complexifies the DNA, the loop has
-//          MORE parameters to re-encode: there is one probe per DNA parameter
-//          (connection weight or bias), placed on a Fibonacci sphere, so a
-//          richer creature faces a harder loop. Closure is honest: evolved
-//          self-encoders converge; random/over-complex ones only partially close.
+//   write:  DNA (CPPN) → brain (substrate) → self-portrait (density/hue field).
+//   read :  the self-portrait, sampled at F fixed probes, is fed through the
+//           creature's OWN read-back network (weights that live in the genome and
+//           co-evolve) → DNA′, one reconstructed parameter per probe coordinate.
+//   close:  loop fidelity = how well the network-produced DNA′ matches the DNA.
+//
+//   T(g) = decode∘render, with the NEURAL reader as the decode half. As NEAT
+//   complexifies the DNA there are MORE parameters to reconstruct from the same
+//   fixed-size portrait, so a richer creature faces a harder loop. Closure is
+//   honest and MEASURED: a living creature only ever closes the loop partway (the
+//   sole perfect fixed point is the empty creature, vitality 0 — which the
+//   vitality gate refuses). It is NOT one shared "universal mirror" (that was
+//   shown not to generalise, R²≈0); each creature is evolved to read itself.
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const probeCache = new Map<number, Float32Array>();
@@ -53,15 +59,33 @@ export function targetAtProbes(g: Genome): Float32Array {
   return out;
 }
 
-/** Loop fidelity in [0,1]: 1 ⇒ the self-portrait perfectly re-encodes the DNA. */
+/** The genuine read-back: sample the self-portrait at the reader's F feature
+ *  probes, then run the creature's OWN read-back network once per DNA parameter
+ *  (at that parameter's probe coordinate) → DNA′ in [0,1]. This is the network
+ *  that *reads the portrait and outputs the DNA* — the decode half of the loop,
+ *  co-evolved per creature (reader.ts). */
+export function readBackUnits(g: Genome, p: Phenotype): Float32Array {
+  const n = paramCount(g);
+  const feats = paintedAtProbes(p, HYPER.readerFeatures);
+  const probes = probesFor(n);
+  const reader = g.reader ?? [];
+  const out = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    out[k] = runReader(reader, feats, probes[k * 3]!, probes[k * 3 + 1]!, probes[k * 3 + 2]!);
+  }
+  return out;
+}
+
+/** Loop fidelity in [0,1]: how faithfully the creature's read-back network
+ *  reconstructs its OWN DNA from its self-portrait. 1 ⇒ a perfect quine; a living
+ *  creature only ever closes it partway. Measured, never faked. */
 export function loopFidelity(g: Genome, p: Phenotype): number {
   const v = genomeVector(g);
   const n = v.length;
-  const probes = probesFor(n);
+  const dna = readBackUnits(g, p);
   let se = 0;
   for (let k = 0; k < n; k++) {
-    const painted = substrateForward(p, probes[k * 3]!, probes[k * 3 + 1]!, probes[k * 3 + 2]!, o2)[0];
-    const d = painted - paramToUnit(v[k]!);
+    const d = dna[k]! - paramToUnit(v[k]!);
     se += d * d;
   }
   const f = 1 - Math.sqrt(se / n);
@@ -70,15 +94,15 @@ export function loopFidelity(g: Genome, p: Phenotype): number {
 
 // --- The fixed-point iteration (the loop literally closing) -----------------
 
-/** Read the painted self-portrait back into a genome (DNA′): the density at each
- *  probe becomes the matching weight/bias; topology + activations carry over as
- *  the body plan. The *decode* half of T = decode∘render. */
-export function readBackGenome(p: Phenotype, template: Genome): Genome {
-  const n = paramCount(template);
-  const painted = paintedAtProbes(p, n);
-  const vec = new Float32Array(n);
-  for (let k = 0; k < n; k++) vec[k] = unitToParam(painted[k]!);
-  return applyParams(template, vec);
+/** Decode the self-portrait back into a genome (DNA′) via the read-back network:
+ *  each reconstructed parameter becomes the matching weight/bias; topology,
+ *  activations + the reader carry over as the body plan. The *decode* half of
+ *  T = decode∘render. */
+export function readBackGenome(g: Genome, p: Phenotype): Genome {
+  const dna = readBackUnits(g, p);
+  const vec = new Float32Array(dna.length);
+  for (let k = 0; k < dna.length; k++) vec[k] = unitToParam(dna[k]!);
+  return applyParams(g, vec);
 }
 
 export interface LoopTrajectory {
@@ -105,11 +129,11 @@ export function iterateLoop(g0: Genome, steps = 24, alpha = HYPER.loopRelaxAlpha
     fidelity.push(loopFidelity(g, p));
     const cur = genomeVector(g);
     const n = cur.length;
-    const painted = paintedAtProbes(p, n);
+    const dna = readBackUnits(g, p);
     const next = new Float32Array(n);
     let se = 0;
     for (let i = 0; i < n; i++) {
-      const target = unitToParam(painted[i]!);
+      const target = unitToParam(dna[i]!);
       const nv = cur[i]! + alpha * (target - cur[i]!);
       se += (nv - cur[i]!) ** 2;
       next[i] = nv;
