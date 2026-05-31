@@ -207,7 +207,7 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
     note.setAttribute('y', '13');
     note.setAttribute('class', 'ag-axis ag-axis-dim');
     note.setAttribute('text-anchor', 'middle');
-    note.textContent = 'substrate · top-down (x,y) — neurons sit where the image has structure';
+    note.textContent = 'neurons sit where the image has structure';
     svg.append(note);
   } else {
     const headIn = el('text');

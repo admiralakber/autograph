@@ -83,14 +83,15 @@ const PIPE_FRAG = /* glsl */ `
   varying float vMag;
   uniform float uTime;
   void main() {
-    // a bright band sweeps source→target; soft base glow the rest of the time
-    float head = fract(vAlong * 1.0 - uTime);
-    float band = smoothstep(0.5, 0.0, head) + smoothstep(0.5, 0.0, 1.0 - head);
-    band = pow(clamp(band - 1.0, 0.0, 1.0), 1.5);
-    float base = 0.14 + 0.18 * vMag;
-    float energy = base + band * (0.9 + 0.6 * vMag);
-    vec3 col = vCol * (0.6 + 0.7 * band) + vec3(band * 0.25);
-    gl_FragColor = vec4(col * energy, energy * (0.5 + 0.5 * vMag));
+    // a bright energy head sweeps source→target; soft sunrise base glow the rest
+    // of the time. The travelling head is the "electric" pop.
+    float head = fract(vAlong - uTime);
+    float band = smoothstep(0.55, 0.0, head) + smoothstep(0.55, 0.0, 1.0 - head);
+    band = pow(clamp(band - 1.0, 0.0, 1.0), 1.3);
+    float base = 0.30 + 0.30 * vMag;                 // visible sunrise pipe at rest
+    float energy = base + band * (1.7 + 0.9 * vMag); // the travelling head blazes
+    vec3 col = vCol * (0.8 + 0.9 * band) + vec3(band * band * 0.5); // whitens at the head
+    gl_FragColor = vec4(col * energy, min(1.0, energy) * (0.65 + 0.35 * vMag));
   }
 `;
 
@@ -306,7 +307,7 @@ export class CreatureScene {
       up.set(Math.abs(dir.y) < 0.95 ? 0 : 1, Math.abs(dir.y) < 0.95 ? 1 : 0, 0);
       u.crossVectors(dir, up).normalize();
       v.crossVectors(dir, u).normalize();
-      const rad = 0.008 + 0.018 * mag[s]!;
+      const rad = 0.012 + 0.024 * mag[s]!;
       const cr = col[s * 3]!;
       const cg = col[s * 3 + 1]!;
       const cb = col[s * 3 + 2]!;
