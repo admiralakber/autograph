@@ -35,8 +35,8 @@ const CAPTIONS: Record<Mode, string> = {
   stacked: 'STACKED · one creature, three ways at once — self-portrait (the output), the brain that draws it, the DNA that grows the brain. Tap any panel to open it full-screen.',
   render:
     'SELF-PORTRAIT · what the brain draws — its density+hue field over 3-D space. These glowing points are the picture, not the wiring.',
-  net: 'PHENOTYPE · the brain the DNA painted, with neurons ES-placed. Signal flows input→output; queried over space, it draws the self-portrait above.',
-  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. Given two points it returns one connection — it paints every weight and places every neuron of the brain.',
+  net: 'PHENOTYPE · the brain ES-HyperNEAT grew — its hidden neurons PLACED, made dense, and wired by a quadtree of the DNA’s weight pattern (not a fixed grid). Queried over space, it draws the self-portrait above.',
+  dna: 'DNA · the NEAT genotype, a CPPN that grows by add-node / add-connection. Read over space it paints the brain; read at its OWN genome coordinates it returns its genes (the self-quine in THE LOOP).',
 };
 
 interface Focused {
@@ -180,15 +180,12 @@ export class AutographDashboard {
     }
   }
 
-  /** The visitor's signing key. Auto-created (ephemeral) the first time it's
-   *  needed so a fresh GENESIS visitor joins the swarm without a manual keypair
-   *  step — the keypair-as-signature concept is intact; pressing "keypair" later
-   *  just mints a fresh one. */
+  /** The visitor's signing key — auto-created INVISIBLY the first time it's needed.
+   *  Lineage is a signed Merkle-DAG, so every kept genome is still signed under the
+   *  hood; the key just isn't a UI control anymore (KISS). One anonymous identity
+   *  per visitor, minted on demand, persisted nowhere it needs announcing. */
   private async ensureIdentity(): Promise<Identity> {
-    if (!this.identity) {
-      this.identity = await generateIdentity();
-      this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
-    }
+    if (!this.identity) this.identity = await generateIdentity();
     return this.identity;
   }
 
@@ -243,19 +240,11 @@ export class AutographDashboard {
   // --- Controls -------------------------------------------------------------
 
   private wire(): void {
-    const seed = need<HTMLInputElement>(this.root, '#ag-seed');
-    need(this.root, '#ag-grow').addEventListener('click', () => this.grow(seed.value.trim() || GENESIS_SEED));
-    seed.addEventListener('keydown', (e) => {
-      if ((e as KeyboardEvent).key === 'Enter') this.grow(seed.value.trim() || GENESIS_SEED);
-    });
-    need(this.root, '#ag-key').addEventListener('click', () => void this.makeKey());
-
     const run = need<HTMLButtonElement>(this.root, '#ag-run');
     run.addEventListener('click', () => {
       this.running = !this.running;
       run.textContent = this.running ? 'PAUSE' : 'RESUME';
     });
-    need(this.root, '#ag-reset').addEventListener('click', () => this.grow(GENESIS_SEED));
     const follow = need<HTMLInputElement>(this.root, '#ag-follow');
     follow.addEventListener('change', () => {
       this.follow = follow.checked;
@@ -366,45 +355,6 @@ export class AutographDashboard {
 
   private toggleInfo(open: boolean): void {
     need(this.root, '#ag-overlay').classList.toggle('open', open);
-  }
-
-  private grow(seedStr: string): void {
-    // GENESIS auto-joins the shared swarm; a custom seed is your own offline world.
-    // The signer mints an ephemeral key on first push, so no identity is required up-front.
-    const joinSwarm = this.coordinatorUrl !== '' && seedStr === GENESIS_SEED;
-    // Tear down any previous swarm connection so a custom seed doesn't keep a socket.
-    this.shared?.close();
-    this.shared = null;
-    this.swarmActive = false;
-    this.garden = new Garden(seedStr, COLS, ROWS, joinSwarm ? this.makeShared() : undefined);
-    if (joinSwarm) this.setText('#ag-swarm-label', 'connecting…');
-    else {
-      this.setText('#ag-swarm-nodes', '1');
-      this.setText('#ag-swarm-label', 'your world (offline)');
-    }
-    this.garden.setNovelty(this.novelty);
-    this.garden.setOptions(this.options);
-    this.resetSignedRoot();
-    this.garden.seedWith([seededGenome(seedStr)]);
-    this.paintEmptyGrid();
-    this.syncDirty();
-    this.follow = true;
-    need<HTMLInputElement>(this.root, '#ag-follow').checked = true;
-    this.refreshFocused(seededGenome(seedStr));
-    this.setText(
-      '#ag-focus-note',
-      seedStr === GENESIS_SEED
-        ? 'GROWN FROM GENESIS · the canonical world'
-        : 'YOUR OWN WORLD · in the swarm, creatures you KEEP migrate into the one genealogy from Genesis',
-    );
-  }
-
-  /** A keypair is your *signature* on creatures you keep — it does not change the
-   *  world you are exploring (Genesis or your own seed). */
-  private async makeKey(): Promise<void> {
-    this.identity = await generateIdentity();
-    this.setText('#ag-identity', `KEY ${fingerprint(this.identity.publicKeyHex).slice(0, 9)}`);
-    this.setText('#ag-verify', 'SIGNATURE READY · creatures you KEEP are now signed by your key');
   }
 
   // --- Frame loop -----------------------------------------------------------

@@ -98,8 +98,8 @@ export class SharedArchive implements Archive {
   private peerCount = 0;
   private lastGen = 0;
   /** Set once the shared archive has been pulled into the mirror. Pushing is
-   *  gated on it, so a fresh / RESET world syncs the good shared elites BEFORE it
-   *  can push — its trivial early creatures never travel upward. */
+   *  gated on it, so a fresh world / reconnecting peer syncs the good shared
+   *  elites BEFORE it can push — its trivial early creatures never travel up. */
   private synced = false;
   private readonly pending: { genome: Genome; evaluation: Evaluation }[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -161,7 +161,7 @@ export class SharedArchive implements Archive {
     const became = this.mirror.tryInsert(genome, evaluation, gen, gid, parents);
     // Only queue a push once we've synced the shared archive: a creature that
     // beats our just-pulled mirror is a genuine improvement worth sharing; a
-    // fresh/RESET world's early trivial elites (pre-sync) are never queued.
+    // fresh world's early trivial elites (pre-sync) are never queued.
     if (became && this.synced) {
       this.pending.push({ genome, evaluation });
       this.scheduleFlush();

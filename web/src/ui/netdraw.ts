@@ -52,9 +52,25 @@ export interface NetLayout {
 }
 
 const CPPN_IN = ['x₁', 'y₁', 'z₁', 'x₂', 'y₂', 'z₂', 'b'];
-const CPPN_OUT = ['weight', 'leo'];
+const CPPN_OUT = ['weight', 'bias'];
 const SUB_IN = ['x', 'y', 'z', 'r', 'b'];
 const SUB_OUT = ['density', 'hue'];
+// Plain-language tooltips for a non-specialist (shown on hover).
+const SUB_IN_DESC: Record<string, string> = {
+  x: 'x — sample coordinate (left↔right)',
+  y: 'y — sample coordinate (down↔up)',
+  z: 'z — sample coordinate (back↔front)',
+  r: 'r — radius: distance from centre (radial symmetry)',
+  b: 'b — bias: a constant 1 (lets neurons shift)',
+};
+const SUB_OUT_DESC: Record<string, string> = {
+  density: 'density — “is there substance here?” (the glow / alpha)',
+  hue: 'hue — the colour painted at this point',
+};
+const CPPN_OUT_DESC: Record<string, string> = {
+  weight: 'weight — the connection strength painted between two coordinates',
+  bias: 'bias — a neuron’s bias, read at its own coordinate (p,p)',
+};
 
 function colX(layer: number, layers: number): number {
   return PAD_X + (layers <= 1 ? 0.5 : layer / (layers - 1)) * (W - 2 * PAD_X);
@@ -230,7 +246,7 @@ export function drawCppnGraph(svg: SVGSVGElement, g: Genome, onHover?: (text: st
         n.kind === 0
           ? `INPUT ${inLbl ?? n.id}`
           : n.kind === 2
-            ? `OUTPUT ${outLbl ?? n.id}`
+            ? (CPPN_OUT_DESC[outLbl ?? ''] ?? `OUTPUT ${outLbl ?? n.id}`)
             : `HIDDEN #${n.id} · ${ACTIVATIONS[n.act] ?? '?'}`,
     };
     idToNode.set(n.id, ln);
@@ -266,9 +282,9 @@ export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conn
       const y = rowY(i, arr.length);
       const ln: LayoutNode =
         n.role === 'in'
-          ? { x, y, layer, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[i], title: `INPUT ${SUB_IN[i] ?? i}` }
+          ? { x, y, layer, role: 'in', grey: 0.55, r: 4.5, label: SUB_IN[i], title: SUB_IN_DESC[SUB_IN[i] ?? ''] ?? `INPUT ${SUB_IN[i] ?? i}` }
           : n.role === 'out'
-            ? { x, y, layer, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[i], title: `OUTPUT ${SUB_OUT[i] ?? i}` }
+            ? { x, y, layer, role: 'out', grey: 1.0, r: 7, label: SUB_OUT[i], title: SUB_OUT_DESC[SUB_OUT[i] ?? ''] ?? `OUTPUT ${SUB_OUT[i] ?? i}` }
             : {
                 x,
                 y,
@@ -293,7 +309,9 @@ export function drawSubstrateGraph(svg: SVGSVGElement, subNodes: SubNode[], conn
     const a = place.get(c.a);
     const b = place.get(c.b);
     if (!a || !b) continue;
-    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0 });
+    // hidden→hidden (same layer) or back edges are recurrent → drawn as arcs.
+    const recurrent = a.layer >= b.layer;
+    edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, mag: Math.abs(c.weight) / maxAbs, excit: c.weight >= 0, recurrent });
   }
   const layout: NetLayout = { nodes, edges, layers: 3 };
   paint(svg, layout, onHover);
