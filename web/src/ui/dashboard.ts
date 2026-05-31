@@ -13,7 +13,7 @@ import { CreatureScene } from '../engine/render/scene3d.ts';
 import type { Identity, LineageEntry, LineageFile } from '../engine/lineage.ts';
 import { generateIdentity, createEntry, verifyLineage, makeLineageFile, hashGenome, fingerprint } from '../engine/lineage.ts';
 import { loadLineage, saveEntry } from '../engine/storage.ts';
-import type { Cell } from '../engine/archive.ts';
+import type { Archive, Cell } from '../engine/archive.ts';
 import type { NetLayout } from './netdraw.ts';
 import { drawCppnGraph, drawSubstrateGraph, NetworkPulse } from './netdraw.ts';
 import { renderGenealogy } from './genealogy.ts';
@@ -58,6 +58,7 @@ export class AutographDashboard {
   private focused: Focused | null = null;
   private mode: Mode = 'stacked';
   private portraitDim: '3d' | '2d' = '3d';
+  private mapView: 'local' | 'world' = 'world'; // which archive the DIVERSITY MAP renders
   private running = true;
   private follow = true;
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
@@ -154,6 +155,10 @@ export class AutographDashboard {
     }
     this.garden.setNovelty(this.novelty);
     this.garden.seedWith([seededGenome(GENESIS_SEED)]);
+    // Diversity-map default: WORLD when on the swarm (today's view), LOCAL when solo.
+    this.mapView = this.shared ? 'world' : 'local';
+    this.updateMapViewAvailability();
+    this.refreshMapViewUi();
     await this.bootGenealogy();
     this.syncDirty();
     this.refreshFocused(seededGenome(GENESIS_SEED));
@@ -223,6 +228,9 @@ export class AutographDashboard {
     this.shared = new SharedArchive({
       url: this.coordinatorUrl,
       mirror: new MapElites(COLS, ROWS),
+      // LOCAL-only view: records just THIS node's own creatures, so the diversity
+      // map can show "your evolving archive" distinct from the shared (saturated) one.
+      localMirror: new MapElites(COLS, ROWS),
       signer: { sign: async (g, e) => createEntry({ genome: g, parents: [], seed: null, fidelity: e.fidelity, identity: await this.ensureIdentity() }) },
       onPeers: (n) => this.setPeers(n),
       onSwarm: (_peers, gps) => this.setSwarmRate(gps),
@@ -346,7 +354,7 @@ export class AutographDashboard {
     this.setText('#ag-swarm-label', byChoice ? 'OFF — not contributing' : 'offline — not contributing');
     this.setText('#ag-swarm-gps', '—');
     this.setText('#ag-world-best', '—');
-    this.setText('#ag-swarm-explored', '—');
+    this.setText('#ag-swarm-explored', '— (solo)');
     this.root.querySelector('.swarm')?.classList.add('swarm-off');
     const join = this.root.querySelector<HTMLButtonElement>('#ag-swarm-join');
     if (join) join.hidden = false;
@@ -400,6 +408,10 @@ export class AutographDashboard {
     need(this.root, '#ag-dna-svg').addEventListener('click', () => this.mode === 'stacked' && this.setMode('dna'));
 
     this.grid.addEventListener('click', (e) => this.onGridClick(e));
+
+    // DIVERSITY MAP source: your own evolving map (LOCAL) vs the shared one (WORLD).
+    this.root.querySelector<HTMLButtonElement>('#ag-map-local')?.addEventListener('click', () => this.setMapView('local'));
+    this.root.querySelector<HTMLButtonElement>('#ag-map-world')?.addEventListener('click', () => this.setMapView('world'));
 
     // One-click re-join when this tab is opted out (no silent permanent opt-out).
     this.root.querySelector<HTMLButtonElement>('#ag-swarm-join')?.addEventListener('click', () => this.joinSwarm());
@@ -499,7 +511,9 @@ export class AutographDashboard {
       this.syncDirty();
       this.updateReadouts();
       if (this.follow && this.frame % FOLLOW_EVERY === 0) {
-        const best = this.garden.archive.bestLively(0.32, 0.22) ?? this.garden.archive.bestLively(0.2, 0.12) ?? this.garden.archive.best();
+        // Follow the best of whichever archive is on the map (LOCAL = your best, WORLD = champion).
+        const a = this.mapArchive();
+        const best = a.bestLively(0.32, 0.22) ?? a.bestLively(0.2, 0.12) ?? a.best();
         if (best) this.refreshFocused(best.cell.genome, best.index);
       }
       if (this.frame % 24 === 0) void this.maybeGrowTree();
@@ -525,8 +539,11 @@ export class AutographDashboard {
     // convergence of the quality frontier, surfaced here, not a stuck counter. Solo
     // (or pre-sync) there is no shared frontier to report, so we show "—" rather
     // than silently swapping in a different (local) number that looks like a reset.
+    // 'explored' is a WORLD metric only. Solo there's no shared frontier → "— (solo)";
+    // connected-but-pre-sync → "—"; otherwise the shared persisted total. Never a
+    // local value (the fast-climbing solo number is FOUND, clearly labelled as yours).
     const discovered = this.shared?.discovered() ?? null;
-    this.setText('#ag-swarm-explored', discovered === null ? '—' : this.formatCount(discovered));
+    this.setText('#ag-swarm-explored', !this.shared ? '— (solo)' : discovered === null ? '—' : this.formatCount(discovered));
 
     const now = performance.now();
     if (this.lastSampleAt === 0) {
@@ -749,12 +766,13 @@ export class AutographDashboard {
     // frame keeps its overflow queued instead of dropping it (drainDirty clears the
     // whole set). Then redraw a bounded number per frame — the map fills fully over
     // the next few frames rather than leaving populated cells black until a click.
-    for (const idx of this.garden.archive.drainDirty()) this.paintQueue.add(idx);
+    const arch = this.mapArchive();
+    for (const idx of arch.drainDirty()) this.paintQueue.add(idx);
     let budget = 8;
     for (const idx of this.paintQueue) {
       if (budget-- <= 0) break;
       this.paintQueue.delete(idx);
-      const cell = this.garden.archive.get(idx);
+      const cell = arch.get(idx);
       if (!cell) continue;
       const cx = (idx % COLS) * CELL;
       const cy = Math.floor(idx / COLS) * CELL;
@@ -772,12 +790,69 @@ export class AutographDashboard {
     const cx = Math.floor(((e.clientX - rect.left) / rect.width) * COLS);
     const cy = Math.floor(((e.clientY - rect.top) / rect.height) * ROWS);
     const idx = cy * COLS + cx;
-    const cell = this.garden.archive.get(idx);
+    const cell = this.mapArchive().get(idx);
     if (!cell) return;
     this.follow = false;
     need<HTMLInputElement>(this.root, '#ag-follow').checked = false;
     this.refreshFocused(cell.genome, idx);
-    this.setText('#ag-focus-note', 'PINNED · a creature you chose from the diversity map');
+    this.setText('#ag-focus-note', this.mapView === 'local' ? 'PINNED · a creature from YOUR own map' : 'PINNED · a creature you chose from the diversity map');
+  }
+
+  // --- Diversity-map view (LOCAL ↔ WORLD) -----------------------------------
+
+  /** The archive the DIVERSITY MAP renders: LOCAL = this node's OWN evolving map
+   *  (dynamic, churning), WORLD = the shared/merged mirror (saturated near ~98%).
+   *  Solo, only the local archive exists, so both resolve to it. No new compute —
+   *  it just swaps which already-maintained archive feeds the existing grid render. */
+  private mapArchive(): Archive {
+    if (this.mapView === 'local' && this.shared) return this.shared.localArchive() ?? this.garden.archive;
+    return this.garden.archive;
+  }
+
+  /** Switch the diversity-map source (LOCAL ↔ WORLD) and fully repaint the grid. */
+  private setMapView(view: 'local' | 'world'): void {
+    if (view === 'world' && !this.shared) view = 'local'; // no shared world when solo
+    this.mapView = view;
+    this.refreshMapViewUi();
+    this.repaintMap();
+  }
+
+  /** Reflect the active view in the toggle buttons + the caption (no repaint). */
+  private refreshMapViewUi(): void {
+    this.root.querySelector('#ag-map-local')?.classList.toggle('active', this.mapView === 'local');
+    this.root.querySelector('#ag-map-world')?.classList.toggle('active', this.mapView === 'world');
+    const legend = 'complexity → · symmetry ↑ · brightness = skill · ⬚ = watched';
+    this.setText(
+      '#ag-map-caption',
+      this.mapView === 'local'
+        ? `LOCAL · the creatures THIS machine has evolved this session — your own map, dynamic & churning · ${legend}`
+        : `WORLD · the shared archive (everyone's best per niche), saturated near the ~98% champion · ${legend}`,
+    );
+  }
+
+  /** Enable/disable WORLD by whether a shared archive exists; force LOCAL when solo. */
+  private updateMapViewAvailability(): void {
+    const world = this.root.querySelector<HTMLButtonElement>('#ag-map-world');
+    const available = this.shared != null;
+    if (world) {
+      world.disabled = !available;
+      world.title = available
+        ? "the SHARED archive — everyone's best per niche (saturated near the ~98% champion)"
+        : '— (solo): no shared world to compare; join the swarm to see WORLD';
+    }
+    if (!available && this.mapView === 'world') this.setMapView('local');
+  }
+
+  /** Full repaint of the grid from the currently-viewed archive (used on toggle). */
+  private repaintMap(): void {
+    this.paintEmptyGrid();
+    this.paintQueue.clear();
+    const arch = this.mapArchive();
+    arch.drainDirty(); // repainting everything — clear any stale dirty for this archive
+    arch.forEach((cell, idx) => {
+      if (cell) this.paintQueue.add(idx);
+    });
+    this.moveHighlight(null); // follow re-places it; a stale highlight could point at an empty cell
   }
 
   /** Grow a REAL branching phylogeny: periodically sign one lively elite into the

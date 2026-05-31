@@ -64,6 +64,11 @@ type WebSocketLike = {
 export interface SharedArchiveOptions {
   url: string;
   mirror: Archive;
+  /** Optional LOCAL-ONLY view archive: records ONLY the creatures THIS node evolves
+   *  (keep-best over its own offspring), never the migrated world champions — so the
+   *  UI can show "your own evolving map" distinct from the shared (saturated) one.
+   *  Purely a record for rendering; it never feeds evolution. */
+  localMirror?: Archive;
   signer: EliteSigner;
   room?: string;
   onPeers?: (peers: number) => void;
@@ -95,6 +100,8 @@ const SYNC_INTERVAL_MS = 12_000;
  *  connect = migration of the shared archive. */
 export class SharedArchive implements Archive {
   private readonly mirror: Archive;
+  /** LOCAL-only view archive (this node's own creatures), or null if not provided. */
+  private readonly localMirror: Archive | null;
   private readonly signer: EliteSigner;
   private readonly wsUrl: string;
   private readonly onPeers?: (peers: number) => void;
@@ -120,6 +127,7 @@ export class SharedArchive implements Archive {
 
   constructor(opts: SharedArchiveOptions) {
     this.mirror = opts.mirror;
+    this.localMirror = opts.localMirror ?? null;
     this.signer = opts.signer;
     this.onPeers = opts.onPeers;
     this.onSwarm = opts.onSwarm;
@@ -194,6 +202,10 @@ export class SharedArchive implements Archive {
   tryInsert(genome: Genome, evaluation: Evaluation, gen: number, gid = 0, parents: number[] = []): boolean {
     this.lastGen = gen;
     const became = this.mirror.tryInsert(genome, evaluation, gen, gid, parents);
+    // Record into the LOCAL-only view too (independent keep-best over OUR creatures).
+    // This is what the "LOCAL" diversity-map view renders — your own evolving map,
+    // not the saturated shared one. Migrations (delta/elites) deliberately skip this.
+    this.localMirror?.tryInsert(genome, evaluation, gen, gid, parents);
     // Only queue a push once we've synced the shared archive: a creature that
     // beats our just-pulled mirror is a genuine improvement worth sharing; a
     // fresh world's early trivial elites (pre-sync) are never queued.
@@ -221,6 +233,11 @@ export class SharedArchive implements Archive {
    *  so the UI knows the world champion is present before judging a "world best". */
   isSynced(): boolean {
     return this.synced;
+  }
+  /** The LOCAL-only view archive (this node's own creatures), or null if none was
+   *  provided. The shared/merged archive (≈ the WORLD view) is this object itself. */
+  localArchive(): Archive | null {
+    return this.localMirror;
   }
   close(): void {
     this.closed = true;
