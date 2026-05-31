@@ -37,7 +37,7 @@ When that loop closes, the creature has written its own signature — hence the 
 flowchart LR
   DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>ES-HyperNEAT places neurons"| PHENO["🧠 brain · phenotype<br/>(ES-HyperNEAT substrate)"]
   PHENO -->|"queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  DNA -->|"the SAME CPPN, read at its<br/>genome coordinates (self-quine)"| DNA2["🧬 DNA′"]
+  ART -->|"fed back through the<br/>creature's OWN brain → DNA′"| DNA2["🧬 DNA′"]
   DNA2 -. "closer DNA′ ↔ DNA ⇒ loop closes (measured skill, R²)" .-> DNA
 ```
 
@@ -76,7 +76,7 @@ It runs **entirely on your device** — no backend, no telemetry. Here is the ho
 - 🧬 **A genuinely-evolving DNA + brain.** A heterogeneous-activation CPPN (the genotype) paints + *grows* an ES-HyperNEAT substrate (the phenotype); both evolve by gradient-free mutation + textbook innovation-aligned crossover.
 - 🧠 **Genuine ES-HyperNEAT neuron placement.** A real [quadtree decomposition](https://doi.org/10.1162/EVCO_a_00071) of the CPPN weight pattern — variance-based **division & initialization** then **pruning & extraction** with band-pruning (Risi & Stanley 2012) — discovers *where* the hidden neurons sit, *how dense* they are, and *which* connections express, iterated from inputs→hidden→outputs and pruned to functional topology. *Honest bound:* the quadtree's max depth is capped for browser real time (the paper sets a max resolution too); placement runs on the algorithm's native 2-D sheet while the picture is the network's response swept over 3-D space; per-neuron heterogeneous activations + CPPN-painted biases are Autograph extensions. All real code — see [`web/src/engine/eshyperneat.ts`](./web/src/engine/eshyperneat.ts).
 - ✨ **A 3-D volumetric self-portrait.** The substrate's density → hue field rendered as a point cloud via [Three.js](https://threejs.org/), with a graceful **Canvas 2D** fallback (and the same field drives the grid thumbnails).
-- 🔁 **An intrinsic self-encoding loop, measured honestly.** The decode half is the creature's *own* CPPN read at its genome's canonical coordinates — a genuine [neural-network quine](https://arxiv.org/abs/1803.05859) (Chang & Lipson), **not** a separate read-back regressor (that bolt-on collapsed to "predict the mean"). One function, two readings: over space it paints the portrait; at its genome coordinates it returns its genes (DNA′). We report **loop skill** as baseline-corrected R² (`1 − MSE/Var`): a constant or random creature scores **~0** (not the old inflated ~0.97), and evolved creatures reach genuine self-consistency around **0.7–0.9**. You watch the real value; nothing is faked.
+- 🔁 **A self-encoding loop *through the picture*, measured honestly.** The rendered self-portrait is fed back **through the creature's own brain** (the CPPN-painted substrate, its own hidden neurons) which outputs a DNA′ — the picture is genuinely in the read path. The reader is the creature's own evolved network (**not** a separate regressor — that bolt-on collapsed to "predict the mean" — and not the CPPN merely echoing itself), a continuous cousin of Chang & Lipson's [neural-network quine](https://arxiv.org/abs/1803.05859). We report **loop skill** as baseline-corrected R² (`1 − MSE/Var`): a blank or trivial picture scores **~0** (not the old inflated ~0.97), and evolved creatures reach a genuine, **humbler** self-consistency around **0.3–0.5** — reading your own DNA out of your own picture is *hard*, and that honesty is the point. You watch the real value; nothing is faked.
 - 🗺️ **Real [MAP-Elites](https://arxiv.org/abs/1504.04909) quality-diversity.** A grid keyed by (structural complexity, mirror symmetry); each cell keeps the best self-encoder of its kind, fitness shown by a greyscale border value (no colour). You watch the wall of diverse self-portraits fill.
 - 🌳 **A real signed, hash-chained tree of life — and it persists.** Keep a creature and it becomes a node in a content-addressed [Merkle-DAG](https://en.wikipedia.org/wiki/Merkle_tree); its id is `SHA-256` of its content *including its parents' ids*, signed with an [ECDSA P-256](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) key. The lineage is rendered as a navigable greyscale tree and **persisted across sessions in IndexedDB**, so it grows over time. Everything descends from the Genesis seed. **No chain. No token.**
 
@@ -141,7 +141,7 @@ npm run build      # type-check (strict) + production build
 npm run smoke      # headless sanity check: evolution + loop + lineage verification
 ```
 
-The CPPN, the genuine ES-HyperNEAT substrate, the self-quine loop, MAP-Elites, the render and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
+The CPPN, the genuine ES-HyperNEAT substrate, the picture→brain read-back loop, MAP-Elites, the render and the Web-Crypto lineage are all written from scratch and live in [`web/src/engine`](./web/src/engine).
 
 ### Repository layout
 
@@ -154,7 +154,7 @@ autograph/
 │   │   ├── cppn.ts          # the DNA (connective CPPN) + genome serialisation
 │   │   ├── eshyperneat.ts   # genuine ES-HyperNEAT: quadtree placement + band-pruning
 │   │   ├── substrate.ts     # the brain ES-HyperNEAT grows, + its evaluator
-│   │   ├── quine.ts         # the intrinsic self-quine: CPPN read at genome coords → DNA′
+│   │   ├── readback.ts      # the read-back: the picture fed through the brain → DNA′
 │   │   ├── fitness.ts       # the strange loop: skill (R²), vitality, descriptors
 │   │   ├── mapelites.ts     # MAP-Elites quality-diversity archive
 │   │   ├── lineage.ts       # signed, content-addressed Merkle-DAG (Web Crypto)

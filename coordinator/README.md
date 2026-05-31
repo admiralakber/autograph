@@ -69,7 +69,7 @@ coordinator/
 
 ## 📡 Protocol
 
-One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `genesis-v3`). All frames are JSON. `PROTOCOL_VERSION = 3` (bumped with the genome wire format; v3 dropped the old read-back-network weights now that the loop's decode half is the intrinsic self-quine — old v2 elites no longer verify, so the fresh `genesis-v3` room starts clean). `/health` reports the protocol.
+One WebSocket per tab, at `wss://<host>/parties/archive-room/<room>` (the `archive-room` segment is the kebab-cased `ArchiveRoom` binding; `<room>` is the world name, default `genesis-v3`). All frames are JSON. `PROTOCOL_VERSION = 3` (bumped with the genome wire format; v3 dropped the old read-back-network weights — the loop's decode half is now the rendered picture fed back through the creature's own brain, so the genome carries no separate reader. Old v2 elites no longer verify, so the fresh `genesis-v3` room started clean; protocol-3 changes since are additive — `discovered` count, gen/s decay — so the archive PERSISTS). `/health` reports the protocol.
 
 ### Client → server
 
