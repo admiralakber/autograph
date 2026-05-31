@@ -86,40 +86,41 @@ export interface NetLayout {
 }
 
 const CPPN_IN = ['x₁', 'y₁', 'z₁', 'x₂', 'y₂', 'z₂', 'b'];
-// The CPPN (DNA) paints 11 channels: the IMAGE (weight, bias) + the v6 temporal faculties
-// (α, emit, modGate, fixX/fixY/fixScale, halt) + the v7 WRITER (emitVal, emitEnd).
-const CPPN_OUT = ['weight', 'bias', 'α', 'emit', 'modGate', 'fixX', 'fixY', 'fixScale', 'halt', 'emitVal', 'emitEnd'];
-// v7 — the phenotype is READ and WRITTEN, not just painted. Its 5 input ports are
-// TIME-MULTIPLEXED across the substrate's uses; we label them by the READ glimpse (the
-// headline) and the titles carry the full truth (painter coord · write feedback). The 2
-// output neurons are the PAINTER's density/hue; the read/write OUTPUTS (the real-valued gene, the
-// end-signal, the next glimpse) are CPPN-painted READOUTS distributed across the neurons,
-// NOT these two nodes — surfaced in the legend + the graph note, not as fake output ports.
-const SUB_IN = ['fix x', 'fix y', 'fovea', 'periph', 'b'];
-const SUB_OUT = ['density', 'hue'];
+// The CPPN (DNA) paints 6 channels — the genome's three EXPRESSIONS, none a behaviour:
+// STRUCTURE (weight, bias) · APPEARANCE (density, hue = the CPPN-art self-portrait) ·
+// FACULTIES (α plasticity, modGate neuromod). The brain's behaviours are NOT here — they
+// are substrate OUTPUT NEURONS (see SUB_OUT), computed by running.
+const CPPN_OUT = ['weight', 'bias', 'density', 'hue', 'α', 'modGate'];
+// The phenotype (brain) READS the CPPN-art image and WRITES its DNA. Its 6 input ports
+// carry the foveated GLIMPSE in the READ phase and the autoregressive feedback in the WRITE
+// phase (time-multiplexed; the headline label is the READ glimpse, the title carries both).
+// Its 7 output NEURONS are the WRITER, computed by running — the real read/write I/O.
+const SUB_IN = ['fovea ρ', 'fovea h', 'periph ρ', 'prev', 'mode', 'b'];
+const SUB_OUT = ['emit', 'end', 'look x', 'look y', 'zoom', 'halt', 'm'];
 const SUB_IN_DESC: Record<string, string> = {
-  'fix x': 'fix x — WHERE the brain looks (glimpse fixation x, the READ). Same port: the painter’s x-coord; in the WRITE it carries the brain’s previous emitted value (autoregressive feedback).',
-  'fix y': 'fix y — WHERE the brain looks (glimpse fixation y, the READ). Same port: the painter’s y-coord; in the WRITE it carries the emit-mode flag.',
-  fovea: 'fovea — the FINE central density the brain sees at its fixation (the READ glimpse). Same port: the painter’s z-coord; in the WRITE it carries the emit position.',
-  periph: 'periph — the COARSE surrounding density at its fixation (the READ glimpse). Same port: the painter’s r = radius.',
+  'fovea ρ': 'fovea ρ — the FINE central DENSITY the brain sees at its chosen fixation (the READ glimpse of the CPPN-art image). In the WRITE phase this port is fed 0.',
+  'fovea h': 'fovea h — the FINE central HUE at its fixation (the READ glimpse reads the image’s colour too). In the WRITE phase: 0.',
+  'periph ρ': 'periph ρ — the COARSE surrounding density at its fixation (RAM multi-resolution glimpse). In the WRITE phase: 0.',
+  prev: 'prev — the brain’s OWN previous emitted value, fed back in the WRITE phase (autoregression). In the READ phase: 0.',
+  mode: 'mode — a flag: 0 while READING the image, 1 while WRITING the DNA (so the one brain knows which phase it is in).',
   b: 'b — bias: a constant 1 (lets neurons shift), in every phase.',
 };
 const SUB_OUT_DESC: Record<string, string> = {
-  density: 'density — the PAINTER output: “is there substance here?” (the glow that makes the image the brain reads). NOT a read/write output.',
-  hue: 'hue — the PAINTER output: the colour painted at this point. The DNA the brain WRITES is read out across its neurons (real-valued gene · halt · next-glimpse), not from this node.',
+  emit: 'emit — the next DNA value the brain WRITES (σ of this output neuron; a real value, not a discrete token). Autoregressive: it feeds back as next step’s input.',
+  end: 'end — the end-of-sequence signal (Adaptive Computation Time). When it accrues past 1 the creature has DECIDED its own DNA length.',
+  'look x': 'look x — WHERE to glimpse next, x (RAM hard attention; the brain chooses its own gaze).',
+  'look y': 'look y — WHERE to glimpse next, y.',
+  zoom: 'zoom — how zoomed the next foveated glimpse is (attention scale).',
+  halt: 'halt — the READ’s halt signal (ACT): “I’ve seen enough” → switch from reading to writing.',
+  m: 'm — the brain’s own neuromodulator: it gates how fast each plastic synapse learns (Backpropamine). A real output neuron, computed by running.',
 };
 const CPPN_OUT_DESC: Record<string, string> = {
-  weight: 'weight — the connection strength painted between two coordinates (paints the image)',
-  bias: 'bias — a neuron’s bias, read at its own coordinate (p,p) (paints the image)',
-  'α': 'α — per-connection Hebbian plasticity coefficient (the synapse self-modifies as the brain reads)',
-  emit: 'emit — per-neuron neuromodulator emission (the brain’s own signal m(t) gates its plasticity)',
-  modGate: 'modGate — how much m(t) gates each synapse’s learning rate (Backpropamine form)',
-  fixX: 'fixX — attention readout: where to look next, x (the brain chooses its glimpse)',
-  fixY: 'fixY — attention readout: where to look next, y',
-  fixScale: 'fixScale — attention readout: glimpse zoom',
-  halt: 'halt — the READ’s halt signal (Adaptive Computation Time): “I’ve seen enough”',
-  emitVal: 'emitVal — the WRITER readout: the next DNA element the brain emits (autoregressive)',
-  emitEnd: 'emitEnd — the WRITER readout: the end-of-sequence signal — the brain DECIDES its own length',
+  weight: 'weight — STRUCTURE: the connection strength painted between two coordinates; ES-HyperNEAT grows the brain from this pattern.',
+  bias: 'bias — STRUCTURE: a neuron’s bias, read at its own coordinate (p,p).',
+  density: 'density — APPEARANCE: the self-portrait’s substance/alpha at a point (CPPN-art). This is the IMAGE the brain reads — never a brain output.',
+  hue: 'hue — APPEARANCE: the colour painted at a point (CPPN-art). Part of the image the brain reads.',
+  'α': 'α — FACULTY: per-connection Hebbian plasticity coefficient (the synapse self-modifies as the brain reads).',
+  modGate: 'modGate — FACULTY: how much the brain’s own m(t) gates each synapse’s learning rate (Backpropamine form).',
 };
 
 function colX(layer: number, layers: number): number {
@@ -216,7 +217,7 @@ function drawLegend(svg: SVGSVGElement, acts: number[], spatial = false): void {
   path.setAttribute('class', 'ag-legend-t');
   path.textContent = spatial
     ? 'plastic · neuromodulated · attentive brain'
-    : 'outputs paint the image (weight·bias) + the faculties + the writer';
+    : 'structure (weight·bias) · appearance (density·hue) · faculties (α·modGate)';
   g.appendChild(path);
 
   svg.appendChild(g);
@@ -240,7 +241,7 @@ function paint(svg: SVGSVGElement, layout: NetLayout, onHover?: (text: string) =
       svg.append(note);
     };
     mk(11, 'reads its image (glimpses) → writes its DNA');
-    mk(21, 'writes value·halt·next-look · density·hue = painter');
+    mk(21, 'outputs: emit · end · look · halt · m (the writer)');
   } else {
     const headIn = el('text');
     headIn.setAttribute('x', String(PAD_X));
