@@ -42,13 +42,13 @@ export interface EsParams {
   iterationLevel: number;
   maxHidden: number;
   weightScale: number;
-  /** v6: max magnitude of the per-connection Hebbian plasticity coefficient α
-   *  (painted by the CPPN's 3rd output). Placement/expression are unchanged — they
-   *  still follow the WEIGHT pattern; α is read at the same coordinate pair. */
+  /** Max magnitude of the per-connection Hebbian plasticity coefficient α (painted by
+   *  the CPPN's α channel, index 4). Placement/expression are unchanged — they still
+   *  follow the WEIGHT pattern; α is read at the same coordinate pair. */
   plasticityScale: number;
-  /** v6 Phase 3: max magnitude of the per-connection neuromodulation gate g
-   *  (painted by the CPPN's 5th output, read at the same coordinate pair as α/weight)
-   *  — how much the brain's emitted signal m(t) gates this synapse's learning rate. */
+  /** Max magnitude of the per-connection neuromodulation gate g (painted by the CPPN's
+   *  modGate channel, index 5, read at the same coordinate pair as α/weight) — how much
+   *  the brain's m(t) output neuron gates this synapse's learning rate. */
   neuromodScale: number;
 }
 
@@ -221,16 +221,16 @@ function cleanNet(inputs: Vec3[], outputs: Vec3[], conns: RawConn[]): SubstrateG
  *  hidden placement/density/connectivity, then prune to functional topology. */
 export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], params: EsParams): SubstrateGraph {
   const wAt = (a: Vec3, bx: number, by: number, bz: number): number => evalCompiled(cc, a[0], a[1], a[2], bx, by, bz, o2)[0] * params.weightScale;
-  // v6: the per-connection temporal coefficients, painted by the CPPN at the SAME
-  // coordinate pair as the weight, bounded by tanh × scale — α (plasticity, 3rd
-  // output) and g (neuromodulation gate, 5th output). One eval fills both; returned
-  // via a reused scratch read immediately at each call site.
-  const oc: number[] = [0, 0, 0, 0, 0];
+  // The per-connection FACULTY coefficients, painted by the CPPN at the SAME coordinate
+  // pair as the weight, bounded by tanh × scale — α (plasticity, channel 4) and g
+  // (neuromodulation gate, channel 5). One eval fills both; returned via a reused scratch
+  // read immediately at each call site.
+  const oc: number[] = [0, 0, 0, 0, 0, 0];
   const ag: [number, number] = [0, 0];
   const agAt = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): [number, number] => {
     evalCompiled(cc, ax, ay, az, bx, by, bz, oc);
-    ag[0] = Math.tanh(oc[2]!) * params.plasticityScale; // α
-    ag[1] = Math.tanh(oc[4]!) * params.neuromodScale; // g
+    ag[0] = Math.tanh(oc[4]!) * params.plasticityScale; // α
+    ag[1] = Math.tanh(oc[5]!) * params.neuromodScale; // g
     return ag;
   };
   const conns: RawConn[] = [];

@@ -1,91 +1,83 @@
-// Topology — the single source of truth for both networks in the loop.
+// Topology — the single source of truth for the loop's two networks.
 //
 //   GENOTYPE (the DNA): a *connective* CPPN evolved with real NEAT — augmenting
-//   topologies. It starts minimal (inputs wired straight to outputs) and grows
-//   structure over generations via add-node / add-connection mutations with
-//   innovation tracking; recurrent connections are allowed. Given a pair of
-//   3-D coordinates it returns [weight, bias]: the connection weight painted
-//   between two points, and a bias pattern read at a point. The genome is a
-//   graph, so its size *grows* — visible complexification.
+//   topologies. Given a pair of 3-D coordinates it returns SIX channels — the genome's
+//   three EXPRESSIONS (none of them a phenotype behaviour):
+//     • STRUCTURE — `weight` (the connection pattern ES-HyperNEAT grows the brain from;
+//       it also sets each neuron's activation) + `bias`.
+//     • APPEARANCE — `density` + `hue`: the self-portrait the DNA PAINTS over space
+//       (CPPN-art, à la Picbreeder/Stanley). This IMAGE is what the brain READS.
+//     • FACULTIES — `α` (per-connection Hebbian plasticity) + `modGate` (neuromod gate).
+//   It starts minimal and complexifies (add-node / add-connection, recurrent links).
 //
-//   PHENOTYPE (the substrate / "brain"): a HyperNEAT substrate whose connection
-//   weights are *painted* by the CPPN and whose hidden neurons are *placed,
-//   density-chosen, and wired* by genuine ES-HyperNEAT (Risi & Stanley 2012):
-//   a quadtree decomposition of the CPPN-encoded weight pattern, with variance-
-//   based division and band-pruning. Queried over 3D space, the resulting
-//   network outputs a density and a hue — the volumetric image the brain emerges
-//   within. See eshyperneat.ts for the algorithm.
+//   PHENOTYPE (the substrate / "brain"): a HyperNEAT substrate GROWN by genuine
+//   ES-HyperNEAT (Risi & Stanley 2012) from the CPPN's WEIGHT pattern — a quadtree
+//   decomposition with variance-based division + band-pruning, placing the hidden
+//   neurons where the pattern carries information. The brain's INPUT is the IMAGE (read
+//   via foveated RAM glimpses); its OUTPUT NEURONS are the WRITER — the emitted DNA value,
+//   the end-of-sequence + halt signals, the next-look (x, y, scale), and its own
+//   neuromodulator m — all computed by RUNNING the recurrent / plastic / neuromodulated
+//   rollout. The brain reads its self-portrait and writes its DNA back.
+//
+//   THE BOUNDARY (Stanley-grade): the CPPN paints structure + appearance + faculties; the
+//   BRAIN runs to behave. density/hue is the DNA's APPEARANCE the brain reads — NEVER a
+//   brain output. emit/halt/look/m are the BRAIN's outputs — NEVER CPPN channels.
 
 // --- CPPN genotype (DNA) — NEAT graph ---------------------------------------
 
 /** CPPN inputs: x1,y1,z1, x2,y2,z2, bias — the two 3-D coordinates it relates. */
 export const CPPN_INPUTS = 7;
-/** CPPN outputs: [weight, bias | α, emit, modGate, fixX, fixY, fixScale]. The first
- *  two paint the STATIC image: `weight` paints a connection between two coordinates;
- *  `bias`, read at a single coordinate (p,p), is that neuron's bias. The rest paint
- *  the TEMPORAL brain and start OFF (gentle on-ramp; deferred from the loop target by
- *  fork (B), below):
- *    • `plasticity` α (v6 Phase 2) — per-connection Hebbian coefficient, painted at
- *      the same coordinate pair as the weight; effective weight = w + α·trace.
- *    • `emit` (v6 Phase 3) — per-neuron, read at (p,p) like bias: how much that
- *      neuron's activity contributes to the brain's own neuromodulatory signal m(t).
- *    • `modGate` (v6 Phase 3) — per-connection, painted at the weight coordinate
- *      pair: how much m(t) gates that synapse's Hebbian learning rate (Backpropamine
- *      form, EVOLVED).
- *    • `fixX`, `fixY`, `fixScale` (v6 Phase 4) — per-neuron, read at (p,p) like emit:
- *      the ATTENTION readouts. Each step the brain emits a fixation (location + scale)
- *      from its own activity and takes a foveated glimpse of its image there (RAM,
- *      EVOLVED hard attention).
- *    • `halt` (v6 Phase 5) — per-neuron, read at (p,p) like emit: the brain's Adaptive
- *      Computation Time signal. It accumulates over the READ rollout; when it crosses
- *      threshold (or a hard cap) the brain stops pondering and switches to WRITE.
- *    • `emitVal`, `emitEnd` (v7) — per-neuron readout vectors (read at (p,p) like emit),
- *      the AUTOREGRESSIVE WRITER. After the read, the brain emits its DNA element by
- *      element from its OWN neurons: `value = σ(Σ emitVal·activity)` is the next gene,
- *      `end = Σ emitEnd·activity` is the end-of-sequence signal — when it fires the
- *      creature has DECIDED its own length. No CPPN re-projection, no per-gene lookup,
- *      no length given (v6's quine is gone). Off at birth ⇒ a fresh creature writes a
- *      constant and never halts; the writer arises by mutation like every faculty.
- *  All temporal channels arise by mutation, none pre-wired. Connection *expression* is
- *  decided by ES-HyperNEAT band-pruning on the weight pattern (Risi & Stanley 2012). */
-export const CPPN_OUTPUTS = 11;
+/** CPPN outputs (6) — the genome's three expressions, NONE a phenotype behaviour:
+ *    0 `weight`  — STRUCTURE: connection weight between two coords; ES-HyperNEAT grows the
+ *                  brain from this pattern, and it also sets each neuron's activation.
+ *    1 `bias`    — STRUCTURE: a neuron's bias, read at a single coord (p,p).
+ *    2 `density` — APPEARANCE: the self-portrait's alpha at a coord (CPPN-art).
+ *    3 `hue`     — APPEARANCE: the self-portrait's colour at a coord (CPPN-art).
+ *    4 `α`       — FACULTY: per-connection Hebbian plasticity coefficient (adaptive
+ *                  HyperNEAT, Risi & Stanley); effective weight = w + α·trace.
+ *    5 `modGate` — FACULTY: per-connection neuromodulation gate (Backpropamine form) —
+ *                  how much the brain's own m(t) gates that synapse's learning rate.
+ *  The IMAGE (density/hue) is the DNA's appearance the brain READS; the brain's behaviours
+ *  (emit value/end, halt, next-look, m) are NOT here — they are substrate OUTPUT NEURONS,
+ *  computed by running (see SUB_OUTPUTS + substrate.ts). Connection *expression* is decided
+ *  by ES-HyperNEAT band-pruning on the weight pattern. */
+export const CPPN_OUTPUTS = 6;
 
-/** Canonical node ids: inputs 0..6, outputs 7..17 (weight, bias, α, emit, modGate,
- *  fixX, fixY, fixScale, halt, emitVal, emitEnd), hidden ids start at 18. */
+/** Canonical node ids: inputs 0..6, outputs 7..12 (weight, bias, density, hue, α, modGate),
+ *  hidden ids start at 13. */
 export const INPUT_IDS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
-export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-export const FIRST_HIDDEN_ID = 18;
+export const OUTPUT_IDS: readonly number[] = [7, 8, 9, 10, 11, 12];
+export const FIRST_HIDDEN_ID = 13;
 
-/** The gentle ON-RAMP wiring: `minimalGenome` wires ONLY the first `IMAGE_OUTPUTS`
- *  channels (weight, bias) at birth; every temporal channel (α, emit, modGate,
- *  fixX/Y/Scale, halt) starts UNCONNECTED and arises by mutation. This is permanent —
- *  it is how each faculty on-ramps gently — and is independent of the target below. */
-export const IMAGE_OUTPUTS = 2;
-
-/** v7 — the reconstruction target is the FULL genome (empty deferral set).
- *
- *  v6's fork (B) excluded the temporal channels because its decode was a SPATIAL
- *  gene-readout of a STATIC image (which cannot encode how a creature learns / attends /
- *  ponders — forcing them in yielded R² ≈ −12, a measured negative result). v7's decode
- *  is fundamentally different: the brain AUTOREGRESSIVELY WRITES its DNA from its OWN
- *  recurrent state — a state shaped by ALL its genes (the temporal ones included, via the
- *  plastic / neuromodulated / attentional read). So there is no static-image argument for
- *  excluding any channel a priori: the writer is asked to reproduce its WHOLE genome, and
- *  the honest skill reflects how much of it the brain can actually reach. Whether it can
- *  reach the temporal genes is an open empirical question, reported honestly — not assumed
- *  away. Hence: nothing deferred. `targetVector ≡ genomeVector`, `targetCount ≡ paramCount`. */
+/** The gentle ON-RAMP. `minimalGenome` wires the STRUCTURE + APPEARANCE channels (weight,
+ *  bias, density, hue — the first `BIRTH_OUTPUTS`) at birth, so a fresh creature has both a
+ *  grown brain and a visible (non-flat) self-portrait; the FACULTIES (α, modGate) start
+ *  UNCONNECTED and arise by mutation. The brain's WRITER output neurons on-ramp STRUCTURALLY
+ *  too — unconnected at birth (a constant write, never halting) until the weight pattern
+ *  expresses connections to them; the faculties then arise neuron- and synapse-wise. */
+export const BIRTH_OUTPUTS = 4;
+/** Kept for the reconstruction-target helpers in cppn.ts. v7's fork (B) is empty: the writer
+ *  is asked to reproduce the WHOLE genome, so `targetVector ≡ genomeVector`. */
 export const DEFERRED_OUTPUT_IDS: ReadonlySet<number> = new Set<number>();
 /** Innovation numbers 0..(CPPN_INPUTS*CPPN_OUTPUTS-1) are the minimal genome's
  *  input→output connections; the registry hands out fresh ones after that. */
 export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;
 
-// --- Substrate phenotype (the brain that emerges within the image) ----------
+// --- Substrate phenotype (the brain that READS the image + WRITES the DNA) ---
 
-/** Substrate input features per queried point: x, y, z, r=|p|, bias. These are
- *  the 5 fixed *sensor* neurons; the network's response, swept over 3-D space,
- *  is the volumetric image the creature is born in. */
-export const SUB_INPUTS = 5;
-/** Substrate outputs: [density (alpha), hue]. */
-export const SUB_OUTPUTS = 2;
-// NOTE: hidden-neuron count is NOT fixed — ES-HyperNEAT discovers placement and
-// density from the CPPN pattern (see eshyperneat.ts / hyperparams.ts caps).
+/** Substrate INPUT neurons (6) — the brain's read/write sensory port, fed per phase:
+ *    READ : a foveated glimpse of the self-portrait at the brain's chosen fixation —
+ *           [fovea density, fovea hue, periphery density] — plus 0 (no prev value), READ mode, bias.
+ *    WRITE: [0, 0, 0, the brain's own previous emitted value (autoregressive feedback),
+ *           WRITE mode, bias].
+ *  The image is read "across its channels"; where to look next is the brain's own output. */
+export const SUB_INPUTS = 6;
+/** Substrate OUTPUT neurons (7) — the WRITER, computed by running the brain:
+ *    0 emitVal   — the next DNA value (a real value, σ of the neuron; NOT a discrete token).
+ *    1 emitEnd   — end-of-sequence: the creature decides its own DNA length.
+ *    2 fixX, 3 fixY, 4 fixScale — where + how zoomed to glimpse next (RAM hard attention).
+ *    5 halt      — Adaptive Computation Time: "I've read enough", switch to writing.
+ *    6 m         — the brain's own neuromodulator (gates its plasticity; Backpropamine). */
+export const SUB_OUTPUTS = 7;
+// NOTE: hidden-neuron count is NOT fixed — ES-HyperNEAT discovers placement and density
+// from the CPPN weight pattern (see eshyperneat.ts / hyperparams.ts caps).

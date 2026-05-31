@@ -2,7 +2,7 @@ import type { Genome } from './cppn.ts';
 import { unitToParam, applyParams, genomeVector, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
-import { buildPhenotype, substrateForward } from './substrate.ts';
+import { buildPhenotype, paintCppnArt } from './substrate.ts';
 import { selfReadback, dnaTargetUnits, selfConsistencySkill, lastWrite } from './readback.ts';
 
 export { lastWrite };
@@ -137,7 +137,7 @@ function projection(p: Phenotype, g: number): Float32Array {
     for (let xi = 0; xi < g; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
       field[yi * g + xi] = acc / zs.length;
     }
   }
@@ -158,7 +158,7 @@ export function behaviourSignature(p: Phenotype, n = 5): Float32Array {
     for (let xi = 0; xi < n; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += substrateForward(p, x, y, z, o2)[0];
+      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
       sig[yi * n + xi] = acc / zs.length;
     }
   }
