@@ -5,20 +5,18 @@ speed. Drive to a shipped v7 — or an honest evolvability wall.*
 
 ---
 
-## 0. Ground-truth finding (read this first — the summary was wrong)
+## 0. Ground-truth on the base (a corrected note)
 
-The prior session reported "v6 shipped to main." **It did not.** Verified from git:
+A momentary scare while branching: my **local** `main` was stale (`1d7d6c7`, the v5
+"reconcile to the v5 reality" commit), which looked like "v6 never shipped." After
+`git fetch`, the truth is the opposite — **`origin/main` is `9768b64`, the v6 ship**
+(`genesis-v6`, `CPPN_OUTPUTS=9`, the full temporal brain). So v6 *did* ship to main; my
+local checkout was just behind.
 
-| branch | epoch | `CPPN_OUTPUTS` | loop |
-|---|---|---|---|
-| `main` (HEAD `1d7d6c7` "reconcile … to the **v5 reality**") | `genesis-v5` | 2 | v5 per-gene CPPN re-projection |
-| `v6-temporal-brain` (HEAD `9768b64`) | `genesis-v6` | 9 | v6 read→ponder→emit (Phases 1–5) |
-
-`main` is **v5**. The whole v6 temporal brain (recurrent rollout, Hebbian plasticity,
-neuromodulation, RAM attention, ACT halting) lives on the **unmerged** `v6-temporal-brain`
-branch. The owner's v7 spec explicitly builds on "Phases 1–5 machinery", which only exists
-there — so **v7 is built on `v6-temporal-brain`, not on v5-main.** Shipping v7 therefore
-also lands v6 on main (finally making the owner's belief true). Flagged in the report.
+v7 is built on the v6 ship (`9768b64`), and `origin/main` is an **ancestor of the v7
+branch**, so shipping v7 is a clean **fast-forward** of `origin/main` (v6) → v7 — no v5/v6
+tangle. v7 keeps the v6 temporal read (recurrence, Hebbian plasticity, neuromodulation, RAM
+attention, ACT halt) and replaces only the *decode*.
 
 ## 1. Why v7 — the v6 emit is a hackjob
 
