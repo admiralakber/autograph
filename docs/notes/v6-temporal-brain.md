@@ -1,9 +1,13 @@
 # v6 — the temporal / generative brain 🧠↺ (design doc)
 
-> **Status: in progress on branch `v6-temporal-brain`. Built in verified phases.
-> `main` (v5, `genesis-v5`) stays live + untouched; v6 merges + deploys only when
-> COMPLETE, verified, honest and docs-coherent.** This document is the spec on the
-> record; it is updated as phases land.
+> **SUPERSEDED BY v7 (the self-writer) — see [`v7-self-writer.md`](v7-self-writer.md).**
+> This is the v6 record: the temporal read (recurrence, plasticity, neuromodulation, RAM
+> attention, ACT halt) that v7 builds on. v6's *decode* — a "read → ponder → emit" that
+> re-projected the glimpses through the CPPN and read one value per existing gene at its
+> coordinate (length given) — was a quine entanglement; v7 replaces it with a genuine
+> autoregressive **self-write** (the brain writes its DNA from its own neurons, deciding
+> its own length). v6's fork-(B) finding below is therefore historical: v7 targets the
+> full genome. Kept on the record; read it as the v6 chapter, not the current decode.
 
 ## The move
 
