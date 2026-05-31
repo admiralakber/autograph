@@ -2,24 +2,43 @@
 node_modules/
 
 # Build output
-web/dist/
 dist/
+build/
 
-# Vite / tooling caches
+# Tooling / framework caches
 .vite/
+.vitest/
+.wrangler/
+.cache/
+coverage/
 *.tsbuildinfo
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# Editor / OS cruft
-.DS_Store
-.idea/
-.vscode/
-*.swp
-
-# Environment
+# Secrets & environment — NEVER commit
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+secrets/
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local-only drop-zone: a guaranteed-never-committed scratch space for
+# for-you / never-publish material (TWEETS.md-type drafts, notes, review files).
+# Everything inside is ignored EXCEPT the README stub documenting the convention.
+/_local/*
+!/_local/README.md
