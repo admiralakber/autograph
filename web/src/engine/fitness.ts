@@ -2,18 +2,19 @@ import type { Genome } from './cppn.ts';
 import { unitToParam, applyParams, genomeVector, cloneGenome, W_SCALE } from './cppn.ts';
 import { HYPER } from './hyperparams.ts';
 import type { Phenotype } from './substrate.ts';
-import { buildPhenotype, paintCppnArt } from './substrate.ts';
+import { buildPhenotype, substrateFieldAt } from './substrate.ts';
 import { selfReadback, dnaTargetUnits, selfConsistencySkill, lastWrite } from './readback.ts';
 
 export { lastWrite };
 
-// THE STRANGE LOOP — the brain reads its own portrait and writes its own DNA.
+// THE STRANGE LOOP — the brain reads a true picture of its own wiring and writes its DNA.
 //
-//   paint: DNA (CPPN) paints an IMAGE across space — density + hue, CPPN-art (the
-//          genome's appearance). ES-HyperNEAT grows the BRAIN from the same CPPN's
-//          weight pattern. (paintCppnArt in substrate.ts; the brain does NOT paint.)
-//   read : the brain READS that image — its own self-portrait — via attention-chosen
-//          foveated glimpses, over a plastic, neuromodulated, ponder-gated lifetime.
+//   grow : DNA (CPPN) → ES-HyperNEAT grows the BRAIN (substrate) from its weight pattern.
+//   depict: the SELF-PORTRAIT is rendered FROM that built substrate — density ↔ connection
+//          strength, hue ↔ activation type (substrateFieldAt in substrate.ts). The image
+//          genuinely DEPICTS the network; it is not a separate CPPN channel.
+//   read : the brain READS that picture of its wiring via attention-chosen foveated 3-D
+//          glimpses, over a plastic, neuromodulated, ponder-gated lifetime.
 //   write: it then AUTOREGRESSIVELY WRITES its DNA from its OWN output neurons, one
 //          gene at a time, deciding its own length → DNA′ (readback.ts).
 //   close: fidelity = baseline-corrected SKILL (R²) of DNA′ vs DNA, on both LENGTH and
@@ -138,7 +139,7 @@ function projection(p: Phenotype, g: number): Float32Array {
     for (let xi = 0; xi < g; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
+      for (const z of zs) acc += substrateFieldAt(p, x, y, z, o2)[0];
       field[yi * g + xi] = acc / zs.length;
     }
   }
@@ -159,7 +160,7 @@ export function behaviourSignature(p: Phenotype, n = 5): Float32Array {
     for (let xi = 0; xi < n; xi++) {
       const x = xi * inv - 1;
       let acc = 0;
-      for (const z of zs) acc += paintCppnArt(p.cc, x, y, z, o2)[0];
+      for (const z of zs) acc += substrateFieldAt(p, x, y, z, o2)[0];
       sig[yi * n + xi] = acc / zs.length;
     }
   }

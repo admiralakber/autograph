@@ -43,11 +43,11 @@ export interface EsParams {
   maxHidden: number;
   weightScale: number;
   /** Max magnitude of the per-connection Hebbian plasticity coefficient α (painted by
-   *  the CPPN's α channel, index 4). Placement/expression are unchanged — they still
+   *  the CPPN's α channel, index 2). Placement/expression are unchanged — they still
    *  follow the WEIGHT pattern; α is read at the same coordinate pair. */
   plasticityScale: number;
   /** Max magnitude of the per-connection neuromodulation gate g (painted by the CPPN's
-   *  modGate channel, index 5, read at the same coordinate pair as α/weight) — how much
+   *  modGate channel, index 3, read at the same coordinate pair as α/weight) — how much
    *  the brain's m(t) output neuron gates this synapse's learning rate. */
   neuromodScale: number;
 }
@@ -222,15 +222,15 @@ function cleanNet(inputs: Vec3[], outputs: Vec3[], conns: RawConn[]): SubstrateG
 export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], params: EsParams): SubstrateGraph {
   const wAt = (a: Vec3, bx: number, by: number, bz: number): number => evalCompiled(cc, a[0], a[1], a[2], bx, by, bz, o2)[0] * params.weightScale;
   // The per-connection FACULTY coefficients, painted by the CPPN at the SAME coordinate
-  // pair as the weight, bounded by tanh × scale — α (plasticity, channel 4) and g
-  // (neuromodulation gate, channel 5). One eval fills both; returned via a reused scratch
+  // pair as the weight, bounded by tanh × scale — α (plasticity, channel 2) and g
+  // (neuromodulation gate, channel 3). One eval fills both; returned via a reused scratch
   // read immediately at each call site.
-  const oc: number[] = [0, 0, 0, 0, 0, 0];
+  const oc: number[] = [0, 0, 0, 0];
   const ag: [number, number] = [0, 0];
   const agAt = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): [number, number] => {
     evalCompiled(cc, ax, ay, az, bx, by, bz, oc);
-    ag[0] = Math.tanh(oc[4]!) * params.plasticityScale; // α
-    ag[1] = Math.tanh(oc[5]!) * params.neuromodScale; // g
+    ag[0] = Math.tanh(oc[2]!) * params.plasticityScale; // α
+    ag[1] = Math.tanh(oc[3]!) * params.neuromodScale; // g
     return ag;
   };
   const conns: RawConn[] = [];

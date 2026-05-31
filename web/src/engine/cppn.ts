@@ -7,15 +7,14 @@ import { rngFromSeed } from './prng.ts';
 // genome is a graph — node genes + connection genes with innovation numbers —
 // so structure GROWS over evolution (add-node / add-connection). Connections may
 // be recurrent; the compiled evaluator runs a few propagation passes. Given two
-// 3-D coordinates it emits SIX channels — the genome's three expressions:
+// 3-D coordinates it emits FOUR channels — structure + faculties:
 //   [weight, bias]      STRUCTURE  — ES-HyperNEAT grows the brain from the weight pattern,
 //                                    and weight also sets each neuron's activation.
-//   [density, hue]      APPEARANCE — the self-portrait the DNA PAINTS (CPPN-art); the IMAGE
-//                                    the brain reads. See paintCppnArt() in substrate.ts.
 //   [α, modGate]        FACULTIES  — Hebbian plasticity + neuromod gate (off at birth).
-// NONE of these is a phenotype behaviour: emit/halt/look/m are the BRAIN's OUTPUT NEURONS,
-// produced by running the substrate (substrate.ts), never read off the CPPN. That is the
-// Stanley-grade genotype↔phenotype boundary — the CPPN expresses, the brain behaves.
+// There is NO density/hue channel: the self-portrait is rendered from the BUILT SUBSTRATE
+// (a true depiction of the wiring — renderSubstrateImage in substrate.ts), not painted by
+// the CPPN. And emit/halt/look/m are the BRAIN's OUTPUT NEURONS, produced by running the
+// substrate, never read off the CPPN. The CPPN expresses the wiring; the brain behaves.
 //
 // The genome shape is faithful to neataptic's clean encoding (wagenaartje):
 //   node       → { id, kind:type, act:squash, bias }
@@ -55,13 +54,13 @@ const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W
 export function minimalGenome(rng: Rng): Genome {
   const nodes: NodeGene[] = [];
   for (const id of INPUT_IDS) nodes.push({ id, kind: 0, act: IDENTITY_ACT, bias: 0 });
-  // Outputs [weight(7), bias(8), density(9), hue(10) | α(11), modGate(12)]. The four
-  // STRUCTURE + APPEARANCE channels (weight, bias, density, hue) are wired + biased at
-  // birth, so a fresh creature has a grown brain AND a visible self-portrait; the two
-  // FACULTY channels (α plasticity, modGate neuromod) start with NO incoming connections
-  // and a zero bias, so they read exactly 0 and arise only when a structural mutation
-  // wires them — the gentle on-ramp. (The brain's WRITER behaviours on-ramp separately +
-  // structurally — they are substrate output NEURONS, unconnected at birth; see substrate.ts.)
+  // Outputs [weight(7), bias(8) | α(9), modGate(10)]. The two STRUCTURE channels (weight,
+  // bias) are wired + biased at birth, so a fresh creature has a grown brain (hence a
+  // non-flat self-portrait — the substrate's own wiring); the two FACULTY channels (α
+  // plasticity, modGate neuromod) start with NO incoming connections and a zero bias, so
+  // they read exactly 0 and arise only when a structural mutation wires them — the gentle
+  // on-ramp. (The brain's WRITER behaviours on-ramp separately + structurally — they are
+  // substrate output NEURONS, unconnected at birth; see substrate.ts.)
   OUTPUT_IDS.forEach((id, o) => nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: o < BIRTH_OUTPUTS ? rng.normal() * 0.5 : 0 }));
   const conns: ConnGene[] = [];
   for (let i = 0; i < CPPN_INPUTS; i++) {
@@ -188,10 +187,10 @@ export function compileCPPN(g: Genome): Compiled {
 const IN_BUF = new Float64Array(CPPN_INPUTS);
 
 /** Evaluate a compiled CPPN at a pair of 3-D points -> all CPPN_OUTPUTS channels
- *  [weight, bias, density, hue, α, modGate]. Writes `outIdx.length` channels into `out`,
- *  growing it if shorter (so a caller that only reads out[0]/out[1] may still pass a short
- *  scratch — extra channels are written, ignored). */
-export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0]): number[] {
+ *  [weight, bias, α, modGate]. Writes `outIdx.length` channels into `out`, growing it if
+ *  shorter (so a caller that only reads out[0]/out[1] may still pass a short scratch —
+ *  extra channels are written, ignored). */
+export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0]): number[] {
   IN_BUF[0] = x1;
   IN_BUF[1] = y1;
   IN_BUF[2] = z1;
@@ -220,12 +219,12 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
     }
   }
   const oi = c.outIdx;
-  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, density, hue, α, modGate]
+  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, α, modGate]
   return out;
 }
 
 /** Convenience: compile + evaluate once (not for hot loops). */
-export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0, 0, 0]): number[] {
+export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0, 0]): number[] {
   return evalCompiled(compileCPPN(g), x1, y1, z1, x2, y2, z2, out);
 }
 
@@ -330,23 +329,24 @@ export function unitToParam(u: number): number {
 }
 
 /** Hidden CPPN nodes in canonical (id-sorted) order — the ablatable internal genes of the
- *  DNA. The IMAGE is CPPN-art, so silencing one of these and re-rendering shows that node's
- *  contribution to the self-portrait — the genotype→appearance link made visible. */
+ *  DNA. Silencing one changes the WEIGHT pattern, hence the grown substrate, hence the
+ *  self-portrait (which is rendered from that substrate) — the genotype→network→image link
+ *  made visible. */
 export function hiddenCppnNodes(g: Genome): NodeGene[] {
   return g.nodes.filter((n) => n.kind === 1).slice().sort((a, b) => a.id - b.id);
 }
-/** Compile a copy of the DNA with its j-th hidden node SILENCED — every connection into or
- *  out of it disabled and its bias zeroed. Re-querying the CPPN-art image with this shows
- *  the ablated node's receptive field (ablation relocated to the CPPN, its true author). */
-export function ablateHiddenCppn(g: Genome, j: number): Compiled {
+/** A copy of the DNA with its j-th hidden node SILENCED — every connection into or out of
+ *  it disabled and its bias zeroed. Re-GROWING the substrate from this genome and re-rendering
+ *  the self-portrait shows the ablated node's contribution to the actual network. */
+export function ablateHiddenGenome(g: Genome, j: number): Genome {
   const hidden = hiddenCppnNodes(g);
   const child = cloneGenome(g);
   const targetId = hidden[j]?.id;
-  if (targetId === undefined) return compileCPPN(child); // no such hidden node ⇒ unchanged
+  if (targetId === undefined) return child; // no such hidden node ⇒ unchanged
   for (const c of child.conns) if (c.from === targetId || c.to === targetId) c.enabled = false;
   const node = child.nodes.find((n) => n.id === targetId);
   if (node) node.bias = 0;
-  return compileCPPN(child);
+  return child;
 }
 
 /** Stable little-endian serialisation for content hashing — binds the whole
