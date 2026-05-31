@@ -72,12 +72,13 @@ mutation — a gentle on-ramp from the minimal seed, kept evolvable.
 
 | Phase | Deliverable | Gate |
 |---|---|---|
-| **1. Temporal pass** | T-step recurrent rollout; recurrent/self/lateral edges functional | build ✓ + smoke ✓, v5 loop still honest; recurrence measurably affects output **← this pass** |
-| 2. Hebbian plasticity | CPPN-painted α + ABCD rule; weights self-modify over the rollout | closure stays earned; blank/random ~0 |
-| 3. Neuromodulation | evolved `m(t)` gating plastic rates | functional gate (ablating `m` changes learning) |
-| 4. Attention / glimpse | evolved fixation+scale; foveated glimpses of own image | bounded glimpse budget; honest read |
-| 5. Read→ponder→emit + halting | ACT halt + ponder cost + hard cap; autoregressive DNA′ | no think-forever; earned closure |
+| **1. Temporal pass** ✓ | T-step recurrent rollout; recurrent/self/lateral edges functional | build ✓ + smoke ✓, v5 loop still honest; recurrence measurably affects output |
+| **2. Hebbian plasticity** ✓ | CPPN-painted α; weights self-modify over the rollout | closure stays earned; blank/random ~0 |
+| **3. Neuromodulation** ✓ | evolved `m(t)` gating plastic rates | functional gate (ablating `m` changes learning) |
+| **4. Attention / glimpse** ✓ | evolved fixation+scale; foveated glimpses of own image | bounded glimpse budget; honest read **← this pass** |
+| 5. Read→ponder→emit + halting | ACT halt + ponder cost + hard cap; autoregressive DNA′; **deferred channels rejoin the target** | no think-forever; earned closure |
 | 6. Channels / initial-state | widen CPPN outputs; reconstruct continuous genome | representational sufficiency |
+| **Perf-hardening** | eval → Web Workers (off the rAF thread); kill `coordKey` strings + integer-ify `cleanNet`; reuse scratch buffers (×T under v6); WASM/SIMD dense rollout + attention | runs headless (Node / swarm CPU) too; no main-thread eval; identical numbers |
 | **Deploy (only when COMPLETE)** | bump `ARCHIVE_EPOCH` (auto-rotate), re-sync coordinator `verify.ts`/fixture/`PROTOCOL_VERSION`, redeploy coordinator + site, live QA | honest numbers; docs-coherent |
 
 Each phase: `npm run build` ✓ + `npm run smoke` ✓ with the loop still honest, a
@@ -204,6 +205,69 @@ and m(t) gates the Hebbian learning rate of Phase 2 — per connection.
   pay the T-step rollout. Genome: minimal **12 nodes · 14 conns** (the 3 temporal
   output nodes dormant at birth); `DEFERRED_OUTPUT_IDS` = {9,10,11} (α, emit, modGate),
   all deferred from the loop target by fork (B) until Phase 5.
+
+## Phase 4 — what landed (attention / glimpse faculty)
+
+RAM [RAM], but as EVOLVED hard attention (cf. [AA]) and INTRINSIC (no separate
+net): each rollout step the brain emits a FIXATION (location + scale) from its OWN
+activity and takes a FOVEATED glimpse of its own image there; the glimpse feeds the
+recurrent state; the brain chooses where to look next. Evolution handles the
+non-differentiable location choice natively — no REINFORCE.
+
+- **Three CPPN readout channels, `CPPN_OUTPUTS` 5→8** (branch-only genome delta;
+  `genomeBytes` records OUTPUTS=8): `fixX` (12), `fixY` (13), `fixScale` (14) — each
+  per-neuron, read at (p,p) like `emit`. The fixation is the brain's own activity
+  read out: `fixⱼ = tanh(meanᵢ fixⱼ_readout · activityᵢ)` → WHERE (fixX,fixY) + zoom
+  (fixScale) to glimpse next.
+- **Foveated glimpse of the STATIC image.** The image is rendered to a grid ONCE
+  (`HYPER.glimpseRes`²; the static initial-state field, fork (B)), then each glimpse
+  reads a fine **fovea** ring + a coarse **periphery** ring (RAM's multi-resolution
+  sensor), zoomed by the chosen scale. The brain reads a FIXED image, never a moving
+  target. The glimpse (fx, fy, fovea, periphery, bias) is fed as the substrate's input
+  sensors, so the per-step propagation primitive is unchanged — attention just varies
+  the inputs per step (exactly what Phase 1 built the rollout for).
+- **Unified OFF on-ramp** (same scheme as α / neuromod): the fix channels start
+  unconnected ⇒ readouts 0 ⇒ a fixed **centred** glimpse, no chosen movement; attention
+  arises only when a structural mutation wires the channels. Measured: fresh **0/40**
+  choose a fixation (mean roam **0.0000**); after 1200 gens **166/185** archive
+  creatures choose (peak |fix readout| ≈ **0.76**).
+- **Functional (ablation — fixed vs evolved fixation).** On a rich creature: attention
+  OFF ⇒ roam **0.0000**; attention ON ⇒ the gaze roams **0.47** off-centre and the
+  foveated glimpses gather different information, so the read-state differs from the
+  forced-centred control by mean Δ **0.324**. So the brain genuinely glimpses + chooses
+  where to look. (Attention controls the *input*, so it is the most behaviourally
+  potent faculty so far — fitting, since Phase 5 makes the glimpses the loop's "read".)
+- **Honest + deferred.** `npm run build` ✓, `npm run smoke` ✓; constant/random still
+  **0.000**; the reconstruction target is unchanged (attention deferred by fork (B):
+  `DEFERRED_OUTPUT_IDS` = {9..14}), so skill stays ~Phase-1 health and attention is
+  **not yet load-bearing**. attentionRead ≈ **1.2 ms** (the one-off grid render
+  dominates) and is **not in the eval loop** in Phase 4 — Phase 5 wires it in, and the
+  perf-hardening phase makes it cheap.
+
+## Perf-hardening phase (scheduled; owner-approved)
+
+The T-step rollout makes eval ~T× heavier, and Phase 4's glimpse adds a per-creature
+image render; Phase 5 will put both in the eval loop. So a dedicated perf phase runs
+**after the faculties, before v6 ships** (full analysis: `_local/perf-analysis.md`).
+Cheap algorithmic wins MAY be folded in opportunistically if they ease a phase; the
+structural ones are scheduled here for when the full compute load is known. **No item
+may change the numbers** — perf only.
+
+1. **Eval off the main thread → Web Worker(s) / pool — MANDATORY.** Once the rollout is
+   T× heavier, eval must never run on the rAF thread. A worker pool keeps the UI at
+   60 fps and is the structural prerequisite for everything below.
+2. **Kill `coordKey` string formatting (~20% CPU) + integer-ify `cleanNet` (~12.5%).**
+   The substrate maps coordinates via `toFixed(5)` string keys and `cleanNet` does
+   string-set reachability — together ~⅓ of build CPU. Replace with packed-integer
+   coordinate ids. Do this **before** scaling. (Cheap + portable — a candidate to fold
+   in early.)
+3. **Reuse scratch buffers (×T allocations under v6).** The rollout/glimpse allocate
+   per-step/per-call; pre-size and reuse (the engine already does this for `val`/`prev`/
+   `hebb`/`gridBuf` — extend the discipline to the read→ponder→emit buffers).
+4. **WASM/SIMD for the dense rollout + attention maths — the PORTABLE accelerator.**
+   Preferred over GPU because it runs headless/Node too, so it does **not** strand the
+   swarm's CPU contributors (GPU stays parked). Targets the inner propagation +
+   glimpse-sampling loops.
 
 ## References (verified)
 

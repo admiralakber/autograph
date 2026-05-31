@@ -1,4 +1,4 @@
-import { SUB_INPUTS, SUB_OUTPUTS } from './arch.ts';
+import { SUB_INPUTS, SUB_OUTPUTS, CPPN_OUTPUTS } from './arch.ts';
 import type { Genome } from './cppn.ts';
 import { compileCPPN, evalCompiled } from './cppn.ts';
 import { activate, ACTIVATION_COUNT } from './activations.ts';
@@ -67,6 +67,13 @@ export interface Phenotype {
    *  how much m(t) modulates each synapse's Hebbian learning rate ("what it gates").
    *  Gated update: trace ← (1−η)·trace + η·(1 + g·m(t))·(pre·post). */
   readonly inModGate: Float32Array[];
+  /** v6 Phase 4: per-node ATTENTION readout weights (inputs 0; hidden + outputs
+   *  painted by the CPPN's fixX/fixY/fixScale channels). Each rollout step the brain
+   *  emits a fixation from its own activity: fixⱼ = tanh(mean over neurons of
+   *  fixⱼ-readout·activity), giving WHERE (fixX,fixY) + zoom (fixScale) to glimpse next. */
+  readonly fixX: Float32Array;
+  readonly fixY: Float32Array;
+  readonly fixScale: Float32Array;
   /** v6: per-node cumulative incoming-edge offset into the flat plastic trace,
    *  and the total edge count (the trace scratch size). */
   readonly edgeBase: Int32Array;
@@ -78,6 +85,10 @@ export interface Phenotype {
    *  synapse is gated — only then does m(t) do real work, so a non-neuromodulated
    *  creature skips the m(t) computation entirely (a perf-aware fast path). */
   readonly hasNeuromod: boolean;
+  /** v6 Phase 4: true if any attention readout is nonzero — i.e. the brain genuinely
+   *  CHOOSES its fixation. Off at birth (a fixed centred glimpse, no roam); arises by
+   *  mutation. NOT load-bearing for skill yet (fork (B) defers it until Phase 5). */
+  readonly hasAttention: boolean;
   /** Flat expressed-edge list (for the network visualisation). */
   readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
   /** Count of expressed connections — the phenotype's edge count for readouts. */
@@ -88,7 +99,7 @@ export interface Phenotype {
   readonly hasRecurrent: boolean;
 }
 
-const o2: number[] = [0, 0, 0, 0, 0]; // scratch for all CPPN output channels
+const o2: number[] = new Array(CPPN_OUTPUTS).fill(0); // scratch for all CPPN output channels
 const HUE_ACT = ACTIVATION_COUNT - 1; // outputs run linear (clamped identity)
 
 /** Build the phenotype from the DNA via genuine ES-HyperNEAT: grow the substrate,
@@ -107,6 +118,9 @@ export function buildPhenotype(g: Genome): Phenotype {
   const act = new Uint8Array(N);
   const bias = new Float32Array(N);
   const emit = new Float32Array(N); // v6 Phase 3: per-node neuromod emission (inputs stay 0)
+  const fixX = new Float32Array(N); // v6 Phase 4: per-node attention readouts (inputs stay 0)
+  const fixY = new Float32Array(N);
+  const fixScale = new Float32Array(N);
   const idOf = new Map<string, number>();
 
   const place = (c: Vec3, idx: number): void => {
@@ -131,6 +145,9 @@ export function buildPhenotype(g: Genome): Phenotype {
     act[idx] = Math.max(0, Math.min(ACTIVATION_COUNT - 1, Math.floor((((t % 1) + 1) % 1) * ACTIVATION_COUNT)));
     bias[idx] = r[1]!;
     emit[idx] = Math.tanh(r[3]!); // v6 Phase 3: "who emits" m(t) — bounded to [-1,1]
+    fixX[idx] = Math.tanh(r[5]!); // v6 Phase 4: attention readouts (where + zoom to glimpse)
+    fixY[idx] = Math.tanh(r[6]!);
+    fixScale[idx] = Math.tanh(r[7]!);
     idx++;
   }
   for (const c of outputs) {
@@ -139,6 +156,9 @@ export function buildPhenotype(g: Genome): Phenotype {
     const r = evalCompiled(cc, c[0], c[1], c[2], c[0], c[1], c[2], o2);
     bias[idx] = r[1]!;
     emit[idx] = Math.tanh(r[3]!);
+    fixX[idx] = Math.tanh(r[5]!);
+    fixY[idx] = Math.tanh(r[6]!);
+    fixScale[idx] = Math.tanh(r[7]!);
     idx++;
   }
 
@@ -189,7 +209,13 @@ export function buildPhenotype(g: Genome): Phenotype {
   let anyEmit = false;
   for (let i = SUB_INPUTS; i < N; i++) if (emit[i]! > 1e-3 || emit[i]! < -1e-3) { anyEmit = true; break; }
   const hasNeuromod = hasPlastic && anyEmit && anyModGate;
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod };
+  // v6 Phase 4: the brain genuinely CHOOSES its fixation only if some attention
+  // readout is nonzero; otherwise every step glimpses the centre (attention off).
+  let hasAttention = false;
+  for (let i = SUB_INPUTS; i < N && !hasAttention; i++) {
+    if (Math.abs(fixX[i]!) > 1e-3 || Math.abs(fixY[i]!) > 1e-3 || Math.abs(fixScale[i]!) > 1e-3) hasAttention = true;
+  }
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, emit, inModGate, fixX, fixY, fixScale, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic, hasNeuromod, hasAttention };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
@@ -306,6 +332,118 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
   out[0] = 1 / (1 + Math.exp(-1.3 * d)); // density (alpha)
   out[1] = (Math.sin(h * 1.4) + 1) * 0.5; // hue
   return out;
+}
+
+// --- v6 Phase 4: ATTENTION / GLIMPSE (RAM, evolved hard attention) ----------
+//
+// Each rollout step the brain emits a FIXATION (location + scale) from its OWN
+// activity (the CPPN-painted fixX/fixY/fixScale readouts) and takes a FOVEATED
+// glimpse — a fine fovea + a coarse periphery — of its STATIC image at that
+// fixation. The glimpse feeds the recurrent state and the brain chooses where to
+// look next. Evolution handles the non-differentiable location choice natively (no
+// REINFORCE); attention is INTRINSIC (no separate net) and OFF at birth (readouts 0
+// ⇒ a fixed centred glimpse, no roam), arising by mutation like α / neuromod.
+//
+// The image is rendered to a grid ONCE (the static initial-state field, fork (B));
+// the glimpses then only interpolate it — so the brain reads a FIXED image, never a
+// moving target. NOT load-bearing for skill yet; Phase 5 turns these glimpses into
+// the loop's "read" sensors and the channels rejoin the reconstruction target.
+// (The one-off grid render is the heavy part — the perf-hardening phase caches /
+// parallelises it; see docs/notes/v6-temporal-brain.md.)
+
+/** A foveated glimpse's unit offsets: centre + an 8-point ring, scaled by radius. */
+const GLIMPSE_RING: ReadonlyArray<readonly [number, number]> = [
+  [0, 0], [1, 0], [0.71, 0.71], [0, 1], [-0.71, 0.71], [-1, 0], [-0.71, -0.71], [0, -1], [0.71, -0.71],
+];
+let gridBuf = new Float32Array(0); // reused static-image grid scratch
+
+/** Render the creature's STATIC density image to a res×res grid on the z=0 sheet —
+ *  the field the attention glimpses read (plastic=false ⇒ the initial-state image). */
+function renderImageGrid(p: Phenotype, res: number): Float32Array {
+  if (gridBuf.length < res * res) gridBuf = new Float32Array(res * res);
+  const gout: [number, number] = [0, 0];
+  const inv = 2 / (res - 1);
+  for (let yi = 0; yi < res; yi++) {
+    const y = yi * inv - 1;
+    for (let xi = 0; xi < res; xi++) gridBuf[yi * res + xi] = substrateForward(p, xi * inv - 1, y, 0, gout, false)[0];
+  }
+  return gridBuf;
+}
+
+/** Bilinear sample of the image grid at (x,y) ∈ [-1,1]² (clamped to the border). */
+function sampleGrid(grid: Float32Array, res: number, x: number, y: number): number {
+  const gx = ((x < -1 ? -1 : x > 1 ? 1 : x) + 1) * 0.5 * (res - 1);
+  const gy = ((y < -1 ? -1 : y > 1 ? 1 : y) + 1) * 0.5 * (res - 1);
+  const x0 = Math.floor(gx), y0 = Math.floor(gy);
+  const x1 = x0 + 1 < res ? x0 + 1 : res - 1;
+  const y1 = y0 + 1 < res ? y0 + 1 : res - 1;
+  const tx = gx - x0, ty = gy - y0;
+  const top = grid[y0 * res + x0]! * (1 - tx) + grid[y0 * res + x1]! * tx;
+  const bot = grid[y1 * res + x0]! * (1 - tx) + grid[y1 * res + x1]! * tx;
+  return top * (1 - ty) + bot * ty;
+}
+
+/** A foveated glimpse at (fx,fy) with zoom from `scale`: mean density over a fine
+ *  fovea ring and a coarse periphery ring (RAM's multi-resolution glimpse). */
+function glimpse(grid: Float32Array, res: number, fx: number, fy: number, scale: number, out: [number, number]): void {
+  const zoom = 1 + 0.5 * scale; // scale ∈ [-1,1] (tanh) ⇒ zoom in (0.5×) or out (1.5×)
+  const rFov = HYPER.glimpseFovea * zoom;
+  const rPer = HYPER.glimpsePeriphery * zoom;
+  let fov = 0, per = 0;
+  for (const [ox, oy] of GLIMPSE_RING) {
+    fov += sampleGrid(grid, res, fx + ox * rFov, fy + oy * rFov);
+    per += sampleGrid(grid, res, fx + ox * rPer, fy + oy * rPer);
+  }
+  out[0] = fov / GLIMPSE_RING.length;
+  out[1] = per / GLIMPSE_RING.length;
+}
+
+export interface GlimpsePath {
+  /** T × 3 fixation trajectory the brain chose: (fx, fy, scale) per step. */
+  readonly fixations: Float32Array;
+  /** The brain's hidden+output activations after attending — the "read" state Phase 5 decodes. */
+  readonly readState: Float32Array;
+  /** Largest distance the fixation roamed from centre (0 ⇒ attention off / forced-centred). */
+  readonly roam: number;
+}
+
+/** v6 Phase 4 — run the ATTENTION READ: T foveated glimpses of the creature's own
+ *  static image, each fixation chosen from the brain's activity. `forceCentre` clamps
+ *  every fixation to the centre (the ablation control: fixed vs evolved fixation).
+ *  Composes with plasticity / neuromodulation if the creature evolved them. */
+export function attentionRead(p: Phenotype, forceCentre = false): GlimpsePath {
+  const N = p.inFrom.length;
+  if (val.length < N) { val = new Float32Array(N); prev = new Float32Array(N); }
+  const res = Math.max(2, Math.round(HYPER.glimpseRes));
+  const grid = renderImageGrid(p, res); // uses val/prev internally — done BEFORE the rollout
+  const outStart = N - SUB_OUTPUTS;
+  const runPlastic = p.hasPlastic;
+  const runNeuromod = runPlastic && p.hasNeuromod;
+  if (runPlastic) {
+    if (hebb.length < p.edgeTotal) hebb = new Float32Array(p.edgeTotal);
+    hebb.fill(0, 0, p.edgeTotal);
+  }
+  val.fill(0, 0, N); // a fresh recurrent state for the read
+  const T = rolloutSteps();
+  const fixations = new Float32Array(T * 3);
+  const invD = 1 / Math.max(1, N - SUB_INPUTS);
+  const gv: [number, number] = [0, 0];
+  let fx = 0, fy = 0, scale = 0; // centred default (attention off)
+  let roam = 0;
+  for (let t = 0; t < T; t++) {
+    glimpse(grid, res, fx, fy, scale, gv);
+    val[0] = fx; val[1] = fy; val[2] = gv[0]!; val[3] = gv[1]!; val[4] = 1; // the glimpse IS the input
+    stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
+    if (!forceCentre) { // the brain emits the NEXT fixation from its own activity
+      let ax = 0, ay = 0, as = 0;
+      for (let i = SUB_INPUTS; i < N; i++) { const a = val[i]!; ax += p.fixX[i]! * a; ay += p.fixY[i]! * a; as += p.fixScale[i]! * a; }
+      fx = Math.tanh(ax * invD); fy = Math.tanh(ay * invD); scale = Math.tanh(as * invD);
+    }
+    fixations[t * 3] = fx; fixations[t * 3 + 1] = fy; fixations[t * 3 + 2] = scale;
+    const dist = Math.sqrt(fx * fx + fy * fy);
+    if (dist > roam) roam = dist;
+  }
+  return { fixations, readState: val.slice(SUB_INPUTS, N), roam };
 }
 
 // --- Accessors for visualisation --------------------------------------------

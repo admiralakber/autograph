@@ -72,8 +72,9 @@ function evolve(): void {
   const ms = performance.now() - t0;
   const s = garden.stats();
   console.log(`\n500 generations in ${ms.toFixed(0)}ms (${((500 * 40 * 1000) / ms).toFixed(0)} evals/s)`);
-  const grew = s.maxNodes > 12 || s.maxConns > 14;
-  console.log(`COMPLEXIFICATION (NEAT augmenting topologies): ${grew ? 'OK — DNA grew past the minimal 12 nodes / 14 conns' : 'FAIL — stayed minimal'}`);
+  const min = seededGenome(GENESIS_SEED); // minimal genome size (robust to CPPN-channel growth)
+  const grew = s.maxNodes > min.nodes.length || s.maxConns > min.conns.length;
+  console.log(`COMPLEXIFICATION (NEAT augmenting topologies): ${grew ? `OK — DNA grew past the minimal ${min.nodes.length} nodes / ${min.conns.length} conns` : 'FAIL — stayed minimal'}`);
 
   // ES-HyperNEAT discovers VARIABLE placement/density — sample the archive.
   let minH = Infinity;
