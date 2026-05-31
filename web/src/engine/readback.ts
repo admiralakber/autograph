@@ -105,7 +105,13 @@ export function selfReadback(g: Genome, p: Phenotype): Float32Array {
   const probes = probesFor(F);
   const H = p.hiddenCount;
 
-  // 1. The picture: the brain's density field, sampled at the F probe points.
+  // 1. The picture: the brain's density field at the F probe points — the STATIC
+  //    initial-state field (the image the creature is born in, what it reconstructs
+  //    FROM). v6 NOTE: sampling this picture via the PLASTIC rollout was tried and
+  //    crashed skill (the runtime weight-change scrambles the picture↔genome
+  //    relationship) — so plasticity stays out of the picture. It self-modifies the
+  //    brain during the DECODE (the lifetime read), which Phase 5 (read-ponder-emit)
+  //    makes temporal; that is where plasticity becomes load-bearing for skill.
   const pic = new Float32Array(F);
   for (let i = 0; i < F; i++) pic[i] = substrateForward(p, probes[i * 3]!, probes[i * 3 + 1]!, probes[i * 3 + 2]!, o2)[0];
 

@@ -102,6 +102,37 @@ coordinator's verifier — but only at v6-out.
   steps; the per-step propagation is the primitive the read→ponder→emit loop
   (Phases 4–5) will drive with per-step-varying glimpse inputs.
 
+## Phase 2 — what landed (Hebbian plasticity faculty)
+
+- **The CPPN gained a 3rd output channel, α (plasticity).** `CPPN_OUTPUTS` 2→3 — a
+  genome wire-format delta on the branch (minimal genome 9n·14c → **10n·21c**;
+  `genomeBytes` records OUTPUTS=3). Each expressed substrate connection reads
+  α = tanh(cppn₂) × `plasticityScale` at the same coordinate pair as its weight.
+  **Gentle on-ramp:** the α channel starts OFF (zero bias + zero incoming weights
+  ⇒ α≈0), so a fresh creature is non-plastic (v5-static, fast path) and plasticity
+  arises by ordinary mutation (measured: fresh mean |α| **0.0000**; evolved archive
+  mean |α| **~0.5–0.7**).
+- **The substrate runs a plastic rollout** (`stepSubstrate` plastic mode): the
+  effective weight is `w + α·trace`, the trace a bounded decaying EMA of pre·post
+  updated each of the T steps — the differentiable-plasticity *form* [DP], EVOLVED.
+  Gated by `hasPlastic` so non-plastic creatures pay nothing.
+- **Functional (ablation-confirmed):** for plastic creatures the plastic rollout's
+  field differs from the static one by mean |Δ| ≈ **0.30** — the weights genuinely
+  self-modify and change behaviour.
+- **NOT yet load-bearing for skill — two honest findings (a fork for review):**
+  1. Sampling the readback PICTURE via the plastic rollout *crashed* skill
+     (~47% → ~2%): the runtime weight-change scrambles the picture↔genome map. So
+     the picture stays the **static initial-state field** (owner's spec item 6,
+     confirmed by this negative result) — plasticity belongs in the **decode**.
+  2. With α in the genome, ~⅓ of the genome (the α channel) is **invisible to the
+     static picture** (plasticity doesn't affect the static field), so it is
+     unreconstructable and drags the loop: smoke best-skill **11% by 2000 gens**
+     (down from Phase 1's 47%), still honest + climbing, blank/random → 0.
+- **Resolution (Phase 5).** When read→ponder→emit makes the decode temporal, the
+  creature reads its image over a plastic *lifetime*; α then shapes the decode's
+  dynamics, becomes reconstructable, and earns its place. Phase 2 builds the
+  faculty + on-ramp; Phase 5 makes it load-bearing.
+
 ## References (verified)
 
 - **NEAT** — Stanley & Miikkulainen 2002, *Evolving Neural Networks through

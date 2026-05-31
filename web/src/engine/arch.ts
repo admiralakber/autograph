@@ -20,16 +20,20 @@
 
 /** CPPN inputs: x1,y1,z1, x2,y2,z2, bias — the two 3-D coordinates it relates. */
 export const CPPN_INPUTS = 7;
-/** CPPN outputs: [weight, bias]. `weight` paints a connection between two
- *  coordinates; `bias`, read at a single coordinate (p,p), is that neuron's
- *  bias. Connection *expression* is decided by ES-HyperNEAT band-pruning on the
- *  weight pattern (Risi & Stanley 2012), not a separate gate. */
-export const CPPN_OUTPUTS = 2;
+/** CPPN outputs: [weight, bias, plasticity]. `weight` paints a connection between
+ *  two coordinates; `bias`, read at a single coordinate (p,p), is that neuron's
+ *  bias; `plasticity` (v6) is the per-connection Hebbian coefficient α painted at
+ *  the same coordinate pair as the weight — how much that synapse self-modifies
+ *  over the temporal rollout (differentiable-plasticity form, but EVOLVED). It
+ *  starts ~0 (gentle on-ramp) and evolves up. Connection *expression* is decided
+ *  by ES-HyperNEAT band-pruning on the weight pattern (Risi & Stanley 2012). */
+export const CPPN_OUTPUTS = 3;
 
-/** Canonical node ids: inputs 0..6, outputs 7..8, hidden ids start at 9. */
+/** Canonical node ids: inputs 0..6, outputs 7..9 (weight, bias, plasticity),
+ *  hidden ids start at 10. */
 export const INPUT_IDS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
-export const OUTPUT_IDS: readonly number[] = [7, 8];
-export const FIRST_HIDDEN_ID = 9;
+export const OUTPUT_IDS: readonly number[] = [7, 8, 9];
+export const FIRST_HIDDEN_ID = 10;
 /** Innovation numbers 0..(CPPN_INPUTS*CPPN_OUTPUTS-1) are the minimal genome's
  *  input→output connections; the registry hands out fresh ones after that. */
 export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;

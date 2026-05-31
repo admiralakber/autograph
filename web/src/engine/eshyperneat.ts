@@ -42,6 +42,10 @@ export interface EsParams {
   iterationLevel: number;
   maxHidden: number;
   weightScale: number;
+  /** v6: max magnitude of the per-connection Hebbian plasticity coefficient α
+   *  (painted by the CPPN's 3rd output). Placement/expression are unchanged — they
+   *  still follow the WEIGHT pattern; α is read at the same coordinate pair. */
+  plasticityScale: number;
 }
 
 export type Vec3 = readonly [number, number, number];
@@ -49,6 +53,8 @@ export interface RawConn {
   readonly from: Vec3;
   readonly to: Vec3;
   readonly weight: number;
+  /** v6 Hebbian plasticity coefficient α (0 ⇒ a static synapse). */
+  readonly alpha: number;
 }
 export interface SubstrateGraph {
   /** Discovered hidden-neuron coordinates (on the z = 0 sheet). */
@@ -197,6 +203,11 @@ function cleanNet(inputs: Vec3[], outputs: Vec3[], conns: RawConn[]): SubstrateG
  *  hidden placement/density/connectivity, then prune to functional topology. */
 export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], params: EsParams): SubstrateGraph {
   const wAt = (a: Vec3, bx: number, by: number, bz: number): number => evalCompiled(cc, a[0], a[1], a[2], bx, by, bz, o2)[0] * params.weightScale;
+  // v6: the per-connection plasticity coefficient α, painted by the CPPN's 3rd
+  // output at the SAME coordinate pair as the weight, bounded by tanh × scale.
+  const o3: number[] = [0, 0, 0];
+  const aAt = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): number =>
+    Math.tanh(evalCompiled(cc, ax, ay, az, bx, by, bz, o3)[2]!) * params.plasticityScale;
   const conns: RawConn[] = [];
   const hidden = new Map<string, Vec3>();
 
@@ -208,7 +219,7 @@ export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], par
       const k = key(x, y, HIDDEN_Z);
       if (!hidden.has(k) && hidden.size >= params.maxHidden) return;
       const t: Vec3 = [x, y, HIDDEN_Z];
-      conns.push({ from: inp, to: t, weight: w });
+      conns.push({ from: inp, to: t, weight: w, alpha: aAt(inp[0], inp[1], inp[2], x, y, HIDDEN_Z) });
       hidden.set(k, t);
     });
   }
@@ -224,7 +235,7 @@ export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], par
       pruningExtraction((cx, cy) => wAt(src, cx, cy, HIDDEN_Z), root, params, (x, y, w) => {
         if (x === src[0] && y === src[1]) return; // no self-loop
         const t: Vec3 = [x, y, HIDDEN_Z];
-        conns.push({ from: src, to: t, weight: w });
+        conns.push({ from: src, to: t, weight: w, alpha: aAt(src[0], src[1], src[2], x, y, HIDDEN_Z) });
         const k = key(x, y, HIDDEN_Z);
         if (!hidden.has(k)) {
           hidden.set(k, t);
@@ -242,7 +253,7 @@ export function growSubstrate(cc: Compiled, inputs: Vec3[], outputs: Vec3[], par
     const root = divisionInitialization((cx, cy) => evalCompiled(cc, cx, cy, HIDDEN_Z, out[0], out[1], out[2], o2)[0] * params.weightScale, params);
     pruningExtraction((cx, cy) => evalCompiled(cc, cx, cy, HIDDEN_Z, out[0], out[1], out[2], o2)[0] * params.weightScale, root, params, (x, y, w) => {
       if (!hidden.has(key(x, y, HIDDEN_Z))) return;
-      conns.push({ from: [x, y, HIDDEN_Z], to: out, weight: w });
+      conns.push({ from: [x, y, HIDDEN_Z], to: out, weight: w, alpha: aAt(x, y, HIDDEN_Z, out[0], out[1], out[2]) });
     });
   }
 

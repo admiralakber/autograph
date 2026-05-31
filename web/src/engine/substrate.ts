@@ -41,6 +41,7 @@ const esParams = () => ({
   iterationLevel: HYPER.esIterationLevel,
   maxHidden: HYPER.esMaxHidden,
   weightScale: HYPER.substrateWeight,
+  plasticityScale: HYPER.plasticityScale,
 });
 
 export interface Phenotype {
@@ -54,6 +55,16 @@ export interface Phenotype {
   /** Per-node incoming source indices + weights (the wired ES-HyperNEAT graph). */
   readonly inFrom: Int32Array[];
   readonly inW: Float32Array[];
+  /** v6: per-node incoming Hebbian plasticity coefficients α (parallel to inW).
+   *  The effective weight during a plastic rollout is w + α·trace. */
+  readonly inAlpha: Float32Array[];
+  /** v6: per-node cumulative incoming-edge offset into the flat plastic trace,
+   *  and the total edge count (the trace scratch size). */
+  readonly edgeBase: Int32Array;
+  readonly edgeTotal: number;
+  /** v6: true if any |α| is meaningfully nonzero — gates the plastic rollout so a
+   *  non-plastic creature pays nothing for machinery it doesn't use (the v5 path). */
+  readonly hasPlastic: boolean;
   /** Flat expressed-edge list (for the network visualisation). */
   readonly edges: ReadonlyArray<{ readonly from: number; readonly to: number; readonly weight: number }>;
   /** Count of expressed connections — the phenotype's edge count for readouts. */
@@ -116,6 +127,7 @@ export function buildPhenotype(g: Genome): Phenotype {
   // Wire incoming lists from the expressed connections (skip any unmapped end).
   const inSrc: number[][] = Array.from({ length: N }, () => []);
   const inWt: number[][] = Array.from({ length: N }, () => []);
+  const inAl: number[][] = Array.from({ length: N }, () => []);
   const edges: { from: number; to: number; weight: number }[] = [];
   for (const c of grown.conns) {
     const a = idOf.get(coordKey(c.from[0], c.from[1], c.from[2]));
@@ -123,29 +135,43 @@ export function buildPhenotype(g: Genome): Phenotype {
     if (a === undefined || b === undefined || a === b) continue;
     inSrc[b]!.push(a);
     inWt[b]!.push(c.weight);
+    inAl[b]!.push(c.alpha);
     edges.push({ from: a, to: b, weight: c.weight });
   }
 
   const inFrom = inSrc.map((s) => Int32Array.from(s));
   const inW = inWt.map((w) => Float32Array.from(w));
+  const inAlpha = inAl.map((a) => Float32Array.from(a));
   // Recurrent/lateral = a wired source whose index is ≥ the target's: it reads the
   // previous step, so it only does real work once the rollout runs > 1 step.
+  // Per-node edge offsets (for the flat plastic trace) + the plastic gate.
+  const edgeBase = new Int32Array(N);
+  let edgeTotal = 0;
   let hasRecurrent = false;
-  for (let i = 0; i < N && !hasRecurrent; i++) {
+  let hasPlastic = false;
+  for (let i = 0; i < N; i++) {
+    edgeBase[i] = edgeTotal;
     const f = inFrom[i]!;
-    for (let k = 0; k < f.length; k++) if (f[k]! >= i) { hasRecurrent = true; break; }
+    const al = inAlpha[i]!;
+    edgeTotal += f.length;
+    for (let k = 0; k < f.length; k++) {
+      if (f[k]! >= i) hasRecurrent = true;
+      if (al[k]! > 1e-3 || al[k]! < -1e-3) hasPlastic = true;
+    }
   }
-  return { pos, hiddenCount: H, act, bias, inFrom, inW, edges, liveConns: edges.length, hasRecurrent };
+  return { pos, hiddenCount: H, act, bias, inFrom, inW, inAlpha, edgeBase, edgeTotal, edges, liveConns: edges.length, hasRecurrent, hasPlastic };
 }
 
 // Reusable evaluation scratch (grows as needed) — substrateForward is hot.
 let val = new Float32Array(64);
 let prev = new Float32Array(64);
+/** v6 per-edge Hebbian trace scratch (one rollout's worth; reset per query). */
+let hebb = new Float32Array(256);
 /** v5 settle depth — also the feed-forward fast path (a feed-forward-only network
  *  reaches its fixed point in one step; a second confirms it), kept identical so
  *  such creatures are byte-for-byte unchanged from v5. */
 const FF_STEPS = 2;
-/** T — the v6 temporal forward pass budget (recurrent creatures only). */
+/** T — the v6 temporal forward pass budget (recurrent / plastic creatures only). */
 const rolloutSteps = (): number => Math.max(1, Math.round(HYPER.substrateSteps));
 
 /** ONE synchronous propagation step — the reusable temporal-pass primitive. Each
@@ -153,28 +179,55 @@ const rolloutSteps = (): number => Math.max(1, Math.round(HYPER.substrateSteps))
  *  so a feed-forward chain settles within the step) and its recurrent / self /
  *  lateral edges (`src ≥ i`, the PREVIOUS step's values, via `prev`). Inputs are
  *  held in `val[0..SUB_INPUTS)` and never overwritten, so later phases can vary
- *  them per step (glimpse inputs) while the recurrent state carries forward. */
-function stepSubstrate(p: Phenotype, N: number, outStart: number): void {
+ *  them per step (glimpse inputs) while the recurrent state carries forward.
+ *
+ *  When `plastic`, the effective weight is `w + α·trace` and each edge's Hebbian
+ *  trace self-modifies — a bounded decaying EMA of pre·post — so the brain LEARNS
+ *  toward self-knowledge across the rollout (differentiable-plasticity form, but
+ *  the α coefficients are EVOLVED, painted by the CPPN, not back-propagated). */
+function stepSubstrate(p: Phenotype, N: number, outStart: number, plastic: boolean): void {
   prev.set(val.subarray(0, N));
+  const eta = HYPER.hebbianRate;
   for (let i = SUB_INPUTS; i < N; i++) {
     const from = p.inFrom[i]!;
     const w = p.inW[i]!;
     let s = p.bias[i]!;
-    for (let k = 0; k < from.length; k++) {
-      const src = from[k]!;
-      s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
+    if (plastic) {
+      const al = p.inAlpha[i]!;
+      const base = p.edgeBase[i]!;
+      for (let k = 0; k < from.length; k++) {
+        const src = from[k]!;
+        const pre = src >= i ? prev[src]! : val[src]!;
+        s += pre * (w[k]! + al[k]! * hebb[base + k]!);
+      }
+      const post = i >= outStart ? s : activate(p.act[i]!, s);
+      val[i] = post;
+      for (let k = 0; k < from.length; k++) {
+        const src = from[k]!;
+        const pre = src >= i ? prev[src]! : val[src]!;
+        const t = base + k;
+        hebb[t] = (1 - eta) * hebb[t]! + eta * pre * post;
+      }
+    } else {
+      for (let k = 0; k < from.length; k++) {
+        const src = from[k]!;
+        s += (src >= i ? prev[src]! : val[src]!) * w[k]!;
+      }
+      val[i] = i >= outStart ? s : activate(p.act[i]!, s);
     }
-    val[i] = i >= outStart ? s : activate(p.act[i]!, s);
   }
 }
 
 /** Query the phenotype at a 3-D point -> [density in [0,1], hue in [0,1]] via the
  *  v6 TEMPORAL FORWARD PASS: roll the substrate out for T synchronous steps so the
  *  recurrent / self / lateral edges the genome already evolves do real work. A
- *  feed-forward-only creature converges in `FF_STEPS` and is unchanged from v5;
- *  only recurrent creatures pay the full T steps. Inputs are the sensor features
- *  [x, y, z, r=|p|, bias], held constant across the rollout in this phase. */
-export function substrateForward(p: Phenotype, px: number, py: number, pz: number, out: [number, number] = [0, 0]): [number, number] {
+ *  feed-forward-only, non-plastic creature converges in `FF_STEPS` and is unchanged
+ *  from v5; only recurrent / plastic creatures pay the full T steps. Inputs are the
+ *  sensor features [x, y, z, r=|p|, bias], held constant across the rollout in this
+ *  phase. `plastic` enables Hebbian self-modification (the creature's lifetime read,
+ *  e.g. the loop) — it is OFF for the displayed render, which stays the static
+ *  initial-state field; gated by `hasPlastic` so a non-plastic creature pays nothing. */
+export function substrateForward(p: Phenotype, px: number, py: number, pz: number, out: [number, number] = [0, 0], plastic = false): [number, number] {
   const N = p.inFrom.length;
   if (val.length < N) {
     val = new Float32Array(N);
@@ -187,8 +240,13 @@ export function substrateForward(p: Phenotype, px: number, py: number, pz: numbe
   val[4] = 1;
   const outStart = N - SUB_OUTPUTS;
   for (let i = SUB_INPUTS; i < N; i++) val[i] = 0; // clear stale carryover from prior calls
-  const steps = p.hasRecurrent ? rolloutSteps() : FF_STEPS;
-  for (let step = 0; step < steps; step++) stepSubstrate(p, N, outStart);
+  const runPlastic = plastic && p.hasPlastic;
+  if (runPlastic) {
+    if (hebb.length < p.edgeTotal) hebb = new Float32Array(p.edgeTotal);
+    hebb.fill(0, 0, p.edgeTotal); // each query is its own lifetime — start unlearned
+  }
+  const steps = p.hasRecurrent || runPlastic ? rolloutSteps() : FF_STEPS;
+  for (let step = 0; step < steps; step++) stepSubstrate(p, N, outStart, runPlastic);
   let d = 0;
   let h = 0;
   if (outStart < N) d = val[outStart]!;

@@ -52,11 +52,16 @@ const clampW = (x: number): number => (x < -W_SCALE ? -W_SCALE : x > W_SCALE ? W
 export function minimalGenome(rng: Rng): Genome {
   const nodes: NodeGene[] = [];
   for (const id of INPUT_IDS) nodes.push({ id, kind: 0, act: IDENTITY_ACT, bias: 0 });
-  for (const id of OUTPUT_IDS) nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: rng.normal() * 0.5 });
+  // Outputs: [weight(7), bias(8), plasticity α(9)]. The α output starts at ~0 — a
+  // zero bias + tiny incoming weights — so a fresh creature is effectively
+  // NON-plastic (a v5-like static brain) and evolution grows plasticity up via
+  // ordinary weight/structure mutation: a gentle on-ramp, not the full space at once.
+  OUTPUT_IDS.forEach((id, o) => nodes.push({ id, kind: 2, act: IDENTITY_ACT, bias: o === 2 ? 0 : rng.normal() * 0.5 }));
   const conns: ConnGene[] = [];
   for (let i = 0; i < CPPN_INPUTS; i++) {
     for (let o = 0; o < CPPN_OUTPUTS; o++) {
-      conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight: rng.normal() * 1.4, enabled: true });
+      const weight = o === 2 ? 0 : rng.normal() * 1.4; // α channel starts OFF (α≈0); plasticity arises by mutation
+      conns.push({ innov: i * CPPN_OUTPUTS + o, from: INPUT_IDS[i]!, to: OUTPUT_IDS[o]!, weight, enabled: true });
     }
   }
   return { nodes, conns };
@@ -177,8 +182,10 @@ export function compileCPPN(g: Genome): Compiled {
 
 const IN_BUF = new Float64Array(CPPN_INPUTS);
 
-/** Evaluate a compiled CPPN at a pair of 3-D points -> [weight, bias]. */
-export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: [number, number] = [0, 0]): [number, number] {
+/** Evaluate a compiled CPPN at a pair of 3-D points -> [weight, bias, plasticity].
+ *  `out` may be any length ≥ 1; channels beyond its length are simply not written
+ *  (so legacy length-2 scratch keeps working — they ignore the plasticity channel). */
+export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0]): number[] {
   IN_BUF[0] = x1;
   IN_BUF[1] = y1;
   IN_BUF[2] = z1;
@@ -206,13 +213,13 @@ export function evalCompiled(c: Compiled, x1: number, y1: number, z1: number, x2
       val[i] = activate(nodeAct[i]!, sum);
     }
   }
-  out[0] = val[c.outIdx[0]!]!; // weight (connection between two coordinates)
-  out[1] = val[c.outIdx[1]!]!; // bias (read at a single coordinate as (p,p))
+  const oi = c.outIdx;
+  for (let j = 0; j < oi.length; j++) out[j] = val[oi[j]!]!; // [weight, bias, plasticity α]
   return out;
 }
 
 /** Convenience: compile + evaluate once (not for hot loops). */
-export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: [number, number] = [0, 0]): [number, number] {
+export function evalCPPN(g: Genome, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, out: number[] = [0, 0, 0]): number[] {
   return evalCompiled(compileCPPN(g), x1, y1, z1, x2, y2, z2, out);
 }
 
