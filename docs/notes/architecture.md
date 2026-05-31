@@ -38,7 +38,7 @@ A creature is **two networks that make each other**, closed into a loop:
 flowchart LR
   DNA["🧬 DNA · genotype<br/>(connective CPPN)"] -->|"paints weights ·<br/>places neurons (ES)"| PHENO["🧠 brain · phenotype<br/>(HyperNEAT substrate)"]
   PHENO -->|"queried over 3-D →<br/>density + hue"| ART["✨ self-portrait<br/>(volumetric sunrise cloud)"]
-  ART -->|"read density back at<br/>known 3-D probe points"| DNA2["🧬 DNA′"]
+  ART -->|"fed through the creature's<br/>read-back network (co-evolved)"| DNA2["🧬 DNA′"]
   DNA2 -. "loop fidelity (measured live)" .-> DNA
 ```
 

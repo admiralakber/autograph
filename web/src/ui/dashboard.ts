@@ -2,7 +2,7 @@ import type { Genome } from '../engine/cppn.ts';
 import { seededGenome } from '../engine/cppn.ts';
 import { GENESIS_SEED } from '../engine/genesis.ts';
 import type { Evaluation } from '../engine/fitness.ts';
-import { evaluate, targetAtProbes, paintedAtProbes } from '../engine/fitness.ts';
+import { evaluate, targetAtProbes, readBackUnits } from '../engine/fitness.ts';
 import type { Phenotype } from '../engine/substrate.ts';
 import { buildPhenotype, phenotypeNodes, phenotypeConns } from '../engine/substrate.ts';
 import { Garden } from '../engine/evolution.ts';
@@ -63,7 +63,7 @@ export class AutographDashboard {
   private novelty = true; // Novelty Search on by default — keep discovering new kinds
   private coordinatorUrl = ''; // resolved in start() — defaults to the live swarm; '' = offline
   private shared: SharedArchive | null = null; // the live SharedArchive while joined to the swarm
-  private readonly options = { recurrent: true, selfConn: false, gating: false };
+  private readonly options = { recurrent: true, selfConn: false, gating: true };
   private budget = HYPER.baseBudget;
   private frame = 0;
   private lastGenAt = 0;
@@ -585,9 +585,9 @@ export class AutographDashboard {
   }
 
   private drawLoop(genome: Genome, pheno: Phenotype): void {
-    const target = targetAtProbes(genome);
+    const target = targetAtProbes(genome); // the original DNA (top row)
     const n = target.length; // = paramCount(genome): grows as the DNA complexifies
-    const painted = paintedAtProbes(pheno, n);
+    const dna2 = readBackUnits(genome, pheno); // the read-back NETWORK's DNA′ (bottom row)
     const ctx = this.loopCtx;
     const Wd = (this.loop.width = Math.max(120, n * 5));
     const Hd = (this.loop.height = 54);
@@ -598,7 +598,7 @@ export class AutographDashboard {
       const tg = Math.round(target[k]! * 255);
       ctx.fillStyle = `rgb(${tg},${tg},${tg})`;
       ctx.fillRect(k * sw, 0, Math.ceil(sw), rh);
-      const pg = Math.round(painted[k]! * 255);
+      const pg = Math.round((dna2[k] ?? 0) * 255);
       ctx.fillStyle = `rgb(${pg},${pg},${pg})`;
       ctx.fillRect(k * sw, Hd - rh, Math.ceil(sw), rh);
     }
