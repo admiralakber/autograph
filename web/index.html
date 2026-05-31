@@ -243,7 +243,7 @@
       <div class="overlay-inner help-inner">
         <button id="ag-help-close" class="btn overlay-close" type="button">CLOSE ✕</button>
         <h1 id="help-title">What am I looking at?</h1>
-        <p class="ov-lead">Tiny neural creatures evolving, live: a DNA paints an image, a brain grows within it, and reads that image back — glimpsing, pondering, then halting when it's seen enough — to find its own beginning. Here are the parts:</p>
+        <p class="ov-lead">Tiny neural creatures evolving, live: a DNA paints an image, a brain grows within it, reads that image — glimpsing, pondering — then <em>writes its own DNA back</em>, one gene at a time, deciding for itself when it is done. Here are the parts:</p>
         <dl class="glossary">
           <dt>🧬 DNA</dt><dd>The genotype — a small <em><a href="https://gwern.net/doc/ai/nn/fully-connected/2007-stanley.pdf" rel="noopener">CPPN</a></em> network (Stanley). It grows by real <strong><a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" rel="noopener">NEAT</a></strong> (Stanley &amp; Miikkulainen): starts minimal, then evolution adds nodes &amp; connections (watch the <em>DNA</em> readout climb).</dd>
           <dt>🧠 BRAIN <span class="mono-dim">(phenotype)</span></dt><dd>A second network that <em>emerges within</em> the DNA's image by genuine <a href="https://en.wikipedia.org/wiki/HyperNEAT" rel="noopener">ES-HyperNEAT</a> (Risi &amp; Stanley): a quadtree of the CPPN's weight pattern <em>places</em> the hidden neurons where the pattern has structure, sets their density and wires them — no fixed grid. Queried over space it renders the image.</dd>
