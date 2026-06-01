@@ -136,6 +136,9 @@ export interface StructSkill {
   readonly connLen: number;
   readonly tgtNodes: number;
   readonly tgtConns: number;
+  /** READ/glimpse steps used before writing — in this architecture a glimpse IS a think
+   *  step (one recurrent pass per look), so this is BOTH the glimpse and the ponder count. */
+  readonly ponder: number;
 }
 
 /** Score DNA′ against DNA — GRADED, COUPLED (multiplicative, can't game one part), FLOORED
@@ -170,5 +173,5 @@ export function scoreStruct(t: StructTarget, em: EmittedGenome): StructSkill {
   const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
   const ponderFactor = clamp01(1 - HYPER.ponderCost * (em.ponder / cap));
   const skill = clamp01(fin(cw * clamp01(value) * structure * sizeFactor * ponderFactor));
-  return { skill, weightR2: fin(weightR2), biasR2: fin(biasR2), actAcc, topo, enAcc, lenN, lenC, nodeLen: em.nodeLen, connLen: em.connLen, tgtNodes, tgtConns };
+  return { skill, weightR2: fin(weightR2), biasR2: fin(biasR2), actAcc, topo, enAcc, lenN, lenC, nodeLen: em.nodeLen, connLen: em.connLen, tgtNodes, tgtConns, ponder: em.ponder };
 }

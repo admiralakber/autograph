@@ -741,9 +741,10 @@ export class AutographDashboard {
     const pct = (Number.isFinite(fid) ? (fid as number) : 0) * 100; // a NaN skill is never honest → floor to 0
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
     this.setText('#ag-fid-label', `${pct.toFixed(1)}%`);
-    // Structural-write readout — the brain reads its self-portrait then writes its DNA GRAPH:
-    // the node + connection counts it DECIDED vs its genome's (von Neumann self-reproduction).
-    this.setText('#ag-ponder', `WROTE ${w.nodeLen}n·${w.connLen}c / ${w.tgtNodes}n·${w.tgtConns}c (its DNA graph)`);
+    // Structural-write readout — read like a sentence: the brain GLIMPSED its self-portrait
+    // N times (each glimpse is also a think step — one recurrent pass per look, so glimpse =
+    // ponder here), then WROTE its DNA graph (node + connection counts it DECIDED vs its genome's).
+    this.setText('#ag-ponder', `GLIMPSED ×${w.ponder} (read+think) → WROTE ${w.nodeLen}n·${w.connLen}c / ${w.tgtNodes}n·${w.tgtConns}c`);
     // Surface the plastic / neuromodulated / attentive brain — only the faculties THIS
     // creature has actually evolved (honest: off at birth, each arises by mutation).
     const fac = [pheno.hasPlastic && 'plastic', pheno.hasNeuromod && 'neuromodulated', pheno.hasAttention && 'attends', pheno.hasHalt && 'halts'].filter(Boolean).join(' · ');

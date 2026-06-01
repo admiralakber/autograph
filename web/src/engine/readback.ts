@@ -21,10 +21,10 @@ let last: StructSkill | null = null;
 
 /** The structural-write diagnostics from the most recent skill call: the sizes the creature
  *  DECIDED (nodes/conns) vs its genome, and the honest component scores. */
-export function lastWrite(): { nodeLen: number; connLen: number; tgtNodes: number; tgtConns: number; selfLen: number; geneCount: number } {
+export function lastWrite(): { nodeLen: number; connLen: number; tgtNodes: number; tgtConns: number; selfLen: number; geneCount: number; ponder: number } {
   const s = last;
-  if (!s) return { nodeLen: 0, connLen: 0, tgtNodes: 0, tgtConns: 0, selfLen: 0, geneCount: 0 };
-  return { nodeLen: s.nodeLen, connLen: s.connLen, tgtNodes: s.tgtNodes, tgtConns: s.tgtConns, selfLen: s.nodeLen + s.connLen, geneCount: s.tgtNodes + s.tgtConns };
+  if (!s) return { nodeLen: 0, connLen: 0, tgtNodes: 0, tgtConns: 0, selfLen: 0, geneCount: 0, ponder: 0 };
+  return { nodeLen: s.nodeLen, connLen: s.connLen, tgtNodes: s.tgtNodes, tgtConns: s.tgtConns, selfLen: s.nodeLen + s.connLen, geneCount: s.tgtNodes + s.tgtConns, ponder: s.ponder };
 }
 
 /** The DNA's own values in unit space — the FULL genome vector (conn weights ++ node biases),
