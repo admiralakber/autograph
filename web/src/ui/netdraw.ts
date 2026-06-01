@@ -96,8 +96,8 @@ const CPPN_OUT = ['weight', 'bias', 'α', 'modGate'];
 // feedback (WRITE). Its output NEURONS are the STRUCTURAL WRITER: a READ head (spherical
 // fixation r,θ,φ + zoom, halt, m), a NODE head (end, bias, a categorical activation bank), and
 // a CONN head (from, to, weight, enabled, end) — all computed by running.
-const SUB_IN = ['fovea ρ', 'fovea h', 'periph ρ', 'prev', 'mode', 'b'];
-const SUB_OUT = ['fix r', 'fix θ', 'fix φ', 'zoom', 'halt', 'm', 'n-end', 'bias', ...ACTIVATIONS, 'from', 'to', 'w', 'en', 'c-end'];
+export const SUB_IN = ['fovea ρ', 'fovea h', 'periph ρ', 'prev', 'mode', 'b'];
+export const SUB_OUT = ['fix r', 'fix θ', 'fix φ', 'zoom', 'halt', 'm', 'n-end', 'bias', ...ACTIVATIONS, 'from', 'to', 'w', 'en', 'c-end'];
 const SUB_IN_DESC: Record<string, string> = {
   'fovea ρ': 'fovea ρ — the FINE central DENSITY (connection strength) the brain sees at its chosen 3-D fixation (the READ glimpse of its network self-portrait). In the WRITE phase: 0.',
   'fovea h': 'fovea h — the FINE central HUE (activation type) at its fixation. In the WRITE phase: 0.',

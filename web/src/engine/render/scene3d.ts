@@ -107,6 +107,12 @@ export class CreatureScene {
   private raf = 0;
   readonly ok: boolean;
 
+  // hover picking: node world positions + labels, projected to screen on pointer-move
+  private nodePos: Float32Array | null = null;
+  private nodeLabels: string[] = [];
+  private onHover: ((s: string) => void) | null = null;
+  private readonly _v = new THREE.Vector3();
+
   // interaction (mouse + touch): drag to rotate, pinch / wheel to zoom
   private yaw = 0;
   private pitch = 0;
@@ -178,13 +184,17 @@ export class CreatureScene {
         this.pinchDist = d;
         return;
       }
-      if (!this.dragging) return;
+      if (!this.dragging) {
+        this.pickHover(e); // not dragging → hover-pick the nearest node under the cursor
+        return;
+      }
       this.yaw += (e.clientX - this.lastX) * 0.01;
       this.pitch = clamp(this.pitch + (e.clientY - this.lastY) * 0.01, -1.3, 1.3);
       this.userPitched = true;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     });
+    el.addEventListener('pointerleave', () => this.onHover?.(''));
     const end = (e: PointerEvent): void => {
       this.pointers.delete(e.pointerId);
       if (this.pointers.size < 2) this.pinchDist = 0;
@@ -200,6 +210,33 @@ export class CreatureScene {
       },
       { passive: false },
     );
+  }
+
+  /** Project each node (through the rotating group + camera) to screen and report the label of
+   *  the nearest one under the cursor (within a small pixel radius). Read-only + fully guarded —
+   *  it can never break the render, only set the hover text. */
+  private pickHover(e: PointerEvent): void {
+    const cb = this.onHover;
+    const pos = this.nodePos;
+    if (!cb || !pos || !this.camera || !this.group) return;
+    const el = this.renderer?.domElement;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+    const my = -(((e.clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1);
+    const mw = this.group.matrixWorld;
+    let best = -1;
+    let bestD = 0.05 * 0.05; // ~5% of the viewport; squared NDC threshold
+    const n = pos.length / 3;
+    for (let i = 0; i < n; i++) {
+      this._v.set(pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!).applyMatrix4(mw).project(this.camera);
+      if (this._v.z > 1) continue; // behind the camera / clipped
+      const dx = this._v.x - mx;
+      const dy = this._v.y - my;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    cb(best >= 0 ? (this.nodeLabels[best] ?? '') : '');
   }
 
   private resize(): void {
@@ -230,7 +267,10 @@ export class CreatureScene {
     geo.setAttribute('color', new THREE.BufferAttribute(c.colors, 3));
     geo.setAttribute('alpha', new THREE.BufferAttribute(c.alphas, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uSize: { value: 34.0 }, uIntensity: { value: 0.5 } },
+      // Lower intensity + smaller points: many translucent splats accumulate without clipping
+      // to white, so the volume reads as a see-through 3-D structure with visible coloured
+      // (activation-type) regions and the spherical falloff intact.
+      uniforms: { uSize: { value: 26.0 }, uIntensity: { value: 0.28 } },
       vertexShader: POINT_VERT,
       fragmentShader: POINT_FRAG,
       transparent: true,
@@ -248,8 +288,15 @@ export class CreatureScene {
    *  glowing volume visibly IS a network. They rotate with the cloud, staying
    *  registered to the picture. Edges are left to the 2-D view to avoid depth
    *  clutter. `pos` = n*3 coords, `sizes` = per-node screen size. */
-  setNodes(pos: Float32Array, sizes: Float32Array): void {
+  /** Register a hover callback: receives a node's label on mouse-over, '' when none. */
+  setHoverHandler(cb: (s: string) => void): void {
+    this.onHover = cb;
+  }
+
+  setNodes(pos: Float32Array, sizes: Float32Array, labels: string[] = []): void {
     if (!this.group) return;
+    this.nodePos = pos.length ? pos : null;
+    this.nodeLabels = labels;
     if (this.nodes) {
       this.group.remove(this.nodes);
       this.nodes.geometry.dispose();

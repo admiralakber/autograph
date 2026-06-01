@@ -2,6 +2,8 @@ import type { Phenotype } from '../substrate.ts';
 import { substrateFieldAt, buildPhenotype } from '../substrate.ts';
 import { ablateHiddenGenome } from '../cppn.ts';
 import { SUB_INPUTS, SUB_OUTPUTS } from '../arch.ts';
+import { ACTIVATIONS } from '../activations.ts';
+import { SUB_IN, SUB_OUT } from '../../ui/netdraw.ts';
 import { lifeRgb, lifeRgbF } from '../palette.ts';
 
 // Sampling the creature's volumetric SELF-PORTRAIT — a true depiction of the BUILT NETWORK
@@ -23,7 +25,7 @@ const o2: [number, number] = [0, 0];
  *  smoothstep-contrasted alpha so the additive point cloud reads as a cohesive,
  *  glowing *volume* (a form), not scattered confetti. Higher density → brighter
  *  and slightly larger points (size carried in `alphas`, the shader reads it). */
-export function volumeCloud(p: Phenotype, gridN = 42, threshold = 0.34): PointCloud {
+export function volumeCloud(p: Phenotype, gridN = 42, threshold = 0.4): PointCloud {
   const pos: number[] = [];
   const col: number[] = [];
   const alp: number[] = [];
@@ -152,21 +154,29 @@ export function drawSubstrateOverlay(p: Phenotype, canvas: HTMLCanvasElement, ma
   ctx.restore();
 }
 
-/** Substrate neuron positions + per-role marker sizes, for the 3-D overlay
- *  (CreatureScene.setNodes). Inputs (sensor ring) and outputs emphasised; hidden
- *  small so the placement reads without burying the cloud. */
-export function substrateNodeMarkers(p: Phenotype): { pos: Float32Array; sizes: Float32Array } {
+/** Substrate neuron positions + per-role marker sizes + hover labels, for the 3-D overlay
+ *  (CreatureScene.setNodes). Inputs (sensor ring) and outputs emphasised; hidden small so the
+ *  placement reads without burying the cloud. Labels reuse the SAME names as the 2-D phenotype
+ *  graph (SUB_IN / SUB_OUT) so the two views agree. */
+export function substrateNodeMarkers(p: Phenotype): { pos: Float32Array; sizes: Float32Array; labels: string[] } {
   const N = p.inFrom.length;
   const hidEnd = N - SUB_OUTPUTS;
   const pos = new Float32Array(N * 3);
   const sizes = new Float32Array(N);
+  const labels: string[] = new Array(N);
   for (let i = 0; i < N; i++) {
     pos[i * 3] = p.pos[i * 3]!;
     pos[i * 3 + 1] = p.pos[i * 3 + 1]!;
     pos[i * 3 + 2] = p.pos[i * 3 + 2]!;
     sizes[i] = i < SUB_INPUTS ? 72 : i < hidEnd ? 44 : 92; // in · hidden · out
+    labels[i] =
+      i < SUB_INPUTS
+        ? `INPUT · ${SUB_IN[i] ?? i}`
+        : i < hidEnd
+          ? `HIDDEN · ${ACTIVATIONS[p.act[i]!] ?? '?'}`
+          : `OUTPUT · ${SUB_OUT[i - hidEnd] ?? i - hidEnd}`;
   }
-  return { pos, sizes };
+  return { pos, sizes, labels };
 }
 
 /** The strongest substrate connections as 3-D pipe segments for the glowing

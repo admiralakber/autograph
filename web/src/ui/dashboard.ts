@@ -586,7 +586,8 @@ export class AutographDashboard {
       cloudCount = cloud.count;
       this.scene.setCloud(cloud);
       const m = substrateNodeMarkers(pheno); // overlay the neurons at their real 3-D positions
-      this.scene.setNodes(m.pos, m.sizes);
+      this.scene.setNodes(m.pos, m.sizes, m.labels);
+      this.scene.setHoverHandler((t) => this.setText('#ag-hover', t)); // 3-D nodes hoverable, like the 2-D graph
       const pipes = substratePipeSegments(pheno, this.lite ? 24 : 44); // glowing energy pipes along the strongest wiring
       this.scene.setPipes(pipes.a, pipes.b, pipes.col, pipes.mag);
     }
