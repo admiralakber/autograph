@@ -740,7 +740,10 @@ export class AutographDashboard {
     const fid = this.focused?.evaluation.fidelity;
     const pct = (Number.isFinite(fid) ? (fid as number) : 0) * 100; // a NaN skill is never honest → floor to 0
     need(this.root, '#ag-fid-bar').style.width = `${pct}%`;
-    this.setText('#ag-fid-label', `${pct.toFixed(1)}%`);
+    // Multi-part HONEST headline: the bar stays the coupled product underneath; the readout shows
+    // the real components (a coupled ~few-% can hide strong topology/activation reconstruction).
+    const f2 = (v: number): string => v.toFixed(2).replace(/^0/, '');
+    this.setText('#ag-fid-label', `topo ${f2(w.topo)} · act ${f2(w.actAcc)} · w ${f2(w.weightR2)} · b ${f2(w.biasR2)} · size ${f2(w.sizeLambda)}  ·  coupled ${pct.toFixed(1)}%`);
     // Structural-write readout — read like a sentence: the brain GLIMPSED its self-portrait
     // N times (each glimpse is also a think step — one recurrent pass per look, so glimpse =
     // ponder here), then WROTE its DNA graph (node + connection counts it DECIDED vs its genome's).
