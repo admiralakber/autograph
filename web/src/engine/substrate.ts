@@ -246,22 +246,40 @@ const SIG_E = 0.12; // wire thickness
 const INV2_N = 1 / (2 * SIG_N * SIG_N);
 const INV2_E = 1 / (2 * SIG_E * SIG_E);
 
-/** The self-portrait at a 3-D point -> [density in [0,1), hue in [0,1]] from the BUILT
- *  substrate's connection strengths (density) + activation types (hue). */
-export function substrateFieldAt(p: Phenotype, x: number, y: number, z: number, out: [number, number] = [0, 0]): [number, number] {
+/** Squash a signed local value into [0,1] with 0.5 = zero — sign-preserving, gentle scale so
+ *  typical weights/biases (~±3) spread without full saturation, yet the SIGN is always clear. */
+const SIGN_SCALE = 0.6;
+const signTo01 = (v: number): number => 0.5 + 0.5 * Math.tanh(v * SIGN_SCALE);
+
+/** The self-portrait at a 3-D point -> FOUR channels from the BUILT substrate:
+ *    [0] density  — connection-strength MAGNITUDE (the glowing mass; Σ|w| + |bias| splats).
+ *    [1] hue      — local ACTIVATION TYPE (activation-id average).
+ *    [2] wSigned  — local SIGNED connection weight (excitatory/inhibitory), 0.5 = zero. The
+ *                   SIGN that abs() used to destroy — now readable.
+ *    [3] bSigned  — local SIGNED neuron bias, weighted by POSITION only (disentangled from
+ *                   connection strength), 0.5 = zero.
+ *  Channels 2–3 lift the incidental information cap: the brain can now read the sign of every
+ *  weight + bias, so perfect reconstruction of the readable genes is reachable in principle. */
+export function substrateFieldAt(p: Phenotype, x: number, y: number, z: number, out: number[] = [0, 0, 0, 0]): number[] {
   const pos = p.pos;
   const N = p.inFrom.length;
   let d = 0, h = 0, hw = 0;
+  let bS = 0, bW = 0; // signed-bias accumulation (position-weighted, disentangled from strength)
   for (let i = 0; i < N; i++) {
+    const ex = x - pos[i * 3]!, ey = y - pos[i * 3 + 1]!, ez = z - pos[i * 3 + 2]!;
+    const gp = Math.exp(-(ex * ex + ey * ey + ez * ez) * INV2_N); // POSITION gaussian (unit amplitude)
+    // signed bias channel — every neuron contributes its SIGNED bias by proximity only.
+    bS += p.bias[i]! * gp;
+    bW += gp;
     const s = p.strength[i]!;
     if (s <= 1e-9) continue;
-    const ex = x - pos[i * 3]!, ey = y - pos[i * 3 + 1]!, ez = z - pos[i * 3 + 2]!;
-    const g = s * Math.exp(-(ex * ex + ey * ey + ez * ez) * INV2_N);
+    const g = s * gp; // strength-weighted (the density mass + hue)
     d += g;
     h += p.act[i]! * INV_ACT_MAX * g;
     hw += g;
   }
   const fe = p.fieldEdges;
+  let wS = 0, wW = 0; // signed-weight accumulation (position-weighted along the wires)
   for (let k = 0; k < fe.length; k++) {
     const e = p.edges[fe[k]!]!;
     const ax = pos[e.from * 3]!, ay = pos[e.from * 3 + 1]!, az = pos[e.from * 3 + 2]!;
@@ -272,14 +290,19 @@ export function substrateFieldAt(p: Phenotype, x: number, y: number, z: number, 
     let t = (wx * vx + wy * vy + wz * vz) / vv;
     t = t < 0 ? 0 : t > 1 ? 1 : t; // nearest point on the segment
     const dx = wx - t * vx, dy = wy - t * vy, dz = wz - t * vz;
+    const gp = Math.exp(-(dx * dx + dy * dy + dz * dz) * INV2_E); // POSITION gaussian along the wire
     const wmag = Math.abs(e.weight);
-    const g = wmag * Math.exp(-(dx * dx + dy * dy + dz * dz) * INV2_E);
+    const g = wmag * gp;
     d += g;
     h += 0.5 * (p.act[e.from]! + p.act[e.to]!) * INV_ACT_MAX * g;
     hw += g;
+    wS += e.weight * gp; // SIGNED weight, position-weighted (the sign abs() used to discard)
+    wW += gp;
   }
   out[0] = 1 - Math.exp(-d); // density ∈ [0,1), saturating — robust to weight scale
   out[1] = hw > 1e-9 ? h / hw : 0.5; // hue ∈ [0,1] (activation character)
+  out[2] = wW > 1e-9 ? signTo01(wS / wW) : 0.5; // signed weight (0.5 = zero / none)
+  out[3] = bW > 1e-9 ? signTo01(bS / bW) : 0.5; // signed bias (0.5 = zero), disentangled
   return out;
 }
 
@@ -356,27 +379,31 @@ let gxBuf = new Float32Array(0), gyBuf = new Float32Array(0), gzBuf = new Float3
 let emActBuf = new Uint8Array(0), emBiasBuf = new Float32Array(0);
 let emFromBuf = new Int32Array(0), emToBuf = new Int32Array(0), emWeightBuf = new Float32Array(0), emEnBuf = new Uint8Array(0);
 const sig = (x: number): number => 1 / (1 + Math.exp(-x));
-const fieldScratch: [number, number] = [0, 0];
+const fieldScratch: number[] = [0, 0, 0, 0];
 
-/** A foveated 3-D glimpse at (fx,fy,fz) with zoom from `scale`: mean density + hue over a fine
- *  fovea ball and mean density over a coarse periphery ball. Writes [foveaDensity, foveaHue,
- *  peripheryDensity]. */
-function glimpse(p: Phenotype, fx: number, fy: number, fz: number, scale: number, out: [number, number, number]): void {
+/** A foveated 3-D glimpse at (fx,fy,fz) with zoom from `scale`: over a fine fovea ball, the mean
+ *  density + hue + SIGNED-WEIGHT + SIGNED-BIAS; over a coarse periphery ball, the mean density.
+ *  Writes [foveaDensity, foveaHue, foveaWeightSigned, foveaBiasSigned, peripheryDensity]. */
+function glimpse(p: Phenotype, fx: number, fy: number, fz: number, scale: number, out: [number, number, number, number, number]): void {
   const zoom = 1 + 0.5 * scale; // scale ∈ [-1,1] (tanh) ⇒ zoom in (0.5×) or out (1.5×)
   const rFov = HYPER.glimpseFovea * zoom;
   const rPer = HYPER.glimpsePeriphery * zoom;
-  let fovD = 0, fovH = 0, per = 0;
+  let fovD = 0, fovH = 0, fovW = 0, fovB = 0, per = 0;
   for (const [ox, oy, oz] of GLIMPSE_BALL) {
     substrateFieldAt(p, fx + ox * rFov, fy + oy * rFov, fz + oz * rFov, fieldScratch);
-    fovD += fieldScratch[0];
-    fovH += fieldScratch[1];
+    fovD += fieldScratch[0]!;
+    fovH += fieldScratch[1]!;
+    fovW += fieldScratch[2]!;
+    fovB += fieldScratch[3]!;
     substrateFieldAt(p, fx + ox * rPer, fy + oy * rPer, fz + oz * rPer, fieldScratch);
-    per += fieldScratch[0];
+    per += fieldScratch[0]!;
   }
   const inv = 1 / GLIMPSE_BALL.length;
   out[0] = fovD * inv;
   out[1] = fovH * inv;
-  out[2] = per * inv;
+  out[2] = fovW * inv;
+  out[3] = fovB * inv;
+  out[4] = per * inv;
 }
 
 export interface ReadResult {
@@ -423,7 +450,7 @@ export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
   const cap = Math.max(1, Math.round(HYPER.ponderMaxSteps));
   if (gxBuf.length < cap) { gxBuf = new Float32Array(cap); gyBuf = new Float32Array(cap); gzBuf = new Float32Array(cap); gvalBuf = new Float32Array(cap); }
   const gx = gxBuf, gy = gyBuf, gz = gzBuf, gval = gvalBuf;
-  const gv: [number, number, number] = [0, 0, 0];
+  const gv: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   const sc: [number, number, number] = [0, 0, 0];
   let devR = 0, devTheta = 0, devPhi = 0, devScale = 0; // SPHERICAL deviation (0 ⇒ attention off)
   let deviation = 0, cumHalt = 0, ponder = 0, halted = false;
@@ -434,9 +461,9 @@ export function readPonderEmit(p: Phenotype, noDeviation = false): ReadResult {
     const fx = r * st * Math.cos(ph), fy = r * st * Math.sin(ph), fz = r * Math.cos(th);
     glimpse(p, fx, fy, fz, devScale, gv);
     gx[t] = fx; gy[t] = fy; gz[t] = fz; gval[t] = gv[0]!;
-    // READ-mode inputs: the 3-D glimpse (fovea density, fovea hue, periphery density), no prev
-    // value, READ mode (0), bias (1).
-    val[0] = gv[0]!; val[1] = gv[1]!; val[2] = gv[2]!; val[3] = 0; val[4] = 0; val[5] = 1;
+    // READ-mode inputs (8): fovea density, hue, SIGNED-weight, SIGNED-bias, periphery density;
+    // then no prev value (5), READ mode (6 = 0), bias (7 = 1).
+    val[0] = gv[0]!; val[1] = gv[1]!; val[2] = gv[2]!; val[3] = gv[3]!; val[4] = gv[4]!; val[5] = 0; val[6] = 0; val[7] = 1;
     stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
     if (!noDeviation && p.hasAttention) {
       devR = Math.tanh(val[outStart + O_FIXR]! * p.outScale[O_FIXR]!) * 0.5; // ±0.5 radial
@@ -484,7 +511,9 @@ export function selfWriteStructural(p: Phenotype, noDeviation = false): EmittedG
   const invN = 1 / nodeCap;
   let prevReal = 0, cumNodeEnd = 0, nodeLen = nodeCap, nodeHalted = false;
   for (let t = 0; t < nodeCap; t++) {
-    val[0] = 0; val[1] = t * invN; val[2] = 0; val[3] = prevReal; val[4] = 1; val[5] = 1; // phase 0 = NODE
+    // WRITE-NODE inputs (8): read channels 0..3 = 0; [4] = position; [5] = prev value
+    // (autoregressive); [6] = 0.5 (write-node phase); [7] = bias.
+    val[0] = 0; val[1] = 0; val[2] = 0; val[3] = 0; val[4] = t * invN; val[5] = prevReal; val[6] = 0.5; val[7] = 1;
     stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
     let bestA = 0, bestV = -Infinity; // categorical activation: argmax of the (fan-in-scaled) logits
     for (let k = 0; k < ACTIVATION_COUNT; k++) {
@@ -508,7 +537,9 @@ export function selfWriteStructural(p: Phenotype, noDeviation = false): EmittedG
   prevReal = 0;
   let cumConnEnd = 0, connLen = connCap, connHalted = false;
   for (let t = 0; t < connCap; t++) {
-    val[0] = 0; val[1] = t * invC; val[2] = 1; val[3] = prevReal; val[4] = 1; val[5] = 1; // phase 1 = CONN
+    // WRITE-CONN inputs (8): read channels 0..3 = 0; [4] = position; [5] = prev value;
+    // [6] = 1.0 (write-conn phase); [7] = bias.
+    val[0] = 0; val[1] = 0; val[2] = 0; val[3] = 0; val[4] = t * invC; val[5] = prevReal; val[6] = 1; val[7] = 1;
     stepSubstrate(p, N, outStart, runPlastic, runNeuromod);
     emFromBuf[t] = Math.round(sig(val[outStart + O_FROM]! * p.outScale[O_FROM]!) * slotSpan);
     emToBuf[t] = Math.round(sig(val[outStart + O_TO]! * p.outScale[O_TO]!) * slotSpan);

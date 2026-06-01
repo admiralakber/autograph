@@ -68,6 +68,13 @@ export const GENESIS_LABEL = 'GENESIS';
  * channels are retired, so `CPPN_OUTPUTS` drops 11→4 (weight, bias, α, modGate). genesis-v9
  * elites no longer verify against the new `genomeBytes` header (OUTPUTS=4) → a fresh
  * genesis-v10 room. Byte layout unchanged; `verify.ts` mirror + `PROTOCOL_VERSION` 6→7 in
- * lock-step. The glimpse also becomes SPHERICAL (r,θ,φ) volumetric attention — phenotype-only.)
+ * lock-step. The glimpse also becomes SPHERICAL (r,θ,φ) volumetric attention — phenotype-only.) →
+ * epoch 11 (SIGNED READ CHANNELS: reason (b)/(c), the READ PATHWAY + METRIC changed, NOT the
+ * genome wire format. The self-portrait now carries the SIGN of every weight + bias (was
+ * abs-collapsed — an incidental information cap), disentangled, so perfect reconstruction of the
+ * readable genes is reachable in principle (oracle: sign-faithful, weight 95.8% / bias 98.2%).
+ * The glimpse reads four channels (SUB_INPUTS 6→8) and the headline is now a multi-part readout.
+ * `CPPN_OUTPUTS` is UNCHANGED at 4 — genomeBytes is byte-identical — so the coordinator
+ * (verify.ts / PROTOCOL_VERSION / fixture) is UNCHANGED; only the world rotates to genesis-v11.)
  */
-export const ARCHIVE_EPOCH = 10;
+export const ARCHIVE_EPOCH = 11;
