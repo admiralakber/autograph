@@ -1,5 +1,15 @@
 # v7 — THE SELF-WRITER (clean painter / reader / writer split)
 
+> **HISTORICAL DESIGN JOURNAL — SUPERSEDED.** This records the **v7** phase: a *value-vector*
+> self-write (the brain autoregressively emitted one real gene-value per step via `emitVal`/
+> `emitEnd`, deciding its own length). It has since been superseded twice — **v10** replaced it
+> with the **structural self-write** (the brain writes its DNA as a *graph*: node activation-types
+> + biases, connection topology + weights + enabled — von Neumann self-reproduction), and **v11**
+> made the read-portrait **sign-faithful** (signed weight + disentangled signed bias channels),
+> lifting the incidental sign cap. For the shipped (genesis-v11) architecture + honest numbers,
+> see [WHITEPAPER](../WHITEPAPER.md), [README](../../README.md) and
+> [architecture.md](architecture.md). Kept verbatim as the record of the journey.
+
 *Design note. Owner's decision: build v7 fully, end-to-end. Quality + honesty over
 speed. Drive to a shipped v7 — or an honest evolvability wall.*
 
