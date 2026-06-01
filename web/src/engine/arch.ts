@@ -69,13 +69,18 @@ export const BASE_INNOV = CPPN_INPUTS * CPPN_OUTPUTS;
 
 // --- Substrate phenotype (the brain that READS the image + WRITES the DNA) ---
 
-/** Substrate INPUT neurons (6) — the brain's read/write sensory port, fed per phase:
- *    READ : a foveated 3-D glimpse of the self-portrait at the brain's chosen fixation —
- *           [fovea density, fovea hue, periphery density] — plus 0 (no prev value), READ mode, bias.
- *    WRITE: [0, 0, 0, the brain's own previous emitted value (autoregressive feedback),
- *           WRITE mode, bias].
- *  The image read is a true picture of the wiring; where to look next is the brain's output. */
-export const SUB_INPUTS = 6;
+/** Substrate INPUT neurons (8) — the brain's read/write sensory port, fed per phase:
+ *    READ : a foveated 3-D glimpse of the self-portrait, in FOUR channels —
+ *           [0] fovea density (connection-strength magnitude), [1] fovea hue (activation type),
+ *           [2] fovea SIGNED-WEIGHT (excitatory/inhibitory — sign preserved, disentangled),
+ *           [3] fovea SIGNED-BIAS (sign preserved, disentangled from connection strength),
+ *           [4] periphery density — then [5]=0 (no prev value), [6]=0 (read mode), [7]=1 (bias).
+ *    WRITE: [0..3]=0, [4]=position (t/cap), [5]=previous emitted value (autoregressive feedback),
+ *           [6]=mode/phase (0 read · 0.5 write-node · 1.0 write-conn), [7]=1 (bias).
+ *  The signed channels make the SIGN of every weight + bias READABLE (it was abs-collapsed
+ *  before — an incidental information cap), so perfect reconstruction of the readable genes is
+ *  now reachable in principle (substrate.ts substrateFieldAt). */
+export const SUB_INPUTS = 8;
 /** Substrate OUTPUT neurons — the STRUCTURAL WRITER, computed by running the brain. The brain
  *  emits its DNA as a GRAPH (von Neumann self-reproduction), so the head has three groups:
  *    READ (6): fixR, fixθ, fixφ — SPHERICAL fixation (radius + direction into the volume);
